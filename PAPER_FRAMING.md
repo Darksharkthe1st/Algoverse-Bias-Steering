@@ -7,39 +7,40 @@ this file first — don't fork the narrative in a draft. Last updated: 2026-08-0
 (revival kickoff). Owner: Edward. **Status: DRAFT — needs Farhan's sign-off and
 the thesis-lock decision at the Tue meeting.**
 
-## The one-sentence pitch (working)
+## The one-sentence pitch
 
-> Soft refusal — whether an LLM takes a side at all on controversial-but-not-
-> harmful questions — is a measurable, steerable representation, and we test
-> whether it is one knob with hard refusal of harm, or two.
+> **The soft-refusal direction is not an artifact of the intervention that
+> found it.** An input perturbation designed without reference to any
+> direction — a single character substitution forcing byte-fallback
+> tokenization — displaces activations *along* the soft-refusal direction; the
+> signed displacement predicts which prompts cross the boundary; and removing
+> that component abolishes the flip while injecting it reproduces it.
 
-**Working title:** *"One Knob or Two? Dissociating Soft Refusal (Opinion
-Suppression) from Harm Refusal in Chat LLMs"*. This is an **interpretability
-paper about a behavioral construct**, not a debiasing-method paper and not a
-refusal-jailbreak paper. Full plan: `docs/2026-08-01_sprint_plan.md`.
+**Working title:** *"Two Routes to One Boundary: Convergent Validation of a
+Soft-Refusal Direction via Designed Steering and Undesigned Input
+Perturbation."* This is an **interpretability paper about whether a direction
+is real**, not a debiasing-method paper, not a jailbreak paper.
 
-## The claims, in load-bearing order (fused recommendation — sign off Tue)
+**THE OPERATIVE PLAN IS `docs/2026-08-02_sprint_decision.md`** (multi-agent
+design + adversarial critique + fusion, 2026-08-02). It supersedes
+`docs/2026-08-01_sprint_plan.md` on scope, claims, statistics, gates, and
+schedule. Where this file and the decision doc disagree, the decision doc wins
+until this file is PR'd to match.
 
-1. **Construct (the fix that unlocks everything):** "soft refusal" can be
-   measured separately from factual decisiveness. The 2025 judge conflated
-   them; our two-axis judge (v2, validated to Cohen's kappa ≥ 0.7 against
-   ~150 hand labels) separates them, and re-judging the archived 2025 outputs
-   shows what the original "neutrality direction" actually encoded.
-2. **Dissociation (the headline bet):** the soft-refusal direction is / is not
-   causally separable from the Arditi hard-refusal direction — a 2×2
-   cross-steering grid (steer each, measure both benchmark families: opinion
-   side IssueBench + Paired Prompts; safety side XSTest + JailbreakBench).
-   **Either outcome is the paper**: separability contradicts the
-   shared-refusal-knob finding (arXiv:2602.02132); entanglement
-   mechanistically explains refusal-surgery side effects (arXiv:2607.17427).
-3. **Geometry (the mechanistic account):** per-layer cosines and principal
-   angles between the two direction families, extracted under ONE unified
-   Arditi-convention pipeline (post-instruction token positions) so the
-   comparison is confound-free. The 2025 mean-pooled vectors are sanity
-   checks only — never in a headline figure.
+## The claims, in load-bearing order
 
-**Models (4, three families, one modern):** Qwen1.5-7B, gemma-2b-it,
-Llama-3-8B-Instruct, Qwen2.5-7B-Instruct.
+| # | Claim | Role |
+|---|---|---|
+| **C0** | Soft refusal is separable from factual hedging, non-engagement, incoherence and meta-commentary by a six-way ordered first-match-wins screen at per-category κ ≥ 0.7 vs 150 double-annotated gold labels. | **Gate, not a paper claim.** Nothing below is interpretable without it. |
+| **C1** | Under one unified Arditi-convention extraction, with both interventions **dose-matched to equal on-target effect before any off-target number is read**, d_soft moves the opinion battery with safety movement bounded within ±5pp (TOST), and d_harm the mirror. | Setup. Compressed — this is the most-scooped part (arXiv:2602.02132, arXiv:2512.16602). |
+| **C2** | Byte-fallback perturbations displace activations *preferentially* along d_soft: variance share beats a **covariance-matched** null by ≥10×, while the **byte-identical retokenization** control and the ASCII-typo control do not, at matched ‖Δ‖. | Payload 1 — selectivity. |
+| **C3** | Signed projection at pre-registered l\* predicts per-prompt flips (AUROC ≥ 0.70, DeLong-significant over ‖Δ‖ and over an OOD-direction competitor). | Payload 2 — prediction. |
+| **C4** | **Mediation.** Nulling the along-d_soft component of the induced displacement abolishes ≥50% of flips; injecting the measured component into the clean run reproduces ≥40%. | **Payload 3 — the headline, and the ICLR lead.** Converts convergent correlation into convergent causation. |
+| **C5** | In fractional depth f = l/(L−1), the perturbation-alignment profile and the single-layer steering-efficacy profile either coincide or dissociate. Both outcomes are the result. | Descriptive. |
+
+**Models (4 + a within-family ladder):** Qwen1.5-7B-Chat, gemma-2b-it,
+Llama-3-8B-Instruct, Qwen2.5-7B-Instruct; Qwen2.5-0.5B/1.5B/3B for
+forward-pass depth profiles only.
 
 ## Terminology rules — REQUIRED differentiations
 
@@ -60,6 +61,14 @@ Llama-3-8B-Instruct, Qwen2.5-7B-Instruct.
 - **Never claim "first cone beyond harm refusal"** — factually false (truth
   cones exist, arXiv:2505.21800). We do not fit cones at all; cosines and
   principal angles carry the geometry claim.
+- **Perturbation vocabulary.** Perturbations are **human-legibility-preserving**,
+  never "semantics-preserving" — the weaker claim is the true one. Lead the
+  motivation with *accidental* typographic drift (apostrophe normalization in
+  real prompt pipelines), never with adversarial manipulation. We report
+  detection coverage and monitor ROC, never attack success.
+- **Only contested-but-benign prompts are ever perturbed.** No harmful battery
+  is perturbed in any arm, at any dose. This is a construction constraint, so
+  no attack-efficacy number can exist in the paper. See decision doc §9.
 - **"A direction", never "the direction."** Steering success does not identify
   the representation (non-identifiability, arXiv:2602.06801); refusal-family
   behaviors are cones/subspaces (arXiv:2502.17420). Claims are about causal
@@ -85,6 +94,10 @@ Llama-3-8B-Instruct, Qwen2.5-7B-Instruct.
 | Nadeem et al. (arXiv:2508.08846) + CLAS (arXiv:2601.23001) | "Political neutrality steering exists" — they steer which-side, we steer whether |
 | IssueBench (arXiv:2502.08395) | "Why BBQ/CrowS-Pairs?" — we evaluate on the 2026 standard |
 | Tan et al., reliability (arXiv:2407.12404) | "Steering vectors are unreliable" — per-example distributions + multi-family reporting |
+| **Adversarial Robustness of Activation Steering (arXiv:2606.07696)** | **NEAREST NEIGHBOUR — cite in the first paragraph.** They measure whether the *steering effect survives* input perturbation. We measure the *projection of perturbed activations onto the direction*, predict per-prompt flips, and test mediation. State the distinction explicitly; do not let a reviewer find it first. |
+| Non-identifiability (arXiv:2602.06801) | The objection the whole paper answers: a vector that responds to your intervention is not evidence you found the representation. |
+| BPE-fragmentation / guardrail-evasion line (arXiv:2607.01239, 2510.05025, 2506.07948, 2504.11168) | Establishes publicly that real systems manipulate Unicode variants in prompts — the *only* permitted grounding for the perturbation arm's motivation. |
+| Depth-migration (arXiv:2606.29196) | Predicts peak relative depth migrates with scale — the confound the Qwen2.5 ladder defuses. Cite as anchor AND caveat. |
 
 Nice-to-cite (one line each, cut first under length pressure): Persona Vectors
 (arXiv:2507.21509); Assistant Axis / activation capping (arXiv:2601.10387);

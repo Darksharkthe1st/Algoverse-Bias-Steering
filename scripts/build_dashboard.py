@@ -20,7 +20,7 @@ BATCHED_CSV = "experiments/past_logs/methodology_experiments/batched_tests/Batch
 CROWS_CSV = "experiments/past_logs/crows_experiments/Crows_Opin_Tests/Crows_Opin.csv"
 
 # ---- editable narrative state -------------------------------------------------
-TAGLINE = "Finding — and steering — the 'soft refusal' direction: whether an open-weight LLM takes a side at all, as distinct from refusing harm and from which side it takes."
+TAGLINE = "Testing whether the 'soft refusal' direction is real — by showing an input perturbation nobody designed moves models along it, and that removing that component abolishes the behavior change."
 
 OVERVIEW = [
     ("What we're building",
@@ -28,13 +28,13 @@ OVERVIEW = [
     ("Why it was revived",
      "The 2025 Algoverse run got a real result — <b>bidirectional in-distribution steering with coherence preserved</b> — but stalled on OOD transfer and ran out of team. Revived <b>Aug 2026</b> by a three-person team. The frontier moved (refusal is now cones/subspaces, not single directions; labs ship persona vectors and even-handedness evals), yet the exact soft-refusal claim is <b>still unclaimed</b>."),
     ("Where we are today",
-     "<b>REVIVAL SPRINT — week 0.</b> Post-mortem + frontier scan + fused sprint plan are in <code>docs/</code>. Thesis recommendation: <b>\"One Knob or Two?\"</b> — the soft-refusal vs harm-refusal dissociation, pending team sign-off Tue. Venue <b>verified</b>: Interpretability for Discovery @ NeurIPS 2026, deadline <b>Aug 29 AoE</b> (5pp, non-archival, double-blind). Week 1 = judge v2 + unified re-extraction; Gate 1 Sunday."),
+     "<b>REVIVAL SPRINT — week 0, scope decided.</b> A multi-agent design+critique pass (<code>docs/2026-08-02_sprint_decision.md</code>) expanded the thesis: the paper is now <b>\"Two Routes to One Boundary\"</b> — convergent validation via an undesigned input perturbation, with a <b>mediation test</b> as the headline. Venue: Interp4Discovery @ NeurIPS 2026, <b>Aug 29 AoE</b>, plus <b>ICLR 2027 (Sept 25)</b> written in parallel. Only Tue sign-off item: <b>freeze the six-way rubric</b>. Week 1 is <b>harness productionization</b> — the critical-path risk nobody had budgeted."),
 ]
 
 RESEARCH_Q = ("The research question",
-    "Is the <b>soft-refusal direction</b> — controlling <i>whether</i> the model takes a side on contested-but-benign prompts — causally and geometrically dissociable from the Arditi <b>hard-refusal</b> direction, or are they one shared knob? A 2×2 cross-steering grid (steer each; measure opinion benchmarks AND safety benchmarks) answers it either way: dissociation contradicts the 'one shared refusal knob' finding (QCRI, arXiv:2602.02132); entanglement mechanistically explains why refusal-direction surgery shifts unrelated dispositions (arXiv:2607.17427). Full plan: docs/2026-08-01_sprint_plan.md.")
+    "Is the <b>soft-refusal direction</b> an artifact of the intervention that found it? Every steering paper faces this (non-identifiability, arXiv:2602.06801): a vector that responds to your own push is not evidence you found the model's representation. Our answer is <b>convergent validity</b> — a single-character substitution forcing byte-fallback tokenization, designed with no reference to any direction, displaces activations <i>preferentially along</i> d_soft; the <b>signed</b> projection predicts which prompts flip; and <b>nulling that component abolishes the flip while injecting it reproduces it</b>. Full plan: docs/2026-08-02_sprint_decision.md.")
 
-PHASE = "REVIVAL SPRINT week 0→1 — sign off thesis Tue; judge-v2 rubric + unified Arditi-convention re-extraction; Gate 1 (kappa ≥ 0.7 + archived stance-shift ≥ 10pp) end of week 1. Target: Interp4Discovery @ NeurIPS 2026, Aug 29 AoE."
+PHASE = "REVIVAL SPRINT week 0→1. Scope decided (decision doc). Tue Aug 4 sign-off is the six-way rubric freeze ONLY. Week 1 critical path = harness productionization; Gate 1 Sun Aug 9 (per-category κ ≥ 0.7 · archived stance-shift ≥ 10pp · harness runs a cell unattended). Targets: Interp4Discovery Aug 29 + ICLR 2027 Sept 25, written in parallel."
 
 RUNS = [  # (label, state) state in {running, done, queued}
     ("2025 · In-distribution bidirectional steering, 9 models (Batched_Gen)", "done"),
@@ -44,10 +44,17 @@ RUNS = [  # (label, state) state in {running, done, queued}
     ("2025 · CrowS-Pairs transfer — FAILED (honest negative, kept)", "done"),
     ("2025 · Refusal-vector ↔ opinion-vector cross-application — failed both ways", "done"),
     ("2025 · Synthetic-neutral-output steering — failed (Dec 2025, last commit)", "done"),
-    ("2026 · Judge v2 (two-axis: stance-taking × hedging; kappa ≥ 0.7 gate) + re-judge archived outputs", "queued"),
-    ("2026 · Unified Arditi-convention re-extraction, both direction families, 4 models", "queued"),
-    ("2026 · Gate 2: reproduce bidirectional steering + Arditi bypass with re-extracted vectors", "queued"),
-    ("2026 · 2×2 cross-steering grid: 4 models × 5 conditions × 2 batteries (~30k gens)", "queued"),
+    ("W0 · PREREG.md filed + six-way rubric frozen by commit hash + paper/.tex skeleton", "queued"),
+    ("W1 · HARNESS: resumable runner + write-once per-layer residual cache (CRITICAL PATH)", "queued"),
+    ("W1 · Six-way screen: 150 double-annotated gold labels → per-category κ; re-judge archive", "queued"),
+    ("W1 · Perturbation library: 8 arms / 18 cells, unit-tested (byte-identity, appearance-identity)", "queued"),
+    ("W2 · Unified extraction: d_soft (2 routes) + d_harm + d_OOD + d_length, all layers, 5 redraws", "queued"),
+    ("W2 · E(f) steering-efficacy sweep at 9 fractional depths → l* locked by commit hash", "queued"),
+    ("W2 · Forward-pass displacement grid + covariance-matched null battery → C2 figure", "queued"),
+    ("W3 · Designed grid: 4 models × 5 conditions × 2 batteries, dose-matched (~16k gens)", "queued"),
+    ("W3 · Perturbation generation subset with sampling-noise floor (~14k gens, queued unattended)", "queued"),
+    ("W3 · MEDIATION: necessity (null along d) + sufficiency (inject measured π̂·d̂), 2 controls each", "queued"),
+    ("W4 · Freeze Aug 24 · figures · 5pp draft · anonymization sweep · red-team Aug 26 · submit Aug 28", "queued"),
 ]
 
 DECISIONS = [
@@ -59,19 +66,21 @@ DECISIONS = [
      "Three families + one modern checkpoint answers the model-vintage objection; Qwen1.5-14B and Yi dropped (budget, redundancy). All fit one A100 in bf16."),
     ("Evals", "Opinion: held-out comparisons + IssueBench subset + Paired Prompts · Safety: XSTest + JailbreakBench · Capability: MMLU slice",
      "The 2×2 grid needs BOTH batteries per condition; BBQ/CrowS-Pairs retired to historical context (CrowS widely criticized)."),
-    ("Venue", "Interp4Discovery @ NeurIPS 2026 — Aug 29 AoE (VERIFIED)",
-     "5pp + refs, non-archival, double-blind; backup AI4GOOD (same deadline); slip path ICLR 2027. docs/2026-08-01_venue_scan.md."),
-    ("Scope", "Open-weight models only; no cone-fitting; no ideology-direction experiment this cycle",
-     "Steering needs residual-stream access. Scope cuts are doctrine — see sprint plan §6."),
+    ("Venue", "BOTH — Interp4Discovery @ NeurIPS 2026 (Aug 29) + ICLR 2027 (Sept 25)",
+     "Workshop notification is Sept 29, AFTER both ICLR deadlines — so the ICLR version is written in PARALLEL from Aug 3, not derived from reviews. Non-archival workshop = timestamp + forcing function; the real priority date is Sept 25. Parallel AI4GOOD submission dropped (costs Week-4 writer time)."),
+    ("Dual-use", "Only contested-but-benign prompts are ever perturbed",
+     "A construction constraint, not a policy: no harmful battery is perturbed in any arm, so no attack-efficacy number can exist in the paper. Released artifact is the projection monitor + evaluation harness, never a perturbation generator. Lead with accidental typographic drift, never adversarial framing."),
+    ("Scope", "Open-weight models only; no cone-fitting; no ideology direction; no twin-break headline",
+     "Twin-break demoted to appendix — two critics independently derived that it is algebraically self-defeating (an orthogonal twin inherits the prediction). Scope cuts are doctrine — decision doc §2."),
 ]
 
 TASKS = [  # who, track, status (active|blocked|queued|done), next action
-    ("Farhan", "Research lead · pipeline", "active",
-     "Sign off (or red-line) PAPER_FRAMING.md + sprint plan Tue. Pipeline walkthrough for the team. Week-1 technical task: unified re-extraction — port opinionation extraction to Arditi conventions (post-instruction positions), extract harm-refusal directions, all 4 models. Recover Slack graphs if the archive lands."),
-    ("Edward", "Measurement · evals · geometry · infra", "active",
-     "Team kit + analysis + sprint plan shipped (this PR). Week 1: two-axis judge rubric → kappa ≥ 0.7 against ~150 gold labels (annotation with Jeremiah); re-judge archived logs (~$20-50 API); first per-layer cosine figure by Friday. Week 2: benchmark harness (agent-assisted) — IssueBench subset, Paired Prompts, XSTest, JailbreakBench. Week 3: judging + aggregation as the grid streams."),
-    ("Jeremiah", "Onboarding → audits + writing", "active",
-     "Onboarding path in HANDOFF_JEREMIAH.md (Arditi paper, analysis doc, 3B1B, TransformerLens demo). Week 1: help hand-label the ~150 gold examples — the fastest way to learn the construct. Week 2: assist the eval harness + reproduce one archived experiment. Weeks 3-4: MMLU audit runs, repro pass, distribution figures, writing."),
+    ("Farhan", "Pipeline · generation", "active",
+     "<b>Week 1 = CRITICAL PATH: productionize the notebook.</b> Config-driven resumable runner + write-once per-layer residual cache readable with zero GPU; integrate Qwen2.5-7B; verify one cell unattended. (src/ is 524 LOC of loaders — the harness genuinely does not exist yet, and every downstream week depends on it.) Then W2 unified extraction + E(f) sweep + dose calibration; W3 the grid, then queued perturbation + mediation."),
+    ("Edward", "Measurement · geometry · analysis", "active",
+     "Week 0: file docs/PREREG.md (rubric hash, 18 perturbation cells, endpoints, l* rule, TOST margins, multiplicity plan). W1: 150 double-annotated gold labels → per-category κ ≥ 0.7, re-judge archive. W2: d_OOD + d_length, forward-pass displacement grid off Farhan's cache, covariance-matched null battery, C2 selectivity figure, Gate 1.5 pilot. W3: rolling judging, mediation analysis. Daily scoop watch."),
+    ("Jeremiah", "Perturbation library · annotation · writing", "active",
+     "W0: create paper/ with the 5-page .tex skeleton (no .tex has ever existed in this project — that is risk #4). W1: author the 8-arm perturbation library as a tested Python module (unit tests asserting byte-identity of the retokenization control and appearance-identity of the precomposed/combining pair) + 200 hand-written contrast pairs (no LLM judge in extraction) + co-annotate gold labels. W3: MMLU cells, 200-judgment spot-check. All deliverables land by Aug 24 EOD (travel)."),
 ]
 
 HOW_WE_WORK = [
@@ -105,7 +114,7 @@ PATH_TO_SUBMISSION = [
 LINKS = [
     ("★ The Correct Problem (read first)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/THE_CORRECT_PROBLEM.md"),
     ("Framing doctrine (PAPER_FRAMING.md)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/PAPER_FRAMING.md"),
-    ("Sprint plan (thesis · gates · weeks)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-01_sprint_plan.md"),
+    ("★ SPRINT DECISION (operative plan)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-02_sprint_decision.md"),
     ("Post-mortem + frontier scan", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-01_project_analysis.md"),
     ("Venue scan", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-01_venue_scan.md"),
     ("Interp4Discovery CFP (target venue)", "https://interpretability4discovery.github.io/cfp.html"),
@@ -149,6 +158,10 @@ BULLETPROOFING = [
     ("todo", "Prompting baseline: no steering result is reportable without the system-prompt comparison (AxBench bar)."),
     ("todo", "Per-example distributions: aggregate judge percentages hide bimodal steering effects."),
     ("todo", "Side-effect audits: capability (MMLU slice) + safety (XSTest/JailbreakBench) on any final intervention."),
+    ("todo", "<b>Dose matching</b> — the +soft and harm-ablation arms must be calibrated to equal on-target effect on a frozen dev split BEFORE any off-target number is read. Otherwise 'opinion steering doesn't move safety' is indistinguishable from 'we steered opinion weakly'. One-sentence reviewer kill; non-cuttable."),
+    ("todo", "<b>Construct circularity</b> — the judge defines the construct AND scores the outcome; κ vs our own rubric measures rubric teachability, not construct validity. Mitigated by a second extraction route from 200 hand-written contrast pairs with no LLM judge anywhere in it."),
+    ("todo", "<b>Mediation controls</b> — nulling ALONG d must be compared against nulling along d_OOD and along a covariance-matched random direction. If nulling anything abolishes the flip, the result is a hook artifact."),
+    ("todo", "Scoop watch: arXiv:2606.07696 landed Jun 2026 on the adjacent question and the obvious follow-up is ours. Daily alert; pre-committed response = re-lead with mediation, cite the scoop in paragraph one."),
     ("done", "Deadline verified 2026-08-01: Interp4Discovery @ NeurIPS 2026, Aug 29 AoE (5pp, non-archival, double-blind); backup AI4GOOD same day."),
     ("todo", "Extraction-convention confound: 2025 vectors are mean-pooled over all tokens — headline figures must use the unified Arditi-convention re-extraction only."),
     ("idea", "Judge-v2 on archived outputs may RE-DATE the 2025 headline numbers — treat old percentages as provisional until re-judged."),
@@ -242,10 +255,10 @@ def main():
         return "now" if _today < _wk_starts[i + 1] else "done"
 
     _weeks = [
-        ("Week 1", "Aug 3–9", "Judge v2 rubric · ~150 gold labels · re-judge archive · unified re-extraction", "GATE 1: kappa ≥ 0.7 + stance-shift ≥ 10pp"),
-        ("Week 2", "Aug 10–16", "Reproduce steering + Arditi · geometry package · eval harness", "GATE 2: ≥20pp steer, ≥30pp refusal"),
-        ("Week 3", "Aug 17–23", "THE GRID — 4 models × 5 conditions × 2 batteries (~30k gens)", "degradation order pre-committed"),
-        ("Week 4", "Aug 24–29", "Robustness · distribution figures · 5-page draft", "freeze 26 · red-team 27 · SUBMIT 29 AoE"),
+        ("Week 1", "Aug 3–9", "HARNESS productionization (critical path) · six-way rubric + 150 gold labels · perturbation library", "GATE 1: κ ≥ 0.7 · stance-shift ≥ 10pp · harness runs a cell unattended"),
+        ("Week 2", "Aug 10–16", "Unified extraction (2 routes) · E(f) depth sweep · forward-pass displacement grid + null battery", "GATE 1.5 (Aug 13): flip ≥8%, exotic beats null while retok doesn't · GATE 2: ≥20pp / ≥30pp, l* locked"),
+        ("Week 3", "Aug 17–23", "Designed grid (~16k gens, dose-matched) → queued: perturbation subset → MEDIATION", "HARD Aug 20: cut to 3 models if Wave 1 unjudged · GATE 3: mediation in hand"),
+        ("Week 4", "Aug 24–28", "Freeze Aug 24 · figures · 5pp draft · anonymization sweep", "red-team Aug 26 · SUBMIT Aug 28 (1 day slack)"),
     ]
     timeline_html = "".join(
         f"<div class='wk {_wk_state(i)}'>"
@@ -256,19 +269,25 @@ def main():
 
     experiment_html = """
 <div class="x22-wrap">
-  <div class="x22-title">The experiment at a glance — the 2×2 cross-steering grid</div>
+  <div class="x22-title">The experiment at a glance — two routes to one boundary</div>
   <table class="x22">
-    <tr><th class="x22-corner">intervene ↓ &nbsp;·&nbsp; measure →</th>
-        <th>Opinion battery<br><span class="x22-sub">IssueBench · Paired Prompts · comparisons</span></th>
-        <th>Safety battery<br><span class="x22-sub">XSTest · JailbreakBench</span></th></tr>
-    <tr><td class="x22-row">Steer <b>soft-refusal</b> direction ±</td>
-        <td class="x22-diag">large Δ expected<br><span class="x22-sub">the direction works</span></td>
-        <td class="x22-off">≈ 0 if two knobs<br><span class="x22-sub">moves → entangled</span></td></tr>
-    <tr><td class="x22-row">Ablate <b>hard-refusal</b> direction</td>
-        <td class="x22-off">≈ 0 if two knobs<br><span class="x22-sub">moves → explains Fafuła side effects</span></td>
-        <td class="x22-diag">large Δ expected<br><span class="x22-sub">Arditi replication</span></td></tr>
+    <tr><th class="x22-corner">route ↓ &nbsp;·&nbsp; what it establishes →</th>
+        <th>On the opinion battery<br><span class="x22-sub">IssueBench · Paired Prompts · comparisons</span></th>
+        <th>On the safety battery<br><span class="x22-sub">XSTest · JailbreakBench — never perturbed</span></th></tr>
+    <tr><td class="x22-row"><b>Route 1 — designed.</b> Steer d_soft ± (capped, dose-matched)</td>
+        <td class="x22-diag">large Δ<br><span class="x22-sub">the direction works (C1)</span></td>
+        <td class="x22-off">bounded ±5pp by TOST<br><span class="x22-sub">not the harm knob</span></td></tr>
+    <tr><td class="x22-row">Ablate d_harm (dose-matched)</td>
+        <td class="x22-off">bounded ±5pp by TOST</td>
+        <td class="x22-diag">large Δ<br><span class="x22-sub">Arditi replication</span></td></tr>
+    <tr><td class="x22-row"><b>Route 2 — undesigned.</b> One character → byte-fallback tokenization</td>
+        <td class="x22-diag">displaces <i>along</i> d_soft<br><span class="x22-sub">signed projection predicts the flip (C2·C3)</span></td>
+        <td class="x22-off" style="color:var(--ink3)">not run<br><span class="x22-sub">benign prompts only — dual-use rule</span></td></tr>
+    <tr><td class="x22-row"><b>Mediation.</b> Null the along-d component / inject it</td>
+        <td class="x22-diag">flip abolished ≥50% / reproduced ≥40%<br><span class="x22-sub">the headline (C4)</span></td>
+        <td class="x22-off" style="color:var(--ink3)">—</td></tr>
   </table>
-  <div class="x22-legend"><b>Two knobs</b> (diagonal only) contradicts the shared-refusal-knob finding (arXiv:2602.02132) · <b>One knob</b> (off-diagonals move) mechanistically explains abliteration side effects (arXiv:2607.17427) · <b>Either outcome is the paper.</b> Plus per-layer cosines/principal angles between the two directions, a system-prompt baseline, and an MMLU capability audit.</div>
+  <div class="x22-legend"><b>The point:</b> a vector that moves when <i>you</i> push it proves little (non-identifiability, arXiv:2602.06801). A vector that also moves when a perturbation <i>nobody designed</i> flips the model — and whose removal abolishes that flip — is a property of the model. Controls that are never cut: byte-identical retokenization, covariance-matched random-direction null, ASCII-typo, an OOD-direction competitor, and a length/verbosity direction. Nearest prior work (arXiv:2606.07696) asks whether steering <i>survives</i> perturbation; we ask where the perturbation <i>goes</i>.</div>
 </div>"""
 
     overview_html = "".join(
