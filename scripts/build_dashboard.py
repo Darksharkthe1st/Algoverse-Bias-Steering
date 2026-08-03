@@ -28,13 +28,13 @@ OVERVIEW = [
     ("Why it was revived",
      "The 2025 Algoverse run got a real result — <b>bidirectional in-distribution steering with coherence preserved</b> — but stalled on OOD transfer and ran out of team. Revived <b>Aug 2026</b> by a three-person team. The frontier moved (refusal is now cones/subspaces, not single directions; labs ship persona vectors and even-handedness evals), yet the exact soft-refusal claim is <b>still unclaimed</b>."),
     ("Where we are today",
-     "<b>REVIVAL SPRINT — week 0, scope decided.</b> A multi-agent design+critique pass (<code>docs/2026-08-02_sprint_decision.md</code>) expanded the thesis: the paper is now <b>\"Two Routes to One Boundary\"</b> — convergent validation via an undesigned input perturbation, with a <b>mediation test</b> as the headline. Venue: Interp4Discovery @ NeurIPS 2026, <b>Aug 29 AoE</b>, plus <b>ICLR 2027 (Sept 25)</b> written in parallel. Only Tue sign-off item: <b>freeze the six-way rubric</b>. Week 1 is <b>harness productionization</b> — the critical-path risk nobody had budgeted."),
+     "<b>REVIVAL SPRINT — week 0. Scope is PROPOSED, not decided.</b> A machine-generated design+critique pass (<code>docs/2026-08-02_sprint_proposal.md</code>) argues for expanding the thesis to <b>\"Two Routes to One Boundary\"</b> — convergent validation via an undesigned input perturbation, with a <b>mediation test</b> as the headline. <b>That proposal has not been reviewed by the person who built the 2025 pipeline, and several of its claims are about that pipeline.</b> Venue is verified: Interp4Discovery @ NeurIPS 2026, <b>Aug 29 AoE</b>. The one genuinely time-critical item is freezing the judge rubric before annotation starts."),
 ]
 
 RESEARCH_Q = ("The research question",
-    "Is the <b>soft-refusal direction</b> an artifact of the intervention that found it? Every steering paper faces this (non-identifiability, arXiv:2602.06801): a vector that responds to your own push is not evidence you found the model's representation. Our answer is <b>convergent validity</b> — a single-character substitution forcing byte-fallback tokenization, designed with no reference to any direction, displaces activations <i>preferentially along</i> d_soft; the <b>signed</b> projection predicts which prompts flip; and <b>nulling that component abolishes the flip while injecting it reproduces it</b>. Full plan: docs/2026-08-02_sprint_decision.md.")
+    "Is the <b>soft-refusal direction</b> an artifact of the intervention that found it? Every steering paper faces this (non-identifiability, arXiv:2602.06801): a vector that responds to your own push is not evidence you found the model's representation. Our answer is <b>convergent validity</b> — a single-character substitution forcing byte-fallback tokenization, designed with no reference to any direction, displaces activations <i>preferentially along</i> d_soft; the <b>signed</b> projection predicts which prompts flip; and <b>nulling that component abolishes the flip while injecting it reproduces it</b>. Full plan: docs/2026-08-02_sprint_proposal.md.")
 
-PHASE = "REVIVAL SPRINT week 0→1. Scope decided (decision doc). Tue Aug 4 sign-off is the six-way rubric freeze ONLY. Week 1 critical path = harness productionization; Gate 1 Sun Aug 9 (per-category κ ≥ 0.7 · archived stance-shift ≥ 10pp · harness runs a cell unattended). Targets: Interp4Discovery Aug 29 + ICLR 2027 Sept 25, written in parallel."
+PHASE = "REVIVAL SPRINT week 0→1. Scope PROPOSED (see the proposal's preamble — machine-generated, unreviewed by the pipeline owner). Time-critical: freeze the judge rubric before annotation starts. Open for the team: whether the perturbation arm is in scope, whether mediation is worth its GPU-hours, whether ICLR in parallel is realistic."
 
 RUNS = [  # (label, state) state in {running, done, queued}
     ("2025 · In-distribution bidirectional steering, 9 models (Batched_Gen)", "done"),
@@ -114,7 +114,7 @@ PATH_TO_SUBMISSION = [
 LINKS = [
     ("★ The Correct Problem (read first)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/THE_CORRECT_PROBLEM.md"),
     ("Framing doctrine (PAPER_FRAMING.md)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/PAPER_FRAMING.md"),
-    ("★ SPRINT DECISION (operative plan)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-02_sprint_decision.md"),
+    ("★ Sprint proposal (needs sign-off)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-02_sprint_proposal.md"),
     ("Post-mortem + frontier scan", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-01_project_analysis.md"),
     ("Venue scan", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-01_venue_scan.md"),
     ("Interp4Discovery CFP (target venue)", "https://interpretability4discovery.github.io/cfp.html"),

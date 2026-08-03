@@ -21,13 +21,15 @@ Soft-Refusal Direction via Designed Steering and Undesigned Input
 Perturbation."* This is an **interpretability paper about whether a direction
 is real**, not a debiasing-method paper, not a jailbreak paper.
 
-**THE OPERATIVE PLAN IS `docs/2026-08-02_sprint_decision.md`** (multi-agent
-design + adversarial critique + fusion, 2026-08-02). It supersedes
-`docs/2026-08-01_sprint_plan.md` on scope, claims, statistics, gates, and
-schedule. Where this file and the decision doc disagree, the decision doc wins
-until this file is PR'd to match.
+**Both the title and the claim table below are PROPOSED, not agreed.** They come
+from `docs/2026-08-02_sprint_proposal.md` (a machine-generated design +
+adversarial-critique + fusion pass). Until the team signs off, the previously
+circulated scope in `docs/2026-08-01_sprint_plan.md` is equally live — in
+particular, whether the input-perturbation arm belongs in this sprint at all is
+an **open question for the team**, not a settled one. Read the proposal's
+preamble before treating anything here as decided.
 
-## The claims, in load-bearing order
+## The claims, in load-bearing order (PROPOSED)
 
 | # | Claim | Role |
 |---|---|---|

@@ -1,6 +1,40 @@
-# Decision: Re-scoped 4-Week Sprint (Aug 2 → Aug 29, 2026)
+# Proposal: Re-scoped 4-Week Sprint (Aug 2 → Aug 29, 2026)
 
-**Status: final. This is what gets executed Monday Aug 3. Sign-off item at the Tue Aug 4 meeting is the rubric freeze only — the scope is decided.**
+> **READ THIS FIRST — what this document is and is not.**
+>
+> **Provenance.** This is machine-generated: four competing sprint designs were
+> drafted by independent agents, attacked by four adversarial critics (novelty
+> and scoop risk, feasibility, reviewer acceptance, rigor and dual-use), then
+> fused. It reads decisively because the fusion step was *instructed* to
+> produce one plan rather than a menu. **Decisive prose is a formatting choice
+> here, not team consensus.**
+>
+> **Status: PROPOSAL. Nothing in it is decided.** It has not been reviewed by
+> the person who built the 2025 pipeline, and several of its claims are about
+> that pipeline. Treat every "non-negotiable," "final," and "locked" below as
+> *"the analysis recommends this strongly"* — they are arguments, and they lose
+> to anyone on the team with better information.
+>
+> **Known limits of the analysis.** The agents read the repo and the literature;
+> they did not talk to anyone. They do not know what the 2025 experiments felt
+> like to run, which parts of the notebook are load-bearing, what broke before
+> and why, or what the team actually wants this paper to be. Where this document
+> is confident about the state of the codebase or the reasons behind a 2025
+> choice, it is inferring from artifacts — and the person who wrote those
+> artifacts should be believed over it.
+>
+> **How to use it.** Read §1 (the thesis), §5 (the schedule), and §8 (gates and
+> kill criteria). Argue with the rest. The single change that most needs a
+> sanity check from the pipeline owner is the Week-1 harness assessment in §2
+> and §8 — the analysis concluded the runner does not exist in reusable form,
+> which is a claim about someone else's work made from a file tree.
+>
+> **Open questions for the team, not settled by this document:** whether the
+> perturbation arm belongs in this sprint at all; whether the mediation
+> experiment is worth its GPU-hours versus more model breadth; whether ICLR in
+> parallel is realistic or a distraction; and whether the six-way rubric is the
+> right rubric. The one item that genuinely is time-critical is the rubric
+> freeze, because relabeling after annotation starts wastes the annotation.
 
 Base design: **Candidate 1 ("Two Routes to One Boundary")**, restructured. Three of four critics (novelty, feasibility, dual-use) picked it outright; the reviewer critic ranked it second and named the exact three fixes that would move it to first. All three fixes are applied below, plus four imports from the other candidates and one experiment none of the four proposed.
 
