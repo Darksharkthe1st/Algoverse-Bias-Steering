@@ -47,7 +47,7 @@ PHASE = "REVIVAL SPRINT week 0→1. Scope PROPOSED (see the proposal's preamble 
 
 RUNS = [  # (label, state) state in {running, done, queued}
     ("2025 · In-distribution bidirectional steering, 9 models — VERIFIED: reproduces 7/7 from per-record artifacts (n=96/arm)", "done"),
-    ("2025 · Zero-vector ablation control — UNDER REVIEW: 'nonsense' may be judge-extraction failure, not degeneration", "done"),
+    ("2025 · Zero-vector ablation control — UNDER REVIEW: 'nonsense' may be judge-extraction failure, not degeneration", "queued"),
     ("2025 · Per-model coefficient sweeps (0–20) — explained: per-layer norm profile varies 2× (gemma) to 1391× (Qwen-14B)", "done"),
     ("2025 · BBQ transfer — semi-failed; provenance recovered by payload SHA-256 (Logs 185–191 are BBQ-trained)", "done"),
     ("2025 · CrowS-Pairs transfer — FAILED (honest negative, kept)", "done"),
@@ -78,8 +78,8 @@ DECISIONS = [
      "Static steering degrades badly on reasoning models (arXiv:2605.26772: 39% compliance with CoT fixed vs 94% with CoT regenerated) — but that paper tests ONE model with no non-reasoning control, and Qwen3.5/3.6 have a within-checkpoint toggle that supplies exactly the missing control. Never mix modes when fitting a direction: the think block shifts token positions and contaminates the contrast set."),
     ("Evals", "Opinion: held-out comparisons + IssueBench subset + Paired Prompts · Safety: XSTest + JailbreakBench · Capability: MMLU slice",
      "The 2×2 grid needs BOTH batteries per condition; BBQ/CrowS-Pairs retired to historical context (CrowS widely criticized)."),
-    ("Venue", "BOTH — Interp4Discovery @ NeurIPS 2026 (Aug 29) + ICLR 2027 (Sept 25)",
-     "Workshop notification is Sept 29, AFTER both ICLR deadlines — so the ICLR version is written in PARALLEL from Aug 3, not derived from reviews. Non-archival workshop = timestamp + forcing function; the real priority date is Sept 25. Parallel AI4GOOD submission dropped (costs Week-4 writer time)."),
+    ("Venue", "⚠️ CHOOSE ONE — Interp4Discovery (Aug 29) or Interpretability as a Science (Aug 28)",
+     "Interpretability as a Science FORBIDS concurrent submission to any other NeurIPS 2026 workshop — the two are mutually exclusive and this is a live decision. Interp4Discovery's CFP explicitly invites failure cases and negative results; Interp-as-Science's topic list (artifacts vs mechanisms, measurement validity) is closer to our actual content and allows 9 pages. Both non-archival; archival credit is BlackboxNLP 2027 or TMLR. docs/PRIOR_ART_2026-08-07.md."),
     ("Dual-use", "Only contested-but-benign prompts are ever perturbed",
      "A construction constraint, not a policy: no harmful battery is perturbed in any arm, so no attack-efficacy number can exist in the paper. Released artifact is the projection monitor + evaluation harness, never a perturbation generator. Lead with accidental typographic drift, never adversarial framing."),
     ("Scope", "Open-weight models only; no cone-fitting; no ideology direction; no twin-break headline",
@@ -88,7 +88,7 @@ DECISIONS = [
 
 TASKS = [  # who, track, status (active|blocked|queued|done), next action
     ("Farhan", "Pipeline · generation", "active",
-     "<b>Week 1 = CRITICAL PATH: productionize the notebook.</b> Config-driven resumable runner + write-once per-layer residual cache readable with zero GPU; integrate Qwen2.5-7B; verify one cell unattended. (src/ is 524 LOC of loaders — the harness genuinely does not exist yet, and every downstream week depends on it.) Then W2 unified extraction + E(f) sweep + dose calibration; W3 the grid, then queued perturbation + mediation."),
+     "<b>Week 1 = CRITICAL PATH: productionize the notebook.</b> Config-driven resumable runner + write-once per-layer residual cache readable with zero GPU; integrate the refreshed model set (docs/MODEL_SET_2026-08-07.md); verify one cell unattended. (<b>Corrected 2026-08-07:</b> the earlier &lsquo;no harness exists&rsquo; call was inferred from src/ line count without opening the notebook, and was wrong — ~30 named functions cover the whole pipeline including resumable save/load and compare_vectors. This is <b>packaging, not building</b>, and how long it takes is his call to make.) Then W2 unified extraction + E(f) sweep + dose calibration; W3 the grid, then queued perturbation + mediation."),
     ("Edward", "Measurement · geometry · analysis", "active",
      "Week 0: file docs/PREREG.md (rubric hash, 18 perturbation cells, endpoints, l* rule, TOST margins, multiplicity plan). W1: 150 double-annotated gold labels → per-category κ ≥ 0.7, re-judge archive. W2: d_OOD + d_length, forward-pass displacement grid off Farhan's cache, covariance-matched null battery, C2 selectivity figure, Gate 1.5 pilot. W3: rolling judging, mediation analysis. Daily scoop watch."),
     ("Jeremiah", "OWNER · fault-susceptibility study + measurement geometry", "active",
@@ -125,6 +125,8 @@ PATH_TO_SUBMISSION = [
 
 LINKS = [
     ("Live dashboard", "https://bias-steering.exe.xyz"),
+    ("★ RUBRIC v2 — canonical, needs freezing", blob("docs/RUBRIC_v2.md")),
+    ("Prior art + venue conflict", blob("docs/PRIOR_ART_2026-08-07.md")),
     ("★ RUNBOOK — Farhan (pipeline)", blob("RUNBOOK_FARHAN.md")),
     ("★ RUNBOOK — Jeremiah (fault study · geometry)", blob("RUNBOOK_JEREMIAH.md")),
     ("Research program: geometry of refusal (parked)", blob("docs/RESEARCH_PROGRAM_GEOMETRY.md")),
@@ -173,6 +175,9 @@ CLAIMS = [
     ("open", "Do the 2025 labels measure stance-taking, or style?",
      "The construct is unvalidated: the v1 rubric scored factual decisiveness as opinionation. Reproducing a label is not validating it. This is exactly what the Week-1 rubric gate exists to settle.",
      "docs/THE_CORRECT_PROBLEM.md"),
+    ("review", "Is the &ldquo;silent failure&rdquo; framing ours to make?",
+     "PARTIALLY TAKEN. arXiv:2607.02586 (Jul 2026) already defines silent as invisible-in-reported-numbers and ships a disclosure protocol. Genuinely open: silent BROADCAST (legal shapes, wrong semantics — never measured), tensor-payload hashing as a validity control, and the claim that published nulls are bug artifacts (unmade anywhere, and we have zero evidence for it). Instantiate their protocol; do not reintroduce their concept.",
+     "docs/PRIOR_ART_2026-08-07.md"),
     ("open", "Is soft refusal separable from hard refusal?",
      "Genuinely untested — the only archived experiment that bore on it was invalid. Not a null to build on.",
      "—"),

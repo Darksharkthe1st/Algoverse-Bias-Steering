@@ -129,8 +129,10 @@ consistently — which is what gets us the Cohen's kappa ≥ 0.7 the gate demand
 This costs nothing extra: same annotation session, same judge calls, same
 archived responses. It is a better question asked of the same data.
 
-*(Status: proposal. Needs sign-off before Week 1 annotation starts — changing
-the rubric after labeling begins invalidates the labels.)*
+*(Status: **illustrative only**. The cascade above shows the shape of the idea;
+the canonical screen — with hard refusal, meta-comment and an unjudgeable class
+the sketch above omits — lives in `docs/RUBRIC_v2.md`. Work from that file.
+Changing a rubric after labeling begins invalidates the labels.)*
 
 ## 6. Why the field is converging on this
 

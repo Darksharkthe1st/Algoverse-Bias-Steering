@@ -40,6 +40,9 @@ Base design: **Candidate 1 ("Two Routes to One Boundary")**, restructured. Three
 
 ---
 
+> **Note added 2026-08-07:** any rubric spelled out below is superseded by
+> `docs/RUBRIC_v2.md`, the canonical source. Preserved as written.
+
 ## 1. The call
 
 ### Thesis (falsifiable form)

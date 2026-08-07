@@ -140,6 +140,10 @@ vector → unsafety.”
 The BBQ transfer rows can be used only as audited legacy observations. The refusal rows are
 useful as a pipeline-failure case study, not intervention evidence.
 
+> **Note added 2026-08-07:** the six-way rubric proposed below was one of four
+> differing screens across the repo. They are reconciled in `docs/RUBRIC_v2.md`,
+> which is now canonical. This section is preserved as written for audit integrity.
+
 ### [FUSION] One-month execution and kill gates
 
 1. **Week 1 — construct gate (CPU/human):** freeze a six-way rubric: engaged stance,

@@ -40,9 +40,12 @@ preamble before treating anything here as decided.
 | **C4** | **Mediation.** Nulling the along-d_soft component of the induced displacement abolishes ≥50% of flips; injecting the measured component into the clean run reproduces ≥40%. | **Payload 3 — the headline, and the ICLR lead.** Converts convergent correlation into convergent causation. |
 | **C5** | In fractional depth f = l/(L−1), the perturbation-alignment profile and the single-layer steering-efficacy profile either coincide or dissociate. Both outcomes are the result. | Descriptive. |
 
-**Models (4 + a within-family ladder):** Qwen1.5-7B-Chat, gemma-2b-it,
-Llama-3-8B-Instruct, Qwen2.5-7B-Instruct; Qwen2.5-0.5B/1.5B/3B for
-forward-pass depth profiles only.
+**Models — SUPERSEDED 2026-08-07.** This file previously locked a 2025-era set
+as settled. The verified set is in **`docs/MODEL_SET_2026-08-07.md`**: the
+Qwen3.5 {2B, 9B, 27B} ladder, Qwen3.6-27B (byte-identical config to
+Qwen3.5-27B, so a free controlled test of post-training with architecture held
+fixed), gemma-4-31B-it and gemma-4-26B-A4B-it (dense vs MoE, same family).
+Qwen 3.8 is a watch item with adoption rules in that file.
 
 ## Terminology rules — REQUIRED differentiations
 
@@ -156,5 +159,11 @@ consistency training / fence-sitting (arXiv:2605.22771); manifold steering
 - Dashboard: `dashboard/index.html` (build via `scripts/build_dashboard.py`)
 - Post-mortem + frontier scan: `docs/2026-08-01_project_analysis.md`
 - 2025 outline (rough, superseded by this file): Overleaf 4514258212zmrztmsxptvy
-- Meeting cadence: Tue/Thu/Sat 9pm ET; experiments freeze Aug 26; internal
-  red-team read Aug 27
+- Meeting cadence: Tue/Thu/Sat 9pm ET.
+- **Dates: use `docs/2026-08-02_sprint_proposal.md` §5 — freeze Aug 24,
+  red-team Aug 26, submit Aug 28** (one day of slack against the AoE deadline).
+  This file previously said freeze Aug 26 / red-team Aug 27; that was a second,
+  conflicting schedule and is withdrawn. One schedule, one place.
+- **Venue is an open decision, not settled** — Interp4Discovery (Aug 29) and
+  Interpretability as a Science (Aug 28) are mutually exclusive. See
+  `docs/PRIOR_ART_2026-08-07.md`.
