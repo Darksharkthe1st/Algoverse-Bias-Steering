@@ -30,13 +30,17 @@
   | gemma-2b-it | 82/14 | 96/0 | 21/75 |
   | Llama-3-8B-it | 6/90 | 24/72 | 12/84 |
 
-  Near-zero `nonsense` — coherence preserved. A zero-vector ablation control collapses to 99% nonsense, confirming the vector (not the hook mechanism) does the work.
+  Near-zero `nonsense` — coherence preserved. Counts are out of **n = 96** per arm (not ~100), and the arrow-named CSV columns are **per-arm label marginals, not transitions** — `Init->Opin` means "the initial arm was judged opinionated." Verified to reproduce 7/7 from per-record artifacts (`scripts/verify_2025_results.py`).
+  ⚠️ The zero-vector ablation "collapses to 99% nonsense" claim is **under review**: the audit found 2,032 case-insensitive `none` markers across 107 archived logs that are *judge-extraction failures*, not degeneration. Do not cite the ablation as a control until the `none` markers in that specific run are separated from genuine incoherence.
 - Honest experimental hygiene by student standards: coefficient sweeps per model, cross-dataset transfer matrices, failure-labeled directories (`failed_opinion_refusal/`, `bad_bbq_tests/`).
 
 ### What failed (the three load-bearing failures)
 1. **Transfer failure.** Vectors trained on synthetic comparison prompts largely stop working on CrowS-Pairs (gemma-7b-it: 78/18 → 77/19 steered toward neutral — no effect; Llama-2-7b likewise) and only semi-work on BBQ. The "revealing hidden biases" premise never survived contact with real bias benchmarks.
 2. **Ablation failure.** Directional ablation didn't produce neutrality; the mentor-doc hypothesis was that neutrality and opinionation are *separate directions*, not one bipolar axis. Never tested.
-3. **Refusal entanglement unresolved.** Cross-applying Arditi's refusal vector and the opinion vector failed in both directions (Yi-6B: 7/92 → 3/94 — nothing). The relationship between soft and hard refusal was never established.
+3. **Refusal entanglement — RETRACTED 2026-08-07. The experiment was invalid, not null.**
+   ~~Cross-applying Arditi's refusal vector and the opinion vector failed in both directions (Yi-6B: 7/92 → 3/94 — nothing).~~
+   Two independently confirmed defects in Logs 210–214 (see `docs/REVIVAL_AUDIT.md`, `docs/VERIFICATION_2026-08-07.md`): **(a)** the model loop and the `vector_files` list were ordered differently, so every run loaded a *different model's* vector — payload SHA-256 matching recovers the exact rotation; **(b)** the archived refusal `.pt` files are **1-D tensors of hidden width** (`Qwen-1.5-1.8B: (2048,)`, `llama-2-7b: (4096,)`), yet the steering code indexes `steering_vector[layer]`, which on a 1-D tensor returns a **scalar** broadcast across the entire residual width — a DC offset, not a direction. The opinion vectors are `[n_layers, d_model]`, so the same line correctly yields a direction; that is why the headline opinion result is sound and this arm is not.
+   **The soft-vs-hard-refusal relationship is therefore UNTESTED, not tested-and-null.** Anything downstream that treated this as evidence of separability (or of entanglement) must be re-derived.
 
 **Construct validity flaw underneath all three:** the judge prompt scored anything taking "a clear stance, even if factual" as opinionated — conflating *decisiveness* with *bias*. The vector plausibly encodes **hedging style**, not bias suppression, which predicts exactly the observed transfer failure. Nobody tested this alternative hypothesis.
 
