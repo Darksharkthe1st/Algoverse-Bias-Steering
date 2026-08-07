@@ -125,9 +125,11 @@ PATH_TO_SUBMISSION = [
 
 LINKS = [
     ("Live dashboard", "https://bias-steering.exe.xyz"),
+    ("★ SOURCES OF TRUTH (read before writing any fact)", blob("docs/SOURCES_OF_TRUTH.md")),
     ("★ RUBRIC v2 — canonical, needs freezing", blob("docs/RUBRIC_v2.md")),
     ("Prior art + venue conflict", blob("docs/PRIOR_ART_2026-08-07.md")),
     ("★ RUNBOOK — Farhan (pipeline)", blob("RUNBOOK_FARHAN.md")),
+    ("RUNBOOK — Edward (measurement)", blob("RUNBOOK_EDWARD.md")),
     ("★ RUNBOOK — Jeremiah (fault study · geometry)", blob("RUNBOOK_JEREMIAH.md")),
     ("Research program: geometry of refusal (parked)", blob("docs/RESEARCH_PROGRAM_GEOMETRY.md")),
     ("Model set + Qwen 3.8 watch", blob("docs/MODEL_SET_2026-08-07.md")),
@@ -137,7 +139,6 @@ LINKS = [
     ("Framing doctrine (PAPER_FRAMING.md)", blob("PAPER_FRAMING.md")),
     ("★ Sprint proposal (needs sign-off)", blob("docs/2026-08-02_sprint_proposal.md")),
     ("Post-mortem + frontier scan", blob("docs/2026-08-01_project_analysis.md")),
-    ("Venue scan", blob("docs/2026-08-01_venue_scan.md")),
     ("Model set (verified 2026-08-07)", blob("docs/MODEL_SET_2026-08-07.md")),
     ("Interp4Discovery CFP (target venue)", "https://interpretability4discovery.github.io/cfp.html"),
     ("Repo", REPO),

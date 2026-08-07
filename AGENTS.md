@@ -8,11 +8,19 @@ the Arditi hard-refusal direction. Revival sprint, Aug 2026; 2025 assets
 
 ## Non-negotiables for ALL agents and contributors
 
-1. **Framing is centralized.** Before writing or editing ANY paper text, related
+1. **One fact, one owner.** `docs/SOURCES_OF_TRUTH.md` says which file
+   *defines* each thing — rubric, model set, venue, schedule, claim status.
+   Before writing a fact, check the registry: if a file owns it, **link, never
+   restate.** Restating is how this repo ended up with the judge rubric
+   specified four different ways while every doc called freezing it the most
+   time-critical item in the sprint. Changing an owned fact means editing the
+   owner, in a PR, plus the claim ledger in the same PR if it changes what we
+   assert. A new doc must claim a row in the registry or it does not get made.
+2. **Framing is centralized.** Before writing or editing ANY paper text, related
    work, abstract, summary, or review response, read `PAPER_FRAMING.md` and
    follow it exactly. If you disagree, PR that file — do not introduce a
    different framing in a draft, comment, or commit message.
-2. **Numbers trace to artifacts — and recount from TEXT LOGS, not pickles.**
+3. **Numbers trace to artifacts — and recount from TEXT LOGS, not pickles.**
    Any number must come from a committed artifact under `experiments/` or be
    flagged as pending; cite the path in the PR description. Historical CSVs are
    **UNTRUSTED comparators** even when a recount agrees with them. Use
@@ -23,18 +31,18 @@ the Arditi hard-refusal direction. Revival sprint, Aug 2026; 2025 assets
    columns (`Init->Opin`) are **per-arm label marginals, NOT transitions**.
    Judge `none`/`NONE` markers are extraction failures — never fold them into
    "nonsense" or any behavior class.
-3. **The judge is part of the method.** Every judged number carries a judge
+4. **The judge is part of the method.** Every judged number carries a judge
    version. Judge v1 (2025, GPT-4o-mini binary rubric) is RETIRED — its rubric
    scored factual decisiveness as opinionation; treat all v1 percentages as
    provisional and never mix judge versions in one table. Any rubric or model
    change = new judge version, documented in `docs/judges/`.
-4. **Steering-claim hygiene (2026 bar).** No steering result is reportable
+5. **Steering-claim hygiene (2026 bar).** No steering result is reportable
    without (a) a system-prompt baseline on the same prompts (AxBench), (b)
    per-example distributions — the 3×3 judge confusion counts, not just means —
    and (c) for any headline intervention, side-effect audits (capability +
    safety). Say "a direction", never "the direction" — steering success does
    not identify the representation (non-identifiability, arXiv:2602.06801).
-5. **Honest negatives stay honest — but an invalid run is not a negative.**
+6. **Honest negatives stay honest — but an invalid run is not a negative.**
    The 2025 CrowS-Pairs transfer failure is load-bearing motivation; do not
    soften it and do not overclaim it. The refusal↔opinion cross-application is
    **RETRACTED as invalid, not null**: the archived refusal `.pt` files are 1-D
@@ -44,15 +52,16 @@ the Arditi hard-refusal direction. Revival sprint, Aug 2026; 2025 assets
    `docs/REVIVAL_AUDIT.md`. Never cite it as evidence in either direction.
    Before shipping ANY intervention, assert tensor shape against
    (n_layers, d_model) — this class of bug is silent.
-6. **Push runs to branches** as raw CSVs + pickles under `experiments/`,
+7. **Push runs to branches** as raw CSVs + pickles under `experiments/`,
    following the existing `Log_N_*` convention. No hand-edited conclusions.
-7. **Open-weight models only.** Steering needs residual-stream access.
+8. **Open-weight models only.** Steering needs residual-stream access.
 
 ## Key docs
 
+- `docs/SOURCES_OF_TRUTH.md` — **the fact-ownership registry; read first**
 - `PAPER_FRAMING.md` — canonical framing, terminology, must-cites
 - `docs/2026-08-01_project_analysis.md` — post-mortem + 2025–26 frontier scan
-- `HANDOFF_<NAME>.md` — per-person marching orders
+- `RUNBOOK_<NAME>.md` — per-person marching orders (one file per person)
 - Dashboard: `scripts/build_dashboard.py` (narrative constants at the top) →
   `dashboard/index.html`, CI-rebuilt on push; update constants via the
   `dashboard-update` skill in `.claude/skills/`.
