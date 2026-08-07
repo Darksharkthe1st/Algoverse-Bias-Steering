@@ -91,8 +91,8 @@ TASKS = [  # who, track, status (active|blocked|queued|done), next action
      "<b>Week 1 = CRITICAL PATH: productionize the notebook.</b> Config-driven resumable runner + write-once per-layer residual cache readable with zero GPU; integrate Qwen2.5-7B; verify one cell unattended. (src/ is 524 LOC of loaders — the harness genuinely does not exist yet, and every downstream week depends on it.) Then W2 unified extraction + E(f) sweep + dose calibration; W3 the grid, then queued perturbation + mediation."),
     ("Edward", "Measurement · geometry · analysis", "active",
      "Week 0: file docs/PREREG.md (rubric hash, 18 perturbation cells, endpoints, l* rule, TOST margins, multiplicity plan). W1: 150 double-annotated gold labels → per-category κ ≥ 0.7, re-judge archive. W2: d_OOD + d_length, forward-pass displacement grid off Farhan's cache, covariance-matched null battery, C2 selectivity figure, Gate 1.5 pilot. W3: rolling judging, mediation analysis. Daily scoop watch."),
-    ("Jeremiah", "Perturbation library · annotation · writing", "active",
-     "W0: create paper/ with the 5-page .tex skeleton (no .tex has ever existed in this project — that is risk #4). W1: author the 8-arm perturbation library as a tested Python module (unit tests asserting byte-identity of the retokenization control and appearance-identity of the precomposed/combining pair) + 200 hand-written contrast pairs (no LLM judge in extraction) + co-annotate gold labels. W3: MMLU cells, 200-judgment spot-check. All deliverables land by Aug 24 EOD (travel)."),
+    ("Jeremiah", "OWNER · fault-susceptibility study + measurement geometry", "active",
+     "<b>Owns two workstreams, not a task list.</b> (1) The <b>injected-fault susceptibility study</b> — on current evidence the paper's central contribution, and the thing an external prior-art scan said we need or we have 'a blog post with a bibliography'. Design authority and veto over its own results are his. (2) <b>Measurement geometry</b>, including the <b>extraction-variance floor that does not exist yet</b> and which gates every cosine we would report — the two archived Qwen1.5-7B vectors are byte-identical copies, so we have no estimate at all. Shared: gold-set annotation with Edward; writing lead; paper/.tex skeleton in W0. RUNBOOK_JEREMIAH.md."),
 ]
 
 HOW_WE_WORK = [
@@ -124,8 +124,11 @@ PATH_TO_SUBMISSION = [
 ]
 
 LINKS = [
+    ("Live dashboard", "https://bias-steering.exe.xyz"),
     ("★ RUNBOOK — Farhan (pipeline)", blob("RUNBOOK_FARHAN.md")),
-    ("★ RUNBOOK — Jeremiah (annotation)", blob("RUNBOOK_JEREMIAH.md")),
+    ("★ RUNBOOK — Jeremiah (fault study · geometry)", blob("RUNBOOK_JEREMIAH.md")),
+    ("Research program: geometry of refusal (parked)", blob("docs/RESEARCH_PROGRAM_GEOMETRY.md")),
+    ("Model set + Qwen 3.8 watch", blob("docs/MODEL_SET_2026-08-07.md")),
     ("Verification pass (2026-08-07)", blob("docs/VERIFICATION_2026-08-07.md")),
     ("Governed archive audit (2026-08-06)", blob("docs/REVIVAL_AUDIT.md")),
     ("★ The Correct Problem (read first)", blob("docs/THE_CORRECT_PROBLEM.md")),
