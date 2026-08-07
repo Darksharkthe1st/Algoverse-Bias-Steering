@@ -113,6 +113,10 @@ PATH_TO_SUBMISSION = [
 ]
 
 LINKS = [
+    ("★ RUNBOOK — Farhan (pipeline)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/RUNBOOK_FARHAN.md"),
+    ("★ RUNBOOK — Jeremiah (annotation)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/RUNBOOK_JEREMIAH.md"),
+    ("Verification pass (2026-08-07)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/VERIFICATION_2026-08-07.md"),
+    ("Governed archive audit (2026-08-06)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/REVIVAL_AUDIT.md"),
     ("★ The Correct Problem (read first)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/THE_CORRECT_PROBLEM.md"),
     ("Framing doctrine (PAPER_FRAMING.md)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/PAPER_FRAMING.md"),
     ("★ Sprint proposal (needs sign-off)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-02_sprint_proposal.md"),
@@ -123,6 +127,49 @@ LINKS = [
     ("2025 paper outline (rough)", "https://www.overleaf.com/4514258212zmrztmsxptvy#2adb04"),
     ("Arditi refusal-direction paper", "https://arxiv.org/abs/2406.11717"),
     ("Anthropic even-handedness eval (open-source)", "https://github.com/anthropics/political-neutrality-eval"),
+]
+
+# ---- claim ledger -------------------------------------------------------------
+# The working artifact: what we are allowed to say, and on what evidence.
+# status in {certified, retracted, review, open}. Update in the SAME PR as any
+# doc that repeats the claim.
+CLAIMS = [
+    ("certified", "2025 in-distribution steering moves judged opinionation, 7 models",
+     "Two independent CPU recounts agree: text-log recount (harness, Aug 6) and per-record pickle recount (Aug 7). 7/7 rows of Batched_Gen.csv reproduce exactly. n=96 per arm.",
+     "scripts/verify_2025_results.py · src/recount.py"),
+    ("certified", "Archived count tables reproduce for 12 further rows",
+     "Refusal_To_Opinion.csv 5/5 and BBQ_On_Normal.csv 7/7 match the text-log recount. Historical CSVs remain UNTRUSTED comparators regardless.",
+     "src/recount.py · docs/REVIVAL_AUDIT.md"),
+    ("certified", "Arrow-named CSV columns are per-arm MARGINALS, not transitions",
+     "GeneralResults.update_results increments one bucket from each arm's single judgement. 'Init-&gt;Opin' = 'the initial arm was judged opinionated'. Transitions require prompt-level pairing.",
+     "docs/REVIVAL_AUDIT.md"),
+    ("retracted", "&ldquo;Refusal↔opinion cross-application failed both ways&rdquo;",
+     "INVALID, not null. The archived refusal .pt files are 1-D hidden-width tensors; steering_vector[layer] on a 1-D tensor returns a SCALAR broadcast across the residual width — a DC offset, not a direction. Compounded by a model/vector_files ordering mismatch recovered via payload SHA-256. The soft-vs-hard refusal relation is UNTESTED.",
+     "docs/REVIVAL_AUDIT.md · docs/VERIFICATION_2026-08-07.md"),
+    ("retracted", "&ldquo;1% → 27% unsafe under the opinion vector on Llama-2-7B&rdquo;",
+     "The marginals are real text-log counts; the causal label is false. Log 213 saved the payload of Qwen-1_5-1_8B.pt, not a Llama opinion vector.",
+     "docs/REVIVAL_AUDIT.md"),
+    ("review", "Zero-vector ablation &ldquo;collapses to 99% nonsense&rdquo;",
+     "2,032 case-insensitive 'none' markers across 107 archived files are judge-EXTRACTION failures, not degeneration. Until that run's markers are separated, this is not a usable control.",
+     "src/judging.py"),
+    ("review", "&ldquo;All-layer&rdquo; steering is all-layer",
+     "Per-layer vector norms span 2–3× on gemma but 600–1391× on Qwen/Yi/Llama. With one scalar coefficient the intervention concentrates where the norm is largest, so on most families this is effectively LATE-layer steering. Any cross-model depth claim must unit-normalize first.",
+     "dashboard/data/vector_norm_profiles.json"),
+    ("open", "Do the 2025 labels measure stance-taking, or style?",
+     "The construct is unvalidated: the v1 rubric scored factual decisiveness as opinionation. Reproducing a label is not validating it. This is exactly what the Week-1 rubric gate exists to settle.",
+     "docs/THE_CORRECT_PROBLEM.md"),
+    ("open", "Is soft refusal separable from hard refusal?",
+     "Genuinely untested — the only archived experiment that bore on it was invalid. Not a null to build on.",
+     "—"),
+]
+
+AUDITS = [
+    ("2026-08-06", "Text-log recount (fusion harness)",
+     "Parses archived .txt logs with strict full-line delimiters; never deserializes the adjacent pickles. Derives the label mapping from observed pairs, refuses ambiguous label spaces, hashes source logs, tracks unparsed markers separately.",
+     "5/5 + 7/7 rows · 13 tests OK · found the 1-D-vector and ordering defects"),
+    ("2026-08-07", "Per-record pickle recount (independent)",
+     "Loads the response pickles with the project's own classes and recounts judgements per arm. Different artifact family, different code path, no shared assumptions with the text-log route.",
+     "7/7 rows · found n=96, cumulative pickles, norm profiles, scaffold pollution"),
 ]
 
 # Frontier reading list — mirrors PAPER_FRAMING.md (doctrine lives there; this
@@ -169,6 +216,99 @@ BULLETPROOFING = [
     ("idea", "Judge-v2 on archived outputs may RE-DATE the 2025 headline numbers — treat old percentages as provisional until re-judged."),
 ]
 # ------------------------------------------------------------------------------
+
+
+NORMS_JSON = "dashboard/data/vector_norm_profiles.json"
+
+# Distinct hues per family; gemma deliberately green because it is the flat one
+# and the contrast IS the finding.
+_FAMILY_COLOR = {"Qwen": "#4a7cf5", "Yi": "#8b74d4", "gemma": "#2ea86a",
+                 "Meta": "#c4972a", "Llama": "#c4972a"}
+
+
+def _family(model):
+    for k, v in _FAMILY_COLOR.items():
+        if model.startswith(k):
+            return v
+    return "#a8b8cc"
+
+
+def norm_profile_svg():
+    """Per-layer L2 norm vs fractional depth, log-y. This chart IS the argument
+    for unit-normalizing before any cross-model depth comparison."""
+    import json as _json
+    import math
+    try:
+        data = _json.load(open(NORMS_JSON))
+    except Exception:
+        return ("<div class='card'><p class='muted'>"
+                f"{NORMS_JSON} not found — run the norm-profile extractor.</p></div>")
+    vecs, seen = [], set()
+    for v in data["vectors"]:
+        if v["model"] in seen:      # log_113/log_114 are byte-identical copies
+            continue
+        seen.add(v["model"])
+        vecs.append(v)
+    W, H = 760, 320
+    ML, MR, MT, MB = 56, 168, 18, 42
+    pw, ph = W - ML - MR, H - MT - MB
+    lo, hi = -1.7, 1.7                      # log10 norm bounds
+
+    def X(f):
+        return ML + f * pw
+
+    def Y(n):
+        t = (math.log10(max(n, 1e-3)) - lo) / (hi - lo)
+        return MT + (1 - min(max(t, 0), 1)) * ph
+
+    parts = [f"<svg viewBox='0 0 {W} {H}' width='100%' role='img' "
+             "aria-label='Per-layer steering-vector norm versus fractional depth, log scale'>"]
+    for e in range(-1, 2):                  # y gridlines at 0.1, 1, 10
+        y = Y(10 ** e)
+        parts.append(f"<line x1='{ML}' y1='{y:.1f}' x2='{ML+pw}' y2='{y:.1f}' "
+                     "stroke='var(--border)' stroke-width='1'/>")
+        parts.append(f"<text x='{ML-9}' y='{y+4:.1f}' text-anchor='end' "
+                     f"font-size='11' fill='var(--ink3)'>{10**e:g}</text>")
+    for f in (0, .25, .5, .75, 1.0):
+        parts.append(f"<text x='{X(f):.1f}' y='{MT+ph+18:.1f}' text-anchor='middle' "
+                     f"font-size='11' fill='var(--ink3)'>{f:g}</text>")
+    parts.append(f"<text x='{ML+pw/2:.1f}' y='{H-6}' text-anchor='middle' font-size='11.5' "
+                 "fill='var(--ink2)'>fractional depth  f = layer / (n_layers − 1)</text>")
+    parts.append(f"<text x='14' y='{MT+ph/2:.1f}' font-size='11.5' fill='var(--ink2)' "
+                 f"transform='rotate(-90 14 {MT+ph/2:.1f})' text-anchor='middle'>‖vec[layer]‖₂ (log)</text>")
+    for i, v in enumerate(vecs):
+        n = v["layer_norms"]
+        L = len(n)
+        pts = " ".join(f"{X(j/(L-1)):.1f},{Y(x):.1f}" for j, x in enumerate(n))
+        c = _family(v["model"])
+        parts.append(f"<polyline points='{pts}' fill='none' stroke='{c}' stroke-width='2' "
+                     "stroke-linejoin='round' opacity='.92'/>")
+        ly = MT + 12 + i * 19
+        parts.append(f"<line x1='{ML+pw+14}' y1='{ly}' x2='{ML+pw+32}' y2='{ly}' stroke='{c}' stroke-width='2.5'/>")
+        ratio = max(n) / min(n)
+        parts.append(f"<text x='{ML+pw+38}' y='{ly+4}' font-size='10.5' fill='var(--ink2)'>"
+                     f"{html.escape(v['model'])}  <tspan fill='var(--ink3)'>{ratio:.0f}×</tspan></text>")
+    parts.append("</svg>")
+    return f"""
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+  <div style="padding:14px 20px 4px;font-size:13.5px;font-weight:600;color:var(--ink)">
+    Why one steering coefficient does different things on different models</div>
+  <div style="padding:0 20px 4px;font-size:12.5px;color:var(--ink3);line-height:1.6">
+    Per-layer L2 norm of each committed 2025 steering vector, against fractional depth.
+    Log scale. Trailing number is max/min within that vector.</div>
+  <div style="padding:8px 12px 4px">{''.join(parts)}</div>
+  <div style="padding:4px 20px 16px;font-size:12.5px;color:var(--ink3);line-height:1.7;border-top:1px solid var(--border)">
+    The 2025 method adds <code>(coeff / n_layers) · vec[layer]</code> at every layer with a
+    <b>single scalar coefficient</b>. The vector inherits the residual stream's norm growth, so on
+    <b style="color:#4a7cf5">Qwen</b>, <b style="color:#8b74d4">Yi</b> and <b style="color:#c4972a">Llama</b>
+    the last quarter of layers carries 54–70% of the injected norm and the first quarter carries ~1%:
+    &ldquo;all-layer&rdquo; steering is in practice <b>late-layer</b> steering.
+    <b style="color:#2ea86a">gemma</b> is nearly flat (2–3×) and genuinely is all-layer.
+    This is why per-model coefficients never stabilised — the coefficient was silently compensating for
+    an architectural norm profile — and it is why <b>any cross-model depth comparison must unit-normalize
+    directions first</b>, or it will mostly recover this plot.
+  </div>
+</div>"""
 
 
 def _read_rows(path):
@@ -312,6 +452,20 @@ def main():
         f"<li>{_gpill(s)}<div class='ptext'><span class='pwho'>{who}:</span> {t}</div></li>"
         for s, who, t in PATH_TO_SUBMISSION)
     links_html = "".join(f"<a href='{u}' target='_blank'>{html.escape(n)} ↗</a>" for n, u in LINKS)
+    _CLAIM_PILL = {"certified": "p-done", "retracted": "p-blocked",
+                   "review": "p-running", "open": "p-idea"}
+    claims_html = "".join(
+        f"<tr class='claim-{s}'><td><span class='pill {_CLAIM_PILL.get(s,'p-todo')}'>{s}</span></td>"
+        f"<td class='claim-txt'>{t}</td><td class='claim-why'>{w}</td>"
+        f"<td class='claim-src'><code>{html.escape(src)}</code></td></tr>"
+        for s, t, w, src in CLAIMS)
+    audits_html = "".join(
+        f"<tr><td class='mono' style='white-space:nowrap'>{d}</td><td><b>{html.escape(n)}</b></td>"
+        f"<td class=small style='font-size:12.5px;color:var(--ink3)'>{html.escape(m)}</td>"
+        f"<td class=small style='font-size:12.5px;color:var(--green)'>{html.escape(r)}</td></tr>"
+        for d, n, m, r in AUDITS)
+    norms_html = norm_profile_svg()
+
     frontier_html = "".join(
         f"<tr><td><span class='pill {'p-done' if a == 'must-cite' else ('p-running' if a == 'nice' else 'p-todo')}'>{a}</span></td>"
         f"<td><b>{html.escape(t)}</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>{html.escape(r)}</td></tr>"
@@ -435,6 +589,15 @@ a:hover{text-decoration:underline}
 .dec-table td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
 .dec-table td.dim{color:var(--ink3);font-size:12.5px;line-height:1.55}
 .muted{color:var(--ink3)}
+.claims td{vertical-align:top;padding:13px 16px}
+.claims .claim-txt{color:var(--ink);font-weight:600;font-size:13px;line-height:1.5}
+.claims .claim-why{font-size:12.5px;color:var(--ink3);line-height:1.6}
+.claims .claim-src code{font-size:11px;background:transparent;color:var(--ink3);padding:0}
+.claims tr.claim-retracted .claim-txt{color:#f4a0a0;text-decoration:line-through;text-decoration-color:rgba(217,95,95,.5)}
+.claims tr.claim-retracted td{background:rgba(217,95,95,.05)}
+.claims tr.claim-certified td{background:rgba(46,168,106,.035)}
+.claims tr.claim-review td{background:rgba(196,151,42,.04)}
+
 .chip-red{background:var(--red-dim);color:#f4a0a0;border-color:rgba(217,95,95,.3);font-family:var(--mono)}
 .timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .wk{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px;position:relative}
@@ -472,6 +635,8 @@ a:hover{text-decoration:underline}
   <div class="nav-links">
     <a href="#overview">Overview</a>
     <a href="#timeline">Timeline</a>
+    <a href="#claims">Claims</a>
+    <a href="#verification">Verification</a>
     <a href="#results">Results</a>
     <a href="#decisions">Decisions</a>
     <a href="#tasks">Tasks</a>
@@ -521,6 +686,26 @@ a:hover{text-decoration:underline}
 <div class="card-title" style="margin:20px 0 8px">Honest negative: the same vectors on CrowS-Pairs</div>
 {crows_html}
 <div class="warn"><strong>Provisional numbers.</strong> All 2025 percentages were produced by the retired binary judge, whose rubric scored factual decisiveness as opinionation. Judge v2 re-judging of the archived outputs may move every number above. Do not quote them in new text without the caveat.</div>
+
+<div class="section-label" id="claims">Claim ledger — what we are allowed to say</div>
+<p style="font-size:13px;color:var(--ink3);margin-bottom:14px">The working artifact. Every claim carries its evidence and its source. <b>Update this in the same PR as any doc that repeats the claim.</b> A retracted row is not a negative result — it is a claim with no experiment behind it.</p>
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+  <table class="data-table claims">
+    <tr><th style="width:88px">status</th><th style="width:26%">claim</th><th>evidence</th><th style="width:19%">source</th></tr>
+    {claims_html}
+  </table>
+</div>
+
+<div class="section-label" id="verification">Independent verification — two audits, two artifact families</div>
+<p style="font-size:13px;color:var(--ink3);margin-bottom:14px">The 2025 headline was recounted twice by <b>different code over different artifacts</b> with no shared assumptions. Agreement across independent routes is the reason we treat the effect as real while still treating the historical CSVs as untrusted.</p>
+<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+  <table class="data-table">
+    <tr><th style="width:104px">date</th><th style="width:24%">audit</th><th>method</th><th style="width:30%">result</th></tr>
+    {audits_html}
+  </table>
+</div>
+
+<div style="margin-top:16px">{norms_html}</div>
 
 <div class="section-label" id="decisions">Decisions (locked + under review)</div>
 <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
