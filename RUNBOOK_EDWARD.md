@@ -1,44 +1,56 @@
-# HANDOFF — Edward (infra · agents · measurement)
+# RUNBOOK — Edward (measurement · evals · infrastructure)
 
-> Read `PAPER_FRAMING.md` before writing any paper/summary text. Disagree → PR
-> that file, don't fork the narrative.
+> Facts live in their owners — see `docs/SOURCES_OF_TRUTH.md`. This file holds
+> only what I'm doing, never what is true.
 
-## Shipped (this PR)
+## Done
 
-- Team kit: dashboard (`scripts/build_dashboard.py` → `dashboard/index.html`,
-  CI rebuild), `PAPER_FRAMING.md` doctrine, `CLAUDE.md`/`AGENTS.md`,
-  `dashboard-update` skill, per-person handoffs.
-- `docs/2026-08-01_project_analysis.md` — post-mortem + frontier scan.
+- Two independent verification passes on the archive; the retraction and the
+  norm-profile finding (`docs/VERIFICATION_2026-08-07.md`).
+- Prior-art scan and the venue conflict (`docs/PRIOR_ART_2026-08-07.md`).
+- Model-set refresh, verified against HF configs and the TransformerLens
+  registry (`docs/MODEL_SET_2026-08-07.md`).
+- Team kit: dashboard (live at https://bias-steering.exe.xyz), framing
+  doctrine, agent instructions, runbooks, fact registry.
+- Rubric reconciliation — four competing versions merged into
+  `docs/RUBRIC_v2.md`.
+- NotebookLM pack regenerated clean of the retracted claim.
+- PR #1 open, awaiting Farhan's review.
 
-## Week 1 (sprint plan §3; Gate 1 owner)
+## Now — Gate 1 owner (blocks everything downstream)
 
-1. **Judge v2 rubric** (with Farhan's failure-mode list): two-axis —
-   stance-taking (yes/no) × hedging register — seeded from the
-   `farhan-opinion-spectrum` branch. Annotate ~150 gold labels with Jeremiah;
-   iterate to Cohen's kappa ≥ 0.7 (max two iterations); then re-judge
-   the archived logs (~$20–50 API). Gate 1: kappa AND archived vectors moved
-   stance-taking ≥ 10pp — bring both numbers to the Sunday gate decision.
-2. **First per-layer cosine figure by Friday** — second task, deliberately on
-   the caching code (bus-factor onboarding: if Farhan is out in week 3, you
-   run the degraded grid).
-3. **Compute wiring**: Lambda launch recipe (SSH + notebook, per Farhan's 2025
-   flow) documented in `docs/`; check cluster access as backup.
+1. **File `docs/PREREG.md`** once the rubric freezes. The skeleton is there;
+   the rubric commit hash is the field that matters.
+2. **Gold-set annotation with Jeremiah** — ~150 archived responses, blind to
+   arm, independent passes, per-category κ ≥ 0.70. My job is the harness and
+   the agreement statistics; the rubric itself is a team decision, not mine.
+3. **Re-judge the archived outputs** under the frozen rubric, with the scaffold
+   and control tokens normalized out first. Report per-example distributions.
+4. **Gate 1 call** — kappa met, and did the 2025 vectors move *stance-taking*
+   (not just hedging register) by ≥10pp? Bring both numbers to the meeting.
 
-## Week 2–3 (evals track — agent-assisted)
+## Next — evals and geometry support
 
-- Benchmark ingestion harness (`experiments/eval_harness/`): IssueBench
-  stratified subset, Anthropic Paired Prompts, XSTest, JailbreakBench,
-  pluggable into `src/data.py`'s loaders; Jeremiah assists, Farhan reviews.
-- Geometry package: per-layer cosines + principal angles, all 4 models.
-- Week 3: judging + metric aggregation as grid cells stream in (pinned
-  GPT-4o-mini, ~$75–125 cash total).
-
-Done already: venue verified (Interp4Discovery @ NeurIPS 2026, Aug 29 AoE —
-docs/2026-08-01_venue_scan.md).
+- Benchmark harness (agent-assisted): IssueBench subset, Anthropic paired
+  prompts, XSTest, JailbreakBench, pluggable into the existing loaders.
+- Geometry support for Jeremiah's workstream 2 — he owns the analysis; I own
+  making the numbers cheap to produce.
+- Judging and aggregation as grid cells land.
 
 ## Standing
 
-- Keep the dashboard honest (`dashboard-update` skill); doctrine + dashboard
-  change in the same PR when framing moves.
-- Agent infra: multi-agent research/verification runs on demand; results
-  always land as committed artifacts, never as chat-only claims.
+- Keep the claim ledger honest. It only works if it is the thing people edit,
+  not a summary of things edited elsewhere — that is how four rubrics happened
+  under a ledger built to prevent exactly that.
+- Daily scoop watch: refusal direction × tokenization/perturbation ×
+  identifiability. Pre-committed response is in
+  `docs/PRIOR_ART_2026-08-07.md`.
+- Dashboard rebuild + redeploy on any state change:
+  `python3 scripts/build_dashboard.py --out dashboard/index.html` then
+  `scp dashboard/index.html bias-steering.exe.xyz:/var/www/html/index.html`.
+
+## Not mine
+
+Merging PR #1 — that is Farhan's, as repo owner, first author, and the person
+whose code the audit is about. Rubric content, the venue choice, and the
+scope call are team decisions.
