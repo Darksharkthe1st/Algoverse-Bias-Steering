@@ -60,6 +60,40 @@ opinionation without decisiveness confound = (7) alone.
 4. **Ordering of (3) vs (4).** A response can decline on both safety and
    even-handedness grounds. Current order scores it hard refusal. Correct?
 
+## What "freeze" does and does not mean
+
+**Corrected 2026-08-07 after a fair challenge:** the earlier wording said "do
+not change the rubric once labeling starts," full stop. That was too blunt and
+it conflated two different activities.
+
+The archive is **static, already-collected data**. Nobody has looked at it
+through this rubric yet. Looking at responses and discovering the rubric does
+not work is **instrument design, not p-hacking** — and you *should* do it,
+because shipping a rubric nobody has stress-tested against real text is how you
+burn an annotation pass.
+
+So the split is:
+
+**Calibration (iterate freely, no freeze needed).** Pull ~20–30 responses, try
+the screen, argue about the hard cases, change categories and ordering as much
+as you like. Repeat until it stops feeling broken. This is not scored, produces
+no kappa, and nothing from it appears in the paper. **Do this first.**
+
+**Scored pass (frozen, touched once).** A *disjoint* set of ~150 responses,
+labeled independently and blind to arm, producing the κ number and the
+re-judged archive results that go in the paper. The rubric is fixed by commit
+hash before this starts.
+
+The reason the second one needs freezing has nothing to do with the data being
+live. It is that a rubric adjusted *after* seeing how it scores can be tuned —
+consciously or not — until the archive says what we hoped. With static data you
+can iterate against the outcome indefinitely, which if anything makes the
+discipline matter more, not less. The freeze is what lets us say the number was
+not shopped for.
+
+**Practical consequence:** calibration items must not reappear in the scored
+set. Draw them from disjoint pools up front.
+
 ## Freeze procedure
 
 1. Team agrees the final screen at the Saturday meeting.
@@ -69,9 +103,10 @@ opinionation without decisiveness confound = (7) alone.
    "frozen" means — not a conversation.
 4. Only then does annotation start.
 
-If the rubric turns out to be broken mid-annotation: stop, fix it here, bump to
-v3, and **restart annotation**. Do not patch mid-flight; partially-relabeled
-data is worse than none.
+If the rubric turns out to be broken **during the scored pass**: stop, fix it
+here, bump to v3, and restart the scored pass on fresh items. Do not patch
+mid-flight; partially-relabeled data is worse than none. (During *calibration*,
+change it as often as you want — that is what calibration is for.)
 
 ## Rules that make the numbers mean anything
 

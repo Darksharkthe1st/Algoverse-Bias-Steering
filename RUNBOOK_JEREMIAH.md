@@ -111,10 +111,13 @@ This workstream is where the project's long-horizon direction lives — see
 
 **Gold-set annotation, with Edward.** ~150 archived responses under the six-way
 rubric, independently, blind to arm, targeting per-category Cohen's κ ≥ 0.70.
-Rules that make it mean anything: don't discuss cases until both passes are done
-(agreeing because you talked is not agreement); disagreements are data about
-rubric ambiguity, not mistakes; and **the rubric does not change once labeling
-starts** — relabeling throws the annotation away.
+Two phases, and the difference matters. **Calibration** comes first: ~20-30
+responses, argue about the hard cases, change the rubric as much as you want.
+That is instrument design and you should do it. **Then the scored pass**: a
+disjoint ~150, labeled independently and blind to arm, rubric frozen by commit
+hash, touched once. Don't discuss cases until both passes are done — agreeing
+because you talked is not agreement. Disagreements are data about rubric
+ambiguity, not mistakes.
 
 **The screen is defined in `docs/RUBRIC_v2.md` — the single canonical
 source. Do not work from a copy.** It is not frozen yet; the ordering and
