@@ -19,6 +19,15 @@ import datetime
 BATCHED_CSV = "experiments/past_logs/methodology_experiments/batched_tests/Batched_Gen.csv"
 CROWS_CSV = "experiments/past_logs/crows_experiments/Crows_Opin_Tests/Crows_Opin.csv"
 
+# Docs live on the working branch until it merges to main. Flip to "main" in
+# the same PR that merges, or every link on this page 404s.
+REPO = "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering"
+BRANCH = "team-kit"
+
+
+def blob(path):
+    return f"{REPO}/blob/{BRANCH}/{path}"
+
 # ---- editable narrative state -------------------------------------------------
 TAGLINE = "Testing whether the 'soft refusal' direction is real — by showing an input perturbation nobody designed moves models along it, and that removing that component abolishes the behavior change."
 
@@ -61,8 +70,8 @@ RUNS = [  # (label, state) state in {running, done, queued}
 DECISIONS = [
     ("Core method (baseline)", "Difference-in-means steering at all layers/positions",
      "The 2025 recipe. Now the BASELINE, not the method — upgrades (affine/ACE, capping, conditional) are sprint work, per the frontier scan."),
-    ("Judge", "UNDER REPLACEMENT — GPT-4o-mini binary judge is retired",
-     "2025 rubric scored any clear stance 'opinionated', even factual ones — conflating decisiveness with bias. This predicts the CrowS transfer failure. Judge v2 = graded scale + separated axes; the dormant farhan-opinion-spectrum branch has a 5-point seed."),
+    ("Judge", "RETIRED — no v1 label may appear in any new analysis, figure, or sentence",
+     "Not a caveat — a hard rule. The v1 rubric scored any clear stance 'opinionated' even when factual, so every archived vector was built from a contrast set mixing 'took a side' with 'stated a fact'. Reproducing those labels validates the bookkeeping, not the construct. v1 counts may be cited only as 'what the 2025 pipeline recorded'. No table may ever mix v1 and v2."),
     ("Models", "Qwen1.5-7B · gemma-2b-it · Llama-3-8B · Qwen2.5-7B (sprint set)",
      "Three families + one modern checkpoint answers the model-vintage objection; Qwen1.5-14B and Yi dropped (budget, redundancy). All fit one A100 in bf16."),
     ("Evals", "Opinion: held-out comparisons + IssueBench subset + Paired Prompts · Safety: XSTest + JailbreakBench · Capability: MMLU slice",
@@ -113,17 +122,17 @@ PATH_TO_SUBMISSION = [
 ]
 
 LINKS = [
-    ("★ RUNBOOK — Farhan (pipeline)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/RUNBOOK_FARHAN.md"),
-    ("★ RUNBOOK — Jeremiah (annotation)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/RUNBOOK_JEREMIAH.md"),
-    ("Verification pass (2026-08-07)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/VERIFICATION_2026-08-07.md"),
-    ("Governed archive audit (2026-08-06)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/REVIVAL_AUDIT.md"),
-    ("★ The Correct Problem (read first)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/THE_CORRECT_PROBLEM.md"),
-    ("Framing doctrine (PAPER_FRAMING.md)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/PAPER_FRAMING.md"),
-    ("★ Sprint proposal (needs sign-off)", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-02_sprint_proposal.md"),
-    ("Post-mortem + frontier scan", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-01_project_analysis.md"),
-    ("Venue scan", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/main/docs/2026-08-01_venue_scan.md"),
+    ("★ RUNBOOK — Farhan (pipeline)", blob("RUNBOOK_FARHAN.md")),
+    ("★ RUNBOOK — Jeremiah (annotation)", blob("RUNBOOK_JEREMIAH.md")),
+    ("Verification pass (2026-08-07)", blob("docs/VERIFICATION_2026-08-07.md")),
+    ("Governed archive audit (2026-08-06)", blob("docs/REVIVAL_AUDIT.md")),
+    ("★ The Correct Problem (read first)", blob("docs/THE_CORRECT_PROBLEM.md")),
+    ("Framing doctrine (PAPER_FRAMING.md)", blob("PAPER_FRAMING.md")),
+    ("★ Sprint proposal (needs sign-off)", blob("docs/2026-08-02_sprint_proposal.md")),
+    ("Post-mortem + frontier scan", blob("docs/2026-08-01_project_analysis.md")),
+    ("Venue scan", blob("docs/2026-08-01_venue_scan.md")),
     ("Interp4Discovery CFP (target venue)", "https://interpretability4discovery.github.io/cfp.html"),
-    ("Repo", "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering"),
+    ("Repo", REPO),
     ("2025 paper outline (rough)", "https://www.overleaf.com/4514258212zmrztmsxptvy#2adb04"),
     ("Arditi refusal-direction paper", "https://arxiv.org/abs/2406.11717"),
     ("Anthropic even-handedness eval (open-source)", "https://github.com/anthropics/political-neutrality-eval"),
@@ -219,6 +228,8 @@ BULLETPROOFING = [
 
 
 NORMS_JSON = "dashboard/data/vector_norm_profiles.json"
+
+
 
 # Distinct hues per family; gemma deliberately green because it is the flat one
 # and the contrast IS the finding.
@@ -452,19 +463,47 @@ def main():
         f"<li>{_gpill(s)}<div class='ptext'><span class='pwho'>{who}:</span> {t}</div></li>"
         for s, who, t in PATH_TO_SUBMISSION)
     links_html = "".join(f"<a href='{u}' target='_blank'>{html.escape(n)} ↗</a>" for n, u in LINKS)
-    _CLAIM_PILL = {"certified": "p-done", "retracted": "p-blocked",
-                   "review": "p-running", "open": "p-idea"}
-    claims_html = "".join(
-        f"<tr class='claim-{s}'><td><span class='pill {_CLAIM_PILL.get(s,'p-todo')}'>{s}</span></td>"
-        f"<td class='claim-txt'>{t}</td><td class='claim-why'>{w}</td>"
-        f"<td class='claim-src'><code>{html.escape(src)}</code></td></tr>"
-        for s, t, w, src in CLAIMS)
+    _CLAIM_HEAD = {
+        "certified": ("Certified", "reproduced by independent routes — safe to build on"),
+        "retracted": ("Retracted", "no valid experiment behind it — never cite in either direction"),
+        "review": ("Under review", "do not cite until the flagged check is done"),
+        "open": ("Open", "genuinely unanswered — this is what the sprint is for"),
+    }
+    claims_html = ""
+    for status in ("certified", "retracted", "review", "open"):
+        rows = [c for c in CLAIMS if c[0] == status]
+        if not rows:
+            continue
+        label, gloss = _CLAIM_HEAD[status]
+        items = "".join(
+            f"<div class='citem'><div class='citem-t'>{t}</div>"
+            f"<div class='citem-w'>{w}</div>"
+            f"<div class='citem-s'>{html.escape(src)}</div></div>"
+            for _, t, w, src in rows)
+        claims_html += (
+            f"<div class='cgroup g-{status}'><div class='cgroup-h'>{label}"
+            f"<span style='font-weight:400;text-transform:none;letter-spacing:0;opacity:.75'>"
+            f"&nbsp;— {gloss}</span><span class='cgroup-n'>{len(rows)}</span></div>{items}</div>")
     audits_html = "".join(
         f"<tr><td class='mono' style='white-space:nowrap'>{d}</td><td><b>{html.escape(n)}</b></td>"
         f"<td class=small style='font-size:12.5px;color:var(--ink3)'>{html.escape(m)}</td>"
         f"<td class=small style='font-size:12.5px;color:var(--green)'>{html.escape(r)}</td></tr>"
         for d, n, m, r in AUDITS)
     norms_html = norm_profile_svg()
+
+    _n = {k: sum(1 for c in CLAIMS if c[0] == k)
+          for k in ("certified", "retracted", "review", "open")}
+    stats = [
+        (f"{_days_left}", "days to submission", "Aug 29 AoE · Interp4Discovery",
+         "warn" if _days_left <= 14 else ""),
+        ("7 / 7", "headline rows reproduce", "two independent recounts, two artifact families", "good"),
+        (f"{_n['retracted']}", "claims retracted", "invalid experiments, not negative results", "bad"),
+        ("96", "responses per arm", "the real denominator — not ~100", ""),
+    ]
+    stats_html = "".join(
+        f"<div class='stat'><div class='stat-v {c}'>{v}</div>"
+        f"<div class='stat-k'>{k}</div><div class='stat-s'>{html.escape(sub)}</div></div>"
+        for v, k, sub, c in stats)
 
     frontier_html = "".join(
         f"<tr><td><span class='pill {'p-done' if a == 'must-cite' else ('p-running' if a == 'nice' else 'p-todo')}'>{a}</span></td>"
@@ -491,7 +530,9 @@ def main():
 <style>
 :root{--bg:#0a0c10;--bg2:#0d1117;--surface:#111620;--surface2:#161c28;--surface3:#1c2436;--border:#1f2a3e;--border2:#2a374f;--ink:#e8edf5;--ink2:#a8b8cc;--ink3:#5e7490;--accent:#4a7cf5;--accent-dim:rgba(74,124,245,.10);--accent-glow:rgba(74,124,245,.04);--green:#2ea86a;--green-dim:rgba(46,168,106,.10);--red:#d95f5f;--red-dim:rgba(217,95,95,.10);--yellow:#c4972a;--yellow-dim:rgba(196,151,42,.10);--purple:#8b74d4;--purple-dim:rgba(139,116,212,.10);--r:8px;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:'JetBrains Mono','SF Mono','Cascadia Code',Consolas,monospace}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: no-preference){html:focus-within{scroll-behavior:smooth}}
+[id]{scroll-margin-top:72px}
+.section-label{scroll-margin-top:72px}
 body{font-family:var(--font);font-size:14px;line-height:1.65;color:var(--ink2);background:var(--bg);-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 nav{position:sticky;top:0;z-index:100;height:52px;display:flex;align-items:center;gap:4px;padding:0 28px;background:rgba(10,12,16,.85);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--border)}
@@ -589,6 +630,27 @@ a:hover{text-decoration:underline}
 .dec-table td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
 .dec-table td.dim{color:var(--ink3);font-size:12.5px;line-height:1.55}
 .muted{color:var(--ink3)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-top:-8px}
+.stat{background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:3px}
+.stat-v{font-family:var(--mono);font-size:23px;font-weight:500;color:var(--ink);line-height:1.05}
+.stat-v.good{color:var(--green)} .stat-v.bad{color:var(--red)} .stat-v.warn{color:var(--yellow)}
+.stat-k{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);font-weight:600}
+.stat-s{font-size:11.5px;color:var(--ink3);line-height:1.45}
+.cgroup{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+.cgroup-h{display:flex;align-items:center;gap:10px;padding:11px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;border-bottom:1px solid var(--border)}
+.cgroup-n{margin-left:auto;font-family:var(--mono);font-size:12px;opacity:.8;text-transform:none;letter-spacing:0}
+.cgroup.g-certified .cgroup-h{background:rgba(46,168,106,.09);color:var(--green)}
+.cgroup.g-retracted .cgroup-h{background:rgba(217,95,95,.09);color:var(--red)}
+.cgroup.g-review .cgroup-h{background:rgba(196,151,42,.09);color:var(--yellow)}
+.cgroup.g-open .cgroup-h{background:rgba(139,116,212,.09);color:var(--purple)}
+.citem{padding:14px 18px;border-bottom:1px solid var(--border)}
+.citem:last-child{border-bottom:none}
+.citem-t{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.5;margin-bottom:5px}
+.cgroup.g-retracted .citem-t{color:#f4a0a0;text-decoration:line-through;text-decoration-color:rgba(217,95,95,.45)}
+.citem-w{font-size:12.5px;color:var(--ink3);line-height:1.65}
+.citem-s{margin-top:7px;font-family:var(--mono);font-size:10.5px;color:var(--ink3);opacity:.85}
+@media(max-width:760px){.stats{grid-template-columns:1fr 1fr}}
+
 .claims td{vertical-align:top;padding:13px 16px}
 .claims .claim-txt{color:var(--ink);font-weight:600;font-size:13px;line-height:1.5}
 .claims .claim-why{font-size:12.5px;color:var(--ink3);line-height:1.6}
@@ -666,6 +728,8 @@ a:hover{text-decoration:underline}
 
 <div class="wrap">
 
+<div class="stats">{stats_html}</div>
+
 <div class="section-label" id="overview">Project overview</div>
 <div class="g3">{overview_html}</div>
 
@@ -689,12 +753,7 @@ a:hover{text-decoration:underline}
 
 <div class="section-label" id="claims">Claim ledger — what we are allowed to say</div>
 <p style="font-size:13px;color:var(--ink3);margin-bottom:14px">The working artifact. Every claim carries its evidence and its source. <b>Update this in the same PR as any doc that repeats the claim.</b> A retracted row is not a negative result — it is a claim with no experiment behind it.</p>
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="data-table claims">
-    <tr><th style="width:88px">status</th><th style="width:26%">claim</th><th>evidence</th><th style="width:19%">source</th></tr>
-    {claims_html}
-  </table>
-</div>
+{claims_html}
 
 <div class="section-label" id="verification">Independent verification — two audits, two artifact families</div>
 <p style="font-size:13px;color:var(--ink3);margin-bottom:14px">The 2025 headline was recounted twice by <b>different code over different artifacts</b> with no shared assumptions. Agreement across independent routes is the reason we treat the effect as real while still treating the historical CSVs as untrusted.</p>

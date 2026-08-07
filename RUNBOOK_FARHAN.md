@@ -166,7 +166,33 @@ alias, so those exact weights are unrecoverable; and the BBQ splits were
 unseeded, so exact training membership must be recovered from artifacts before
 any retraining claim.
 
-## Task 5 — Never let extraction failures become behavior labels
+## Task 5 — Judge policy: the v1 judge is RETIRED, not caveated
+
+This was previously written as a caveat on the numbers. That was too weak.
+**Rule: no judge-v1 label may appear in any new analysis, figure, or sentence.**
+
+The v1 rubric scored any clear stance as "opinionated" *even when it was
+factual*, so the contrast set that produced every archived vector mixes
+"took a side" with "stated a fact." A difference-in-means vector over mixed
+labels points between them. Reproducing those labels — which we did, 7/7 —
+validates the *bookkeeping*, not the *construct*.
+
+What this means concretely:
+
+- Archived v1 counts may be cited **only** as "what the 2025 pipeline recorded,"
+  never as a measurement of opinionation, stance, or bias.
+- No table may mix v1 and v2 labels. Ever. Not with a footnote.
+- Nothing downstream of a v1 label is a result: not the transfer failure, not
+  the coefficient choices, not the "best" vectors in `experiments/best_vecs/`.
+  They are inputs to be re-derived, not findings to build on.
+- Every judged number carries its judge version in the artifact, not in prose.
+
+The gate is unchanged and it is the only genuinely time-critical item in the
+sprint: freeze the six-way rubric, double-annotate ~150 responses blind to arm,
+require per-category Cohen's κ ≥ 0.70. Until that passes, we have a
+reproducible pipeline and no validated construct — and we say exactly that.
+
+## Task 6 — Never let extraction failures become behavior labels
 
 There are **2,032** case-insensitive `none` markers across 107 archived files.
 They are judge-**extraction** failures — not degeneration, not "nonsense."
