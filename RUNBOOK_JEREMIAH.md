@@ -17,6 +17,51 @@ noticing that is the skill.
 
 ---
 
+## Your track: the injected-fault study
+
+You said you're down for anything and that the matrices-and-numbers side is
+what clicks. Good — there's a job here that is genuinely yours, it's the
+quantitative core of the paper, and it needs no GPU.
+
+**The idea.** We found that last year's refusal experiment produced a clean,
+convincing table — 1 unsafe out of 99, then 27 out of 99 after "steering" —
+that measured *nothing*. A `(4096,)` vector was indexed as if it had layers, so
+a single number got broadcast across all 4096 dimensions. Nothing crashed.
+
+The obvious question, and nobody in the literature has answered it: **how often
+does that happen, and would you be able to tell?**
+
+**The experiment.** Take a steering pipeline that works. Inject one fault at a
+time — scalar broadcast, wrong model's vector, judge parse-failures counted as
+a behavior, unseeded split, mislabeled column semantics. For each one, measure:
+
+- What effect size does the fault *manufacture* out of nothing?
+- Does it produce a fake positive, or a fake null?
+- Would any standard reported statistic reveal it?
+- How much of the result table changes?
+
+The output is a **susceptibility profile**: a quantitative statement of which
+silent faults produce which artifacts, at what magnitude. That is real,
+publishable, and it is nearly all arithmetic and linear algebra — exactly the
+part you like. It also turns an accusation we *cannot* support ("maybe
+published nulls are bugs") into a measurement we *can*.
+
+**Why it matters for you specifically.** This is the kind of contribution that
+gets a name on a paper for a reason you can explain in one sentence, rather
+than for helping out. Start whenever you're through the week-1 reading; the
+scalar-broadcast case is the one to do first because we have the real example
+to check yourself against.
+
+**Second thing that's yours if you want it:** the geometry numbers. Per-layer
+norms, cosines between directions, and the bootstrap that tells us how much a
+direction moves when you resample the contrast set. Right now we have *no*
+estimate of that last one — the two archived Qwen1.5-7B vectors are
+byte-identical copies, so they tell us nothing about variance. Without that
+floor, no cosine we report means anything. The chart on the dashboard under
+*Verification* is the first piece of this; the rest is open.
+
+---
+
 ## Week 1 — orientation and the thing only humans can do
 
 ### Reading, in this order
@@ -33,7 +78,7 @@ noticing that is the skill.
 4. **`docs/VERIFICATION_2026-08-07.md`** — a worked example of the kind of
    checking you're about to do.
 
-### Task A — co-annotate the gold set (your main week-1 job)
+### Task A — co-annotate the gold set (week-1 job, shared with Edward)
 
 **What it is.** We're rebuilding the judge, because last year's scored any clear
 stance as "opinionated" — *even a factual one*. So "the fresh shirt is cleaner"
