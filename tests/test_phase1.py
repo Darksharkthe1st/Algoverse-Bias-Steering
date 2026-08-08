@@ -1,0 +1,230 @@
+"""Phase 1 verification: datasets + sampling, steering wiring, judge parsing,
+model catalog/prompting.
+
+Runs with plain Python (no ML stack required):
+
+    python3 tests/test_phase1.py
+
+Tests that genuinely need torch (capture/build tensor math) are SKIPPED here and
+run on a GPU box where torch is installed. Everything else runs anywhere.
+"""
+
+import os
+import sys
+
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+import src.bias_steer as bs  # noqa: E402
+from src.bias_steer import registry, steering, models  # noqa: E402
+from src.bias_steer.datasets import sample, load_bbq  # noqa: E402
+from src.bias_steer.judge import parse_verdict, UNMATCHED  # noqa: E402
+from src.bias_steer.config import (  # noqa: E402
+    DatasetSpec, SampleSpec, ExperimentConfig, JudgeSpec, Coeffs,
+)
+from src.bias_steer.schema import Example  # noqa: E402
+
+try:
+    import torch  # noqa: F401
+    _HAS_TORCH = True
+except Exception:
+    _HAS_TORCH = False
+
+
+# ---------------------------------------------------------------- registries
+
+def test_package_imports_without_ml_stack():
+    # The mere fact this file imported bias_steer proves the package (and its
+    # Phase 1 submodules) load without torch/openai installed.
+    for name in ("datasets", "models", "steering", "judge"):
+        assert hasattr(bs, name), f"submodule {name} not exposed"
+
+
+def test_registries_populated_on_import():
+    assert {"bbq", "crows", "plain", "hidden_bias"}.issubset(registry.DATASETS)
+    assert "mean_diff" in registry.METHODS
+    assert "neutrality" in registry.JUDGES
+    # model catalog: chat-template flags match the notebook
+    assert registry.MODELS["qwen-7b"].chat_template is True
+    assert registry.MODELS["gemma-2b"].chat_template is False
+    assert registry.MODELS["qwen-7b"].quirks == ["qwen"]
+
+
+def test_registry_validate_accepts_catalog_config():
+    cfg = ExperimentConfig(
+        label="t", models=["qwen-7b"],
+        dataset=DatasetSpec(name="bbq", path="x"),
+        judge=JudgeSpec(name="neutrality"), coeffs=Coeffs(13, 15),
+        method="mean_diff",
+    )
+    registry.validate(cfg)  # no raise
+
+
+# ---------------------------------------------------------------- datasets
+
+def test_bbq_loader_metadata_and_prompt_parity():
+    path = "datasets/BBQ_Prompt_Sets/Age.jsonl"
+    exs = load_bbq(DatasetSpec(name="bbq", path=path))
+    assert len(exs) > 0
+    e = exs[0]
+    assert e.metadata["category"] == "Age"
+    assert len(e.metadata["answers"]) == 3
+    assert "Pick one of three options" in e.prompt
+
+    # prompt must be byte-identical to the legacy loader (no science change)
+    from src.data import load_bbq_dataset
+    from src.bias_steer.datasets import _resolve
+    legacy = load_bbq_dataset(str(_resolve(path)))
+    assert len(legacy) == len(exs)
+    assert exs[0].prompt == legacy[0], "BBQ prompt drifted from legacy format"
+
+
+def test_plain_loader():
+    # any one-per-line file works; reuse a small dataset that ships with the repo
+    exs = bs.datasets.load_plain(
+        DatasetSpec(name="plain", path="datasets/Homemade_Prompt_Sets/Objects/countries.txt")
+    )
+    assert len(exs) > 0 and all(isinstance(e, Example) for e in exs)
+    assert exs[0].id == "plain-0"
+
+
+def _synthetic(counts: dict) -> list[Example]:
+    """Build Examples with a `category` metadata field: {cat: n}."""
+    out = []
+    for cat, n in counts.items():
+        for i in range(n):
+            out.append(Example(id=f"{cat}-{i}", prompt="p", metadata={"category": cat}))
+    return out
+
+
+def test_sample_filter():
+    exs = _synthetic({"A": 50, "B": 30, "C": 20})
+    got = sample(exs, SampleSpec(filter={"category": ["A", "B"]}))
+    assert len(got) == 80
+    assert {e.metadata["category"] for e in got} == {"A", "B"}
+
+
+def test_sample_per_group_is_balanced_and_capped_by_availability():
+    exs = _synthetic({"A": 50, "B": 30, "C": 5})
+    got = sample(exs, SampleSpec(per_group=("category", 10), seed=0))
+    by_cat = {}
+    for e in got:
+        by_cat.setdefault(e.metadata["category"], 0)
+        by_cat[e.metadata["category"]] += 1
+    assert by_cat == {"A": 10, "B": 10, "C": 5}  # C only had 5
+
+
+def test_sample_limit_and_determinism():
+    exs = _synthetic({"A": 50, "B": 50})
+    a = sample(exs, SampleSpec(limit=20, seed=42))
+    b = sample(exs, SampleSpec(limit=20, seed=42))
+    assert len(a) == 20
+    assert [e.id for e in a] == [e.id for e in b], "same seed must give same subset"
+
+
+# ---------------------------------------------------------------- judge parsing
+
+def test_parse_verdict_variants():
+    labels = ["neutral", "opinionated"]
+    assert parse_verdict("Long reasoning...\nANSWER: neutral", labels) == "neutral"
+    assert parse_verdict("ANSWER: opinionated because it takes a stance", labels) == "opinionated"
+    assert parse_verdict("answer: NEUTRAL", labels) == "neutral"          # case-insensitive
+    assert parse_verdict("I think this is neutral overall", labels) == "neutral"  # no ANSWER: -> fallback
+    assert parse_verdict("ANSWER: banana", labels) is None               # unknown label
+    # multiple ANSWER: lines -> the last one wins
+    assert parse_verdict("ANSWER: neutral\n...revised...\nANSWER: opinionated", labels) == "opinionated"
+
+
+def test_unmatched_bucket_name():
+    assert UNMATCHED == "nonsense"
+
+
+# ---------------------------------------------------------------- steering (structural)
+
+def test_resid_pre_hook_names():
+    assert steering.resid_pre_hook_names(3) == [
+        "blocks.0.hook_resid_pre", "blocks.1.hook_resid_pre", "blocks.2.hook_resid_pre",
+    ]
+
+
+def test_mean_diff_method_defaults():
+    m = registry.METHODS["mean_diff"]
+    assert m.capture is steering.capture_mean
+    assert m.build is steering.build_mean_difference
+    assert m.apply is steering.apply_resid_pre_add
+
+
+class _StubCfg:
+    n_layers = 3
+
+
+class _StubModel:
+    cfg = _StubCfg()
+
+
+def test_apply_builds_hooks_structure_without_torch():
+    # building hooks needs only n_layers + an indexable vector; torch is used only
+    # when the hook fires during generation.
+    hooks = steering.apply_resid_pre_add(_StubModel(), ["v0", "v1", "v2"], coeff=6.0)
+    assert [name for name, _ in hooks] == steering.resid_pre_hook_names(3)
+    assert len(hooks) == 3
+
+
+def test_build_chat_messages():
+    msgs = models.build_chat_messages("SYS", "USER")
+    assert msgs == [
+        {"role": "system", "content": "SYS"},
+        {"role": "user", "content": "USER"},
+    ]
+
+
+# ---------------------------------------------------------------- torch-gated
+
+def test_capture_and_build_math():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    d_model, seq = 4, 3
+    # capture_mean: mean over the seq dim of one layer's resid_pre
+    cache = {"blocks.0.hook_resid_pre": torch.arange(seq * d_model, dtype=torch.float32).reshape(1, seq, d_model)}
+    cap = steering.capture_mean(cache, n_layers=1)
+    assert cap.shape == (1, d_model)
+    assert torch.allclose(cap[0], cache["blocks.0.hook_resid_pre"][0].mean(dim=0))
+
+    # build_mean_difference: mean(pos) - mean(neg)
+    n_layers = 2
+    pos = [torch.ones(n_layers, d_model), torch.ones(n_layers, d_model) * 3]  # mean 2
+    neg = [torch.zeros(n_layers, d_model)]                                    # mean 0
+    vec = steering.build_mean_difference({"opinionated": pos, "neutral": neg}, ("opinionated", "neutral"))
+    assert vec.shape == (n_layers, d_model)
+    assert torch.allclose(vec, torch.ones(n_layers, d_model) * 2)
+
+
+def _expect(exc_type, fn):
+    try:
+        fn()
+    except exc_type as e:
+        return e
+    raise AssertionError(f"expected {exc_type.__name__}")
+
+
+def _main():
+    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
+    failed = 0
+    for t in tests:
+        try:
+            t()
+            print(f"PASS  {t.__name__}")
+        except Exception as e:  # noqa: BLE001
+            failed += 1
+            print(f"FAIL  {t.__name__}: {type(e).__name__}: {e}")
+    print(f"\n{len(tests) - failed}/{len(tests)} passed"
+          + ("" if _HAS_TORCH else "  (torch-gated math test ran in skip mode)"))
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

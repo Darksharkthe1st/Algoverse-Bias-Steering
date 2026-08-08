@@ -22,12 +22,27 @@ from .config import (
 from . import registry
 from . import tracking
 
+# Phase 1 science. Importing these populates the registries (DATASETS / MODELS /
+# METHODS / JUDGES) as a side effect. They lazy-import torch/openai, so this stays
+# safe on a machine without the ML stack.
+from . import datasets
+from . import models
+from . import steering
+from . import judge
+from .datasets import sample
+from .steering import SteeringMethod
+from .models import LoadedModel, load_model
+from .judge import parse_verdict
+
 __all__ = [
     # schema
     "Example", "Result", "CONDITIONS", "INITIAL", "STEERED_POS", "STEERED_NEG",
     # config
     "ExperimentConfig", "ModelSpec", "DatasetSpec", "SampleSpec", "JudgeSpec",
     "Coeffs", "from_dict", "DEFAULT_SYS", "DEFAULT_JUDGE_RUBRIC",
-    # modules
+    # science
+    "datasets", "models", "steering", "judge",
+    "sample", "SteeringMethod", "LoadedModel", "load_model", "parse_verdict",
+    # infra modules
     "registry", "tracking",
 ]
