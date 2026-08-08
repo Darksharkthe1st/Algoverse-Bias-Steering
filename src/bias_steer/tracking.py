@@ -21,6 +21,8 @@ from .config import ExperimentConfig
 INDEX_COLUMNS = [
     "run_id", "label", "model", "dataset", "method",
     "opin_coeff", "neut_coeff", "git_sha", "dirty", "timestamp", "status",
+    # headline metrics filled in by a completed run (Phase 2); blank on creation.
+    "n_train", "n_test", "opin_good", "neut_good",
 ]
 
 

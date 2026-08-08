@@ -34,6 +34,14 @@ from .steering import SteeringMethod
 from .models import LoadedModel, load_model
 from .judge import parse_verdict
 
+# Phase 2: wiring + persistence.
+from . import artifacts
+from . import logs
+from . import metrics
+from . import experiment
+from . import cli
+from .experiment import run, Backend, RunResult
+
 __all__ = [
     # schema
     "Example", "Result", "CONDITIONS", "INITIAL", "STEERED_POS", "STEERED_NEG",
@@ -43,6 +51,9 @@ __all__ = [
     # science
     "datasets", "models", "steering", "judge",
     "sample", "SteeringMethod", "LoadedModel", "load_model", "parse_verdict",
+    # wiring + persistence
+    "artifacts", "logs", "metrics", "experiment", "cli",
+    "run", "Backend", "RunResult",
     # infra modules
     "registry", "tracking",
 ]
