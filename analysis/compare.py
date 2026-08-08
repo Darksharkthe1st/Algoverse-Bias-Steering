@@ -1,16 +1,20 @@
 """Cross-run comparison from CSV outputs (arch roadmap §7.1).
 
 Reads `runs/index.csv` (one row per run) and per-run `results.csv` (tidy: one row
-per example×condition), and computes aggregates *after the fact* — the payoff of
-the tidy long format. Stdlib only (no pandas, no torch); never imports the engine,
-so re-analysis can never trigger a re-run.
+per example×condition) into pandas, so aggregates are one `groupby`/pivot away —
+the payoff of the tidy long format. Never imports the `bias_steer` engine, so
+re-analysis can never trigger a re-run.
 
     python -m analysis.compare runs/            # print the cross-run table
+
+The helpers below are conveniences; with the loaders returning DataFrames you can
+also just do your own pandas directly (e.g. `df.groupby("category").verdict.value_counts()`).
 """
 
-import csv
-from collections import Counter, defaultdict
+import argparse
 from pathlib import Path
+
+import pandas as pd
 
 # The condition values written into results.csv. Kept local (a copy of the data
 # contract) so this module stays independent of the engine.
@@ -19,87 +23,62 @@ STEERED_POS = "steered_pos"
 STEERED_NEG = "steered_neg"
 
 
-def load_index(runs_dir="runs") -> list[dict]:
-    """Rows of `runs/index.csv` (empty list if absent)."""
+def load_index(runs_dir="runs") -> pd.DataFrame:
+    """`runs/index.csv` as a DataFrame (empty DataFrame if absent)."""
     path = Path(runs_dir) / "index.csv"
-    if not path.exists():
-        return []
-    with path.open(newline="") as f:
-        return list(csv.DictReader(f))
+    return pd.read_csv(path) if path.exists() else pd.DataFrame()
 
 
-def load_results(run_dir) -> list[dict]:
-    """Tidy rows of one run's `results.csv`."""
-    with (Path(run_dir) / "results.csv").open(newline="") as f:
-        return list(csv.DictReader(f))
+def load_results(run_dir) -> pd.DataFrame:
+    """One run's tidy `results.csv`."""
+    return pd.read_csv(Path(run_dir) / "results.csv")
 
 
-def load_run_results(runs_dir, run_id) -> list[dict]:
+def load_run_results(runs_dir, run_id) -> pd.DataFrame:
     """Tidy rows for a run identified by its id under `runs_dir`."""
-    return load_results(Path(runs_dir) / run_id)
+    return load_results(Path(runs_dir) / str(run_id))
 
 
-def verdict_counts(rows, condition=None, group_by=None):
-    """Count verdicts over tidy rows. Optionally restrict to one `condition` and/or
-    split by a column (e.g. ``group_by="category"`` for per-category rates)."""
-    def match(r):
-        return condition is None or r["condition"] == condition
-
-    if group_by:
-        grouped = defaultdict(Counter)
-        for r in rows:
-            if match(r):
-                grouped[r.get(group_by)][r["verdict"]] += 1
-        return {k: dict(v) for k, v in grouped.items()}
-
-    counter = Counter(r["verdict"] for r in rows if match(r))
-    return dict(counter)
+def load_all_results(runs_dir="runs", run_ids=None) -> pd.DataFrame:
+    """Concatenate several runs' tidy rows into one DataFrame (each row already
+    carries its `run_id`), so cross-run analysis is a single `groupby`."""
+    index = load_index(runs_dir)
+    if run_ids is None:
+        run_ids = [] if index.empty else index["run_id"].tolist()
+    frames = [load_run_results(runs_dir, rid) for rid in run_ids]
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-def rate(rows, condition, verdict) -> float:
-    """Fraction of `condition` rows whose verdict is `verdict` (0.0 if none)."""
-    total = sum(1 for r in rows if r["condition"] == condition)
-    if not total:
-        return 0.0
-    hits = sum(1 for r in rows if r["condition"] == condition and r["verdict"] == verdict)
-    return hits / total
+def verdict_rates(results: pd.DataFrame, by=None) -> pd.DataFrame:
+    """Proportion of each verdict within each condition.
+
+    Optionally split further by column(s) — e.g. ``by="category"`` for per-category
+    rates or ``by="run_id"`` across runs. Returns a tidy frame with `n` and `rate`.
+    """
+    if results.empty:
+        return results
+    extra = [by] if isinstance(by, str) else list(by or [])
+    keys = ["condition"] + extra
+    counts = results.groupby(keys + ["verdict"]).size().rename("n").reset_index()
+    counts["rate"] = counts["n"] / counts.groupby(keys)["n"].transform("sum")
+    return counts
 
 
-DEFAULT_COMPARE_COLUMNS = [
-    "run_id", "model", "dataset", "opin_coeff", "neut_coeff",
-    "n_test", "opin_good", "neut_good", "status",
-]
-
-
-def compare(runs_dir="runs", columns=None) -> list[dict]:
-    """A cross-run table (one row per run) projected to `columns`, from index.csv."""
-    columns = columns or DEFAULT_COMPARE_COLUMNS
-    return [{c: row.get(c, "") for c in columns} for row in load_index(runs_dir)]
-
-
-def format_table(rows, columns=None) -> str:
-    """Render a list of dict rows as a fixed-width text table."""
-    if not rows:
-        return "(no rows)"
-    columns = columns or list(rows[0].keys())
-    widths = {c: max([len(c)] + [len(str(r.get(c, ""))) for r in rows]) for c in columns}
-
-    def line(values):
-        return "  ".join(str(v).ljust(widths[c]) for c, v in zip(columns, values))
-
-    out = [line(columns), "  ".join("-" * widths[c] for c in columns)]
-    out += [line([r.get(c, "") for c in columns]) for r in rows]
-    return "\n".join(out)
+def compare(runs_dir="runs", columns=None) -> pd.DataFrame:
+    """The cross-run table (index.csv), optionally projected to `columns`."""
+    index = load_index(runs_dir)
+    if index.empty or columns is None:
+        return index
+    return index[[c for c in columns if c in index.columns]]
 
 
 def main(argv=None) -> int:
-    import argparse
-
     parser = argparse.ArgumentParser(prog="analysis.compare",
                                      description="Compare runs from index.csv.")
     parser.add_argument("runs_dir", nargs="?", default="runs")
     args = parser.parse_args(argv)
-    print(format_table(compare(args.runs_dir)))
+    index = load_index(args.runs_dir)
+    print("(no runs)" if index.empty else index.to_string(index=False))
     return 0
 
 
