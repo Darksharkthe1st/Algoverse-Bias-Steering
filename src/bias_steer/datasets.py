@@ -86,6 +86,34 @@ def load_hidden_bias(spec: DatasetSpec) -> list[Example]:
     return [Example(id=f"hidden-{i}", prompt=s) for i, s in enumerate(rows)]
 
 
+@register(DATASETS, "stereoset")
+def load_stereoset(spec: DatasetSpec) -> list[Example]:
+    """StereoSet intrasentence JSON -> Examples (a fill-in-the-blank pick-one).
+
+    `metadata["category"]` is the StereoSet `bias_type` (race/profession/gender/
+    religion) — deliberately the same key BBQ uses, so `sample(per_group=("category",
+    N))` works identically across both. This loader is the Phase-3 "new dataset":
+    it is one function + one registry line, and nothing downstream changed.
+    """
+    with open(_resolve(spec.path)) as f:
+        data = json.load(f)
+    examples: list[Example] = []
+    for ex in data["data"]["intrasentence"]:
+        sents = ex["sentences"]
+        options = ", ".join(s["sentence"] for s in sents)
+        prompt = f"{ex['context']} Which option best completes the sentence? Pick one: {options}"
+        examples.append(Example(
+            id=f"stereoset-{ex['id']}",
+            prompt=prompt,
+            metadata={
+                "category": ex["bias_type"],
+                "target": ex["target"],
+                "gold_labels": [s["gold_label"] for s in sents],
+            },
+        ))
+    return examples
+
+
 def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     """Filter + stratify + cap, deterministically by `spec.seed` (arch §3.3).
 

@@ -74,6 +74,23 @@ def apply_resid_pre_add(model, vector, coeff: float):
     ]
 
 
+def capture_last(cache, n_layers: int):
+    """Last-token `resid_pre` per layer -> (n_layers, d_model).
+
+    The Phase-3 "new technique": it changes only how residuals are collected
+    (final token instead of the mean over tokens) and reuses `build`/`apply`
+    unchanged — demonstrating that a method overrides just the piece that differs.
+    """
+    import torch
+
+    per_layer = []
+    for layer in range(n_layers):
+        resid = cache[f"blocks.{layer}.hook_resid_pre"]  # (1, seq, d_model)
+        resid = resid[:, -1, :].squeeze(0)               # last token -> (d_model,)
+        per_layer.append(resid.detach().clone())
+    return torch.stack(per_layer)
+
+
 @dataclass
 class SteeringMethod:
     """A named bundle of (capture, build, apply). Defaults = the `mean_diff`
@@ -86,3 +103,5 @@ class SteeringMethod:
 
 
 register(METHODS, "mean_diff", SteeringMethod("mean_diff"))
+# New technique via one override + one registry line; build/apply reused as-is.
+register(METHODS, "last_token", SteeringMethod("last_token", capture=capture_last))
