@@ -199,8 +199,10 @@ def test_cli_loads_config_file():
         assert cfg.label == "c" and cfg.models == ["qwen-7b"]
 
 
-def test_cli_queue_flag_is_not_yet_supported():
-    assert cli.main(["run", "--queue"]) == 2  # Phase 4
+def test_cli_queue_requires_a_route_file():
+    # --queue is implemented (Phase 4); without _coordinator/route.json it must
+    # exit cleanly (2), not raise. (The repo has no route file by default.)
+    assert cli.main(["run", "--queue"]) == 2
 
 
 def _main():

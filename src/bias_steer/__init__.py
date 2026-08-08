@@ -40,7 +40,9 @@ from . import logs
 from . import metrics
 from . import experiment
 from . import cli
+from . import coordinator
 from .experiment import run, Backend, RunResult
+from .coordinator import Coordinator, RouteEntry, GitOps
 
 __all__ = [
     # schema
@@ -54,6 +56,8 @@ __all__ = [
     # wiring + persistence
     "artifacts", "logs", "metrics", "experiment", "cli",
     "run", "Backend", "RunResult",
+    # batch coordinator
+    "coordinator", "Coordinator", "RouteEntry", "GitOps",
     # infra modules
     "registry", "tracking",
 ]

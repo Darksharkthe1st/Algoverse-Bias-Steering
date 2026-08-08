@@ -35,16 +35,30 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("config", nargs="?", help="path to a Python config file defining `config`")
     p.add_argument("--runs-dir", default="runs", help="where run folders are written")
     p.add_argument("--queue", action="store_true",
-                   help="(Phase 4) drain a queue of configs across branches — not available yet")
+                   help="drain _coordinator/route.json across branches (the batch coordinator, §10)")
     return p
+
+
+def _emit_phase(phase, run_id):
+    # stdout sentinel the coordinator parses to commit/push per phase (§10.4).
+    print(f"::bias-steer:phase:{phase}:{run_id}", flush=True)
 
 
 def main(argv=None) -> int:
     args = build_arg_parser().parse_args(argv)
 
     if args.queue:
-        print("--queue (the batch coordinator) lands in Phase 4; not available yet.")
-        return 2
+        from ..utils import get_repo_root
+        route = get_repo_root() / "_coordinator" / "route.json"
+        if not route.exists():
+            print(f"error: no route file at {route}\n"
+                  f"create it to use --queue (see docs/02-architecture-roadmap.md §10.3).")
+            return 2
+        from .coordinator import Coordinator
+        print(f"coordinator: draining {route} ...")
+        Coordinator(runs_dir=args.runs_dir).run()
+        return 0
+
     if not args.config:
         print("error: a config file path is required (e.g. `run configs/my_exp.py`)")
         return 2
@@ -59,7 +73,8 @@ def main(argv=None) -> int:
 
     from . import experiment
     results = experiment.run(cfg, runs_dir=args.runs_dir,
-                             progress=lambda it, **kw: tqdm(list(it), **kw))
+                             progress=lambda it, **kw: tqdm(list(it), **kw),
+                             on_phase=_emit_phase)
     for r in results:
         print(f"\ndone: {r.dir}\n  summary: {r.summary_md}\n  results: {r.results_csv}")
     return 0

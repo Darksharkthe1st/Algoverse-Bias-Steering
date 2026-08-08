@@ -65,10 +65,17 @@ def _contrast(config: ExperimentConfig):
 
 
 def run(config: ExperimentConfig, *, backend: Backend | None = None,
-        runs_dir="runs", index_path=None, progress=None) -> list[RunResult]:
-    """Run `config` for each of its models; returns one `RunResult` per model."""
+        runs_dir="runs", index_path=None, progress=None, on_phase=None) -> list[RunResult]:
+    """Run `config` for each of its models; returns one `RunResult` per model.
+
+    `on_phase(phase, run_id)` is called at each persistence boundary ("vector" after
+    the steering vector is saved, "eval" after results/index are written). run()
+    stays git-agnostic; the coordinator (§10) supplies this callback to commit/push
+    per phase. Default None = no-op.
+    """
     backend = backend or Backend()
     progress = progress or (lambda it, **kw: it)
+    on_phase = on_phase or (lambda phase, run_id: None)
     config.validate()
     validate(config)
 
@@ -87,13 +94,13 @@ def run(config: ExperimentConfig, *, backend: Backend | None = None,
 
     return [
         _run_one(config, model_key, train, test, method, judge_fn, contrast,
-                 backend, runs_dir, index_path, progress)
+                 backend, runs_dir, index_path, progress, on_phase)
         for model_key in config.models
     ]
 
 
 def _run_one(config, model_key, train, test, method, judge_fn, contrast,
-             backend, runs_dir, index_path, progress) -> RunResult:
+             backend, runs_dir, index_path, progress, on_phase) -> RunResult:
     when = get_current_time_str()
     handle = open_run(config, model_key, runs_dir=runs_dir, when=when)
     log = RunLogger(handle.dir)
@@ -119,6 +126,7 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     vector = method.build(resids_by_label, contrast)
     backend.save_vector(handle.dir / "steering_vector.safetensors", vector)
     backend.save_residuals(handle.dir / "residuals.safetensors", resids_by_label)
+    on_phase("vector", handle.run_id)  # steering vector persisted -> coordinator commits/pushes
 
     # --- TEST: initial + steered (both directions), judge each -----------------
     results: list[Result] = []
@@ -170,5 +178,6 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     })
     append_index(index_path, row)
     log.event("done")
+    on_phase("eval", handle.run_id)  # results + index persisted -> coordinator commits/pushes
 
     return RunResult(handle.run_id, handle.dir, results_csv, summary_md, counts, quality)
