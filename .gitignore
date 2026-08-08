@@ -205,3 +205,15 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 experiments/farhan_logs/Log_11/log_11_Meta-Llama-3-8B-Instruct_residuals.pkl
+
+# --- bias_steer: runs & coordinator (docs/02-architecture-roadmap.md §8, §10) ---
+# Runs are committed by DEFAULT (never lose an experiment). Only these stay out of git.
+# NOTE: .gitignore has no inline comments — patterns must stand alone on their own line.
+#
+# Bulky residual tensors (>100MB GitHub cap); regenerable from committed inputs:
+runs/**/residuals.safetensors
+# Throwaway runs (opt-out pile):
+runs/_discard/
+# Ephemeral batch STATE (route/queue/control/status); coordinator CODE lives in
+# src/bias_steer/ and IS committed:
+_coordinator/
