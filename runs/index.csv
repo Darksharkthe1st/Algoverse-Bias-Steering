@@ -3,3 +3,4 @@ run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,
 20260809-012833_sweep-qwen18-c2_qwen-1.8b,sweep qwen18 c2,qwen-1.8b,snapshot,mean_diff,2,2,59e6e9687a69310c3361bfa31ef8bdcc395cb058,True,20260809-012833,done,100,100,18,16
 20260809-013300_sweep-qwen18-c6_qwen-1.8b,sweep qwen18 c6,qwen-1.8b,snapshot,mean_diff,6,6,f6b9cd9f61a37fa7ab4ef74a64c945b820677601,True,20260809-013300,done,100,100,50,23
 20260809-013730_sweep-qwen18-c10_qwen-1.8b,sweep qwen18 c10,qwen-1.8b,snapshot,mean_diff,10,10,52773f4b0f930871b0826f33210c14fa028281fc,True,20260809-013730,done,100,100,60,24
+20260809-014201_sweep-qwen18-c14_qwen-1.8b,sweep qwen18 c14,qwen-1.8b,snapshot,mean_diff,14,14,4031ed85564f44bd0d8c8c6fc7772d42838995b8,True,20260809-014201,done,100,100,51,26
