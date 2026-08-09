@@ -9,6 +9,7 @@ imported lazily so the module imports without it.
 """
 
 import argparse
+import os
 from pathlib import Path
 
 from .config import ExperimentConfig
@@ -39,6 +40,36 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _load_env() -> None:
+    """Load `.env` from the repo root into os.environ (see `.env.example`).
+
+    Secrets are read via `os.getenv` at call time (judge.py) or by libraries
+    (huggingface_hub reads HF_TOKEN), so they only have to be in the environment
+    before a run starts. Shell-exported values take precedence — we never
+    overwrite something already set.
+
+    Deliberately stdlib: a six-line parser beats a dependency, and it keeps the
+    "package imports on any machine" invariant intact. Called from `main`, not at
+    import time, so importing the CLI stays side-effect free for tests.
+    """
+    from ..utils import get_repo_root
+
+    path = get_repo_root() / ".env"
+    if not path.exists():
+        return
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        # Strip one layer of matching quotes, the one dotenv-ism worth supporting.
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ.setdefault(key, value)
+
+
 def _emit_phase(phase, run_id):
     # stdout sentinel the coordinator parses to commit/push per phase (§10.4).
     print(f"::bias-steer:phase:{phase}:{run_id}", flush=True)
@@ -46,6 +77,7 @@ def _emit_phase(phase, run_id):
 
 def main(argv=None) -> int:
     args = build_arg_parser().parse_args(argv)
+    _load_env()
 
     if args.queue:
         from ..utils import get_repo_root
@@ -64,6 +96,15 @@ def main(argv=None) -> int:
         return 2
 
     cfg = load_config_file(args.config)
+
+    # Preflight: the judge runs in BOTH phases, so a missing key means the run
+    # dies after the model load rather than before it. Check it up front.
+    if not os.getenv("OPENAI_API_KEY"):
+        print("error: OPENAI_API_KEY is not set, and the judge is needed by both "
+              "the train and eval phases.\n"
+              "       Put it in .env at the repo root (see .env.example) or export it.")
+        return 2
+
     print(f"experiment: {cfg.label}")
     print(f"  models:  {', '.join(cfg.models)}")
     print(f"  dataset: {cfg.dataset.name}  judge: {cfg.judge.name}  method: {cfg.method}")
