@@ -13,6 +13,10 @@ setup(
         "transformer-lens",
         "pandas",
         "torch",
+        # bias_steer runtime deps (Phases 0-4)
+        "openai",        # LLM-as-a-judge (judge.py)
+        "safetensors",   # tensor persistence (artifacts.py)
+        "tqdm",          # CLI progress bars (cli.py)
     ],
     python_requires=">=3.12",
 ) 
