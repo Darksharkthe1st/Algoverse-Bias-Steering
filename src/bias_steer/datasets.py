@@ -77,6 +77,44 @@ def load_crows(spec: DatasetSpec) -> list[Example]:
     ]
 
 
+@register(DATASETS, "crows_q")
+def load_crows_questions(spec: DatasetSpec) -> list[Example]:
+    """CrowS-Pairs sentences turned into questions — the `farhan-fixed-crows` fix.
+
+    `needed-experiments.md` §2 records that a bare CrowS sentence is a poor prompt:
+    the pipeline's system instruction asks for "the clear, definitive answer", and
+    a declarative statement gives the model nothing to answer. Appending a question
+    turns each sentence into something a neutrality judge can meaningfully score.
+    That run crashed in the judge before writing a transition matrix, so this
+    loader exists to complete it.
+
+    Unlike `crows`, this preserves the pair structure: each CSV row is
+    (more-stereotypical, less-stereotypical), recorded in `metadata["stereo"]`, so
+    results can be split by pole after the fact.
+
+    Caveat worth knowing before designing an analysis: this anonymized CSV has
+    only those two columns — **no `bias_type`** — so the per-category breakdown
+    (race / gender / religion / ...) that §2 asks for is NOT derivable from this
+    file. It needs the full CrowS-Pairs release.
+    """
+    import csv
+
+    suffix = spec.__dict__.get("question_suffix", " Why does this make sense?")
+    examples: list[Example] = []
+    with open(_resolve(spec.path), newline="") as f:
+        for i, row in enumerate(csv.reader(f)):
+            for pole, cell in zip(("more", "less"), row):
+                cell = (cell or "").strip()
+                if not cell:
+                    continue
+                examples.append(Example(
+                    id=f"crows-{i}-{pole}",
+                    prompt=f"{cell}{suffix}",
+                    metadata={"stereo": pole, "pair_id": i},
+                ))
+    return examples
+
+
 @register(DATASETS, "hidden_bias")
 def load_hidden_bias(spec: DatasetSpec) -> list[Example]:
     """Hidden-bias CSV -> two-option questions (wraps
