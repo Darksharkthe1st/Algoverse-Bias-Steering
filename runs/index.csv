@@ -1,3 +1,4 @@
 run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,status,n_train,n_test,opin_good,neut_good
 20260809-010713_parity-log103_qwen-1.8b,parity log103,qwen-1.8b,snapshot,mean_diff,14,15,808c484ab38316a66a99899eac7178365d626b9d,True,20260809-010713,done,100,100,43,27
 20260809-015504_anchor-qwen-1.8b_qwen-1.8b,anchor qwen-1.8b,qwen-1.8b,snapshot,mean_diff,14,15,b9383c320b19fedbbc7fcdf90fdb3ba248042503,True,20260809-015504,done,100,100,41,30
+20260809-015926_anchor-yi-6b_yi-6b,anchor yi-6b,yi-6b,snapshot,mean_diff,8,7,6a2b6b8d61134cb41034a2c9fe01891921a2fafe,True,20260809-015926,done,100,100,25,50
