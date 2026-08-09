@@ -83,18 +83,36 @@ def render_prompts(loaded: LoadedModel, prompts, system_prompt):
     return token_lists, strs
 
 
-def _strip(loaded: LoadedModel, out_strs, prompt_strs):
-    """Drop the prompt + BOS prefix from each generated string (notebook behavior;
-    guards against a None BOS token, which the notebook did not)."""
-    bos = loaded.tokenizer.bos_token or ""
-    return [s[len(prompt_strs[i]) + len(bos):] for i, s in enumerate(out_strs)]
+def _strip(loaded: LoadedModel, out_tokens, n_input: int) -> list[str]:
+    """Decode only the newly generated tokens of each row.
+
+    Replaces the notebook's character-based slice
+    (``s[len(prompt_str) + len(bos):]``), which is wrong under left padding: a
+    batch is padded to its longest member, so the decoded string is
+    ``<pad>... <bos> <prompt> <response>`` and cutting `len(prompt)` *characters*
+    off the front lands in the middle of the padding, leaving prompt tail and
+    chat-template markup (``<|im_end|><|im_start|>assistant``) glued to the front
+    of every response. Measured on the Log_103 anchor before this fix: 0/8
+    responses shared even a single leading character with the archive
+    (docs/04-parity.md, rung 2).
+
+    Slicing by token index is exact instead of approximate: left padding makes the
+    prompt occupy the same width `n_input` in *every* row, so `row[n_input:]` is
+    precisely the generated continuation regardless of prompt length.
+    """
+    return [
+        loaded.tokenizer.decode(row[n_input:], skip_special_tokens=True)
+        for row in out_tokens
+    ]
 
 
 def generate(loaded: LoadedModel, prompts, max_new_tokens, system_prompt) -> list[str]:
     """Greedy generation. Ports notebook `normal_generation`."""
     _, strs = render_prompts(loaded, prompts, system_prompt)
-    out = loaded.model.generate(strs, max_new_tokens=max_new_tokens, do_sample=False, return_type="tokens")
-    return _strip(loaded, loaded.model.to_string(out), strs)
+    tokens = loaded.model.to_tokens(strs)  # left-padded to a uniform width
+    out = loaded.model.generate(tokens, max_new_tokens=max_new_tokens,
+                                do_sample=False, return_type="tokens")
+    return _strip(loaded, out, tokens.shape[1])
 
 
 def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_prompt):
@@ -112,8 +130,11 @@ def generate_with_hooks(loaded: LoadedModel, prompts, fwd_hooks, max_new_tokens,
     _, strs = render_prompts(loaded, prompts, system_prompt)
     tokens = loaded.model.to_tokens(strs)
     with loaded.model.hooks(fwd_hooks):
+        # temperature=0 is greedy: sample_logits early-returns argmax on 0.0, so
+        # this matches `generate`'s do_sample=False. Verified against
+        # transformer_lens 3.7 (docs/04-parity.md).
         out = loaded.model.generate(tokens, max_new_tokens=max_new_tokens, temperature=0)
-    return _strip(loaded, loaded.model.to_string(out), strs)
+    return _strip(loaded, out, tokens.shape[1])
 
 
 # Catalog of known models (pure data). Adding a HookedTransformer model = one
