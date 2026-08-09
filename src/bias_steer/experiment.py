@@ -84,7 +84,8 @@ def run(config: ExperimentConfig, *, backend: Backend | None = None,
     # Resolve + materialize the dataset once (shared across this config's models).
     examples = DATASETS[config.dataset.name](config.dataset)
     examples = datasets.sample(examples, config.sample)
-    random.Random(config.sample.seed).shuffle(examples)  # balanced train/test split
+    if config.dataset.shuffle:
+        random.Random(config.sample.seed).shuffle(examples)  # balanced train/test split
     n_train = int(len(examples) * config.dataset.train_split)
     train, test = examples[:n_train], examples[n_train:]
 

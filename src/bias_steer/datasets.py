@@ -114,6 +114,38 @@ def load_stereoset(spec: DatasetSpec) -> list[Example]:
     return examples
 
 
+@register(DATASETS, "snapshot")
+def load_snapshot(spec: DatasetSpec) -> list[Example]:
+    """A frozen prompt list from a prior run -> Examples, in recorded order.
+
+    Formalizes the notebook's `get_any_variable(..._dataset.pkl)` habit of pinning
+    the exact prompt set a historical run used (`01-feature-roadmap.md` §1.2). This
+    is what makes an archived run reproducible when its prompts were never a file
+    in `datasets/` — as with the Log_103 parity anchor, whose 200 prompts exist
+    only inside its pickle.
+
+    Accepts `.json` (a list of strings) or `.pkl`. Order is preserved exactly,
+    because a snapshot's whole point is reproducing a specific train/test split.
+
+    NOTE on `.pkl`: unpickling executes arbitrary code, so this path is only for
+    our own archived artifacts under `experiments/`. Prefer converting once to
+    JSON (`tools/snapshot_from_pickle.py`) and pointing configs at that.
+    """
+    path = _resolve(spec.path)
+    if path.suffix == ".json":
+        prompts = json.loads(path.read_text())
+    else:
+        import pickle
+        with open(path, "rb") as f:
+            prompts = pickle.load(f)
+
+    if not isinstance(prompts, list) or not all(isinstance(p, str) for p in prompts):
+        raise ValueError(f"{path} must contain a list[str] of prompts")
+
+    stem = path.stem
+    return [Example(id=f"{stem}-{i}", prompt=p) for i, p in enumerate(prompts)]
+
+
 def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     """Filter + stratify + cap, deterministically by `spec.seed` (arch §3.3).
 

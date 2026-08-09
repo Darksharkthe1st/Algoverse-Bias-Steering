@@ -56,6 +56,12 @@ class DatasetSpec:
     name: str                 # key into the DATASETS registry
     path: str = ""            # path to the raw data (loader-specific)
     train_split: float = 0.5  # fraction used to build the steering vector
+    shuffle: bool = True      # shuffle (seeded) before the train/test split?
+
+    # `shuffle=False` takes the first `train_split` fraction in dataset order,
+    # which is what the notebook did (`prompts[:int(len*train_split)]`). Needed to
+    # reproduce an archived run's exact split; leave it True for new experiments,
+    # where an unshuffled split risks correlating the split with file order.
 
 
 @dataclass
