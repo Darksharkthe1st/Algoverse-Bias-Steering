@@ -1,0 +1,3 @@
+[20260809-013300] loading model Qwen/Qwen1.5-1.8B-Chat
+[20260809-013432] building steering vector (buckets: {'neutral': 72, 'opinionated': 28})
+[20260809-013724] done
