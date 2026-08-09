@@ -100,6 +100,10 @@ class SteeringMethod:
     capture: Callable = capture_mean
     build: Callable = build_mean_difference
     apply: Callable = apply_resid_pre_add
+    # Hook points `capture` reads, so generation can cache only those rather than
+    # every hook point in the model (see models.generate_with_cache). Override
+    # alongside `capture` if a technique reads something other than resid_pre.
+    names: Callable = resid_pre_hook_names
 
 
 register(METHODS, "mean_diff", SteeringMethod("mean_diff"))

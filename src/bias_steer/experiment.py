@@ -116,7 +116,10 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     resids_by_label: dict = {}
     for batch in progress(list(_batches(train, config.batch_size)), desc=f"{model_key} train"):
         prompts = [e.prompt for e in batch]
-        responses, caches = backend.generate_with_cache(loaded, prompts, config.max_tokens, sys_prompt)
+        responses, caches = backend.generate_with_cache(
+            loaded, prompts, config.max_tokens, sys_prompt,
+            capture_names=method.names(n_layers),
+        )
         verdicts = judge_fn(responses, batch, config.judge)
         for ex, resp, cache, verdict in zip(batch, responses, caches, verdicts):
             resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))

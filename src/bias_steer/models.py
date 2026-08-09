@@ -115,12 +115,31 @@ def generate(loaded: LoadedModel, prompts, max_new_tokens, system_prompt) -> lis
     return _strip(loaded, out, tokens.shape[1])
 
 
-def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_prompt):
+def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_prompt,
+                        capture_names=None):
     """Return (responses, caches). The cache is taken over the *response* text —
     faithful to the notebook, where `batch_resids` calls `run_with_cache` on the
-    stripped output. Feed each cache to `steering.capture_*`."""
+    stripped output. Feed each cache to `steering.capture_*`.
+
+    `capture_names` is the list of hook points to retain. It matters a lot: an
+    unfiltered `run_with_cache` keeps *every* hook point at every layer (~15x the
+    tensors actually read) for every example in a batch simultaneously, which is
+    what the notebook did and why it could not scale past small models. Filtering
+    to the handful of names `capture` reads cuts both memory and time by an order
+    of magnitude and is what lets a 14B model run at a usable batch size.
+
+    Defaults to the `resid_pre` names used by `capture_mean` / `capture_last`; a
+    method reading other hook points passes its own (see `SteeringMethod.names`).
+    """
     responses = generate(loaded, prompts, max_new_tokens, system_prompt)
-    caches = [loaded.model.run_with_cache(r)[1] for r in responses]
+    if capture_names is None:
+        n_layers = loaded.model.cfg.n_layers
+        capture_names = [f"blocks.{i}.hook_resid_pre" for i in range(n_layers)]
+    wanted = set(capture_names)
+    caches = [
+        loaded.model.run_with_cache(r, names_filter=lambda n: n in wanted)[1]
+        for r in responses
+    ]
     return responses, caches
 
 

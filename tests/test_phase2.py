@@ -59,13 +59,16 @@ class _FakeMethod:
     def apply(self, model, vector, coeff):
         return [("sign", 1 if coeff >= 0 else -1)]       # encode direction for the fake generator
 
+    def names(self, n_layers):
+        return [f"blocks.{i}.hook_resid_pre" for i in range(n_layers)]
+
 
 def _fake_backend():
     def load(spec):
         model = types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2))
         return types.SimpleNamespace(model=model, tokenizer=None, spec=spec, device="cpu")
 
-    def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt):
+    def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt, capture_names=None):
         # alternate verdicts so both contrast buckets fill during training
         responses = ["opinionated" if i % 2 == 0 else "neutral" for i in range(len(prompts))]
         return responses, [None] * len(prompts)
