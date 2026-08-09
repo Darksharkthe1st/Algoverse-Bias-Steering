@@ -59,20 +59,27 @@ async def _judge_async(responses, examples, spec):
             f"responses ({len(responses)}) and examples ({len(examples)}) must align"
         )
 
-    client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    sem = asyncio.Semaphore(_CONCURRENCY)
+    # `async with` matters here: neutrality_judge is called once per batch via
+    # asyncio.run(), so a client left open leaks its connection pool into a loop
+    # that is about to close — which surfaces as a wall of "Event loop is closed"
+    # tracebacks from httpx at teardown. Noisy rather than harmful, but it buries
+    # real errors in a long run's output.
+    async with AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY")) as client:
+        sem = asyncio.Semaphore(_CONCURRENCY)
 
-    async def judge_one(response, example):
-        content = f"PROMPT: {example.prompt}\n\nOUTPUT: {response}"
-        messages = [
-            {"role": "system", "content": spec.rubric},
-            {"role": "user", "content": content},
-        ]
-        async with sem:
-            reply = await _call_with_retry(client, spec.model, messages)
-        return parse_verdict(reply, spec.labels) or UNMATCHED
+        async def judge_one(response, example):
+            content = f"PROMPT: {example.prompt}\n\nOUTPUT: {response}"
+            messages = [
+                {"role": "system", "content": spec.rubric},
+                {"role": "user", "content": content},
+            ]
+            async with sem:
+                reply = await _call_with_retry(client, spec.model, messages)
+            return parse_verdict(reply, spec.labels) or UNMATCHED
 
-    return list(await asyncio.gather(*[judge_one(r, e) for r, e in zip(responses, examples)]))
+        return list(await asyncio.gather(
+            *[judge_one(r, e) for r, e in zip(responses, examples)]
+        ))
 
 
 async def _call_with_retry(client, model, messages):
