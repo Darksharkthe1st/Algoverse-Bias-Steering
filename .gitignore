@@ -138,7 +138,12 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+# `.env` alone matches ONLY that exact name, so a `.env.bak` / `.env.local` /
+# editor swap file holding the same API key was stageable. Near-missed exactly
+# that. `.env.*` closes it; the negation keeps the tracked template visible.
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/
