@@ -1,0 +1,7 @@
+[
+  {
+    "branch": "fk/init-rewrite",
+    "configs": ["configs/example_bbq.py"],
+    "push": true
+  }
+]

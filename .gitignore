@@ -138,7 +138,12 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+# `.env` alone matches ONLY that exact name, so a `.env.bak` / `.env.local` /
+# editor swap file holding the same API key was stageable. Near-missed exactly
+# that. `.env.*` closes it; the negation keeps the tracked template visible.
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/
@@ -205,3 +210,21 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 experiments/farhan_logs/Log_11/log_11_Meta-Llama-3-8B-Instruct_residuals.pkl
+
+# --- bias_steer: runs & coordinator (docs/02-architecture-roadmap.md §8, §10) ---
+# Runs are committed by DEFAULT (never lose an experiment). Only these stay out of git.
+# NOTE: .gitignore has no inline comments — patterns must stand alone on their own line.
+#
+# Bulky residual tensors (>100MB GitHub cap); regenerable from committed inputs:
+runs/**/residuals.safetensors
+# Un-ignore run event logs. The generic `*.log` rule above (line 62, from the
+# stock Python/Django template) was silently swallowing every run's
+# logs/run.log — the phase/timing/bucket-count event stream that §7.2 lists as
+# part of a run's committed record. Observed: run.log was the ONLY file missing
+# from committed runs, so bucket sizes were unrecoverable after a branch switch.
+!runs/**/*.log
+# Throwaway runs (opt-out pile):
+runs/_discard/
+# Ephemeral batch STATE (route/queue/control/status); coordinator CODE lives in
+# src/bias_steer/ and IS committed:
+_coordinator/

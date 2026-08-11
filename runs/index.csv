@@ -1,0 +1,2 @@
+run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,status,n_train,n_test,opin_good,neut_good
+20260809-010713_parity-log103_qwen-1.8b,parity log103,qwen-1.8b,snapshot,mean_diff,14,15,808c484ab38316a66a99899eac7178365d626b9d,True,20260809-010713,done,100,100,43,27
