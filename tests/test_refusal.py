@@ -15,7 +15,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import src.bias_steer as bs  # noqa: E402
-from src.bias_steer import refusal, registry, artifacts  # noqa: E402
+from src.bias_steer import refusal, registry, artifacts, steering  # noqa: E402
 
 try:
     import torch  # noqa: F401
@@ -131,6 +131,110 @@ def test_load_directions_shape_and_provenance():
         assert rd.model_key in registry.MODELS
         print(f"      {run_dir:28s} d_model={rd.d_model} layer={rd.layer} pos={rd.pos} "
               f"|r|={float(rd.direction.norm()):.3f}")
+
+
+# ---------------------------------------------------------------- steering methods (structural)
+
+class _StubCfg:
+    def __init__(self, n): self.n_layers = n
+
+
+class _StubModel:
+    def __init__(self, n): self.cfg = _StubCfg(n)
+
+
+def test_all_resid_stream_hook_names():
+    assert steering.all_resid_stream_hook_names(2) == [
+        "blocks.0.hook_resid_pre", "blocks.0.hook_attn_out", "blocks.0.hook_mlp_out",
+        "blocks.1.hook_resid_pre", "blocks.1.hook_attn_out", "blocks.1.hook_mlp_out",
+    ]
+
+
+def test_ablation_registered_as_method():
+    m = registry.METHODS["ablation"]
+    assert m.apply is steering.apply_directional_ablation
+
+
+def test_ablation_hook_count_and_names_without_math():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    hooks = steering.apply_directional_ablation(_StubModel(3), torch.ones(4))
+    assert len(hooks) == 9  # 3 layers x 3 hook points
+    assert [n for n, _ in hooks] == steering.all_resid_stream_hook_names(3)
+
+
+def test_actadd_single_hook_name():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    hooks = steering.apply_actadd_single(_StubModel(24), torch.ones(4), coeff=1.0, layer=15)
+    assert len(hooks) == 1
+    assert hooks[0][0] == "blocks.15.hook_resid_pre"
+
+
+# ---------------------------------------------------------------- steering methods (math)
+
+def test_ablation_removes_component_along_direction():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    direction = torch.tensor([3.0, 0.0, 0.0, 0.0])          # r̂ = e0
+    value = torch.tensor([[[2.0, 5.0, 7.0, 1.0]]])          # (1,1,4)
+    _, fn = steering.apply_directional_ablation(_StubModel(1), direction)[0]
+    out = fn(value.clone(), None)
+    # component along r̂ zeroed; orthogonal complement preserved
+    assert torch.allclose(out, torch.tensor([[[0.0, 5.0, 7.0, 1.0]]]), atol=1e-6)
+    r_hat = steering.unit_direction(direction)
+    assert torch.allclose(r_hat.norm(), torch.tensor(1.0), atol=1e-6)
+    assert abs(float(out.flatten() @ r_hat)) < 1e-5
+
+
+def test_ablation_is_scale_invariant_and_idempotent():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    value = torch.tensor([[[2.0, 5.0, 7.0, 1.0]]])
+    small = steering.apply_directional_ablation(_StubModel(1), torch.tensor([3.0, 0, 0, 0]))[0][1]
+    big = steering.apply_directional_ablation(_StubModel(1), torch.tensor([9000.0, 0, 0, 0]))[0][1]
+    out_small = small(value.clone(), None)
+    out_big = big(value.clone(), None)
+    assert torch.allclose(out_small, out_big, atol=1e-5)        # only the direction, not its scale, matters
+    once = small(value.clone(), None)
+    twice = small(once.clone(), None)
+    assert torch.allclose(once, twice, atol=1e-6)               # projecting an orthogonal vector is a no-op
+
+
+def test_actadd_uses_raw_vector_as_dose():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    direction = torch.tensor([3.0, 0.0, 0.0, 0.0])             # norm 3, deliberately un-normalized
+    value = torch.zeros(1, 1, 4)
+    _, fn = steering.apply_actadd_single(_StubModel(1), direction, coeff=2.0, layer=0)[0]
+    out = fn(value.clone(), None)
+    assert torch.allclose(out, torch.tensor([[[6.0, 0.0, 0.0, 0.0]]]), atol=1e-6)
+    # dose magnitude = |coeff| * ||raw direction|| (would be |coeff| if normalized)
+    assert torch.allclose(out.flatten().norm(), torch.tensor(6.0), atol=1e-6)
+
+
+def test_hooks_cast_direction_to_activation_dtype():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    direction = torch.ones(4, dtype=torch.float32)             # vector fp32
+    value = torch.zeros(1, 1, 4, dtype=torch.float16)          # activations fp16
+    _, add = steering.apply_actadd_single(_StubModel(1), direction, coeff=1.0, layer=0)[0]
+    out = add(value.clone(), None)
+    assert out.dtype == torch.float16                          # activation dtype preserved
+    _, ablate = steering.apply_directional_ablation(_StubModel(1), direction)[0]
+    assert ablate(torch.ones(1, 1, 4, dtype=torch.float16), None).dtype == torch.float16
 
 
 def _main():
