@@ -1,0 +1,277 @@
+{
+  "_comment": "Third-party artifacts from andyrdt/refusal_direction (Apache-2.0). Fetched by scripts/fetch_refusal_artifacts.py; NOT committed to this repo. See README.md for provenance.",
+  "source_repo": "andyrdt/refusal_direction",
+  "source_commit": "9d852fae1a9121c78b29142de733cb1340770cc3",
+  "raw_base_url": "https://raw.githubusercontent.com/andyrdt/refusal_direction/9d852fae1a9121c78b29142de733cb1340770cc3/",
+  "dest_root": "third_party/refusal_direction/",
+  "strip_prefix": "pipeline/",
+  "models": [
+    "gemma-2b-it",
+    "llama-2-7b-chat-hf",
+    "meta-llama-3-8b-instruct",
+    "qwen-1_8b-chat",
+    "yi-6b-chat"
+  ],
+  "files": [
+    {
+      "path": "pipeline/runs/gemma-2b-it/direction.pt",
+      "bytes": 1475750
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/direction_metadata.json",
+      "bytes": 34
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/generate_directions/mean_diffs.pt",
+      "bytes": 1475755
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/jailbreakbench_baseline_completions.json",
+      "bytes": 168741
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/jailbreakbench_baseline_evaluations.json",
+      "bytes": 180900
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/jailbreakbench_ablation_completions.json",
+      "bytes": 212384
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/jailbreakbench_ablation_evaluations.json",
+      "bytes": 224542
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/jailbreakbench_actadd_completions.json",
+      "bytes": 198605
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/jailbreakbench_actadd_evaluations.json",
+      "bytes": 210764
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/harmless_baseline_completions.json",
+      "bytes": 152696
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/harmless_baseline_evaluations.json",
+      "bytes": 159835
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/harmless_actadd_completions.json",
+      "bytes": 176066
+    },
+    {
+      "path": "pipeline/runs/gemma-2b-it/completions/harmless_actadd_evaluations.json",
+      "bytes": 183205
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/direction.pt",
+      "bytes": 6292646
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/direction_metadata.json",
+      "bytes": 34
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/generate_directions/mean_diffs.pt",
+      "bytes": 6292651
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/jailbreakbench_baseline_completions.json",
+      "bytes": 202169
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/jailbreakbench_baseline_evaluations.json",
+      "bytes": 214328
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/jailbreakbench_ablation_completions.json",
+      "bytes": 228534
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/jailbreakbench_ablation_evaluations.json",
+      "bytes": 240693
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/jailbreakbench_actadd_completions.json",
+      "bytes": 220493
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/jailbreakbench_actadd_evaluations.json",
+      "bytes": 232652
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/harmless_baseline_completions.json",
+      "bytes": 199400
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/harmless_baseline_evaluations.json",
+      "bytes": 206541
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/harmless_actadd_completions.json",
+      "bytes": 251757
+    },
+    {
+      "path": "pipeline/runs/llama-2-7b-chat-hf/completions/harmless_actadd_evaluations.json",
+      "bytes": 258896
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/direction.pt",
+      "bytes": 5244070
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/direction_metadata.json",
+      "bytes": 34
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/generate_directions/mean_diffs.pt",
+      "bytes": 5244075
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/jailbreakbench_baseline_completions.json",
+      "bytes": 266431
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/jailbreakbench_baseline_evaluations.json",
+      "bytes": 278590
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/jailbreakbench_ablation_completions.json",
+      "bytes": 264139
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/jailbreakbench_ablation_evaluations.json",
+      "bytes": 276297
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/jailbreakbench_actadd_completions.json",
+      "bytes": 258419
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/jailbreakbench_actadd_evaluations.json",
+      "bytes": 270578
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/harmless_baseline_completions.json",
+      "bytes": 256433
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/harmless_baseline_evaluations.json",
+      "bytes": 263574
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/harmless_actadd_completions.json",
+      "bytes": 258151
+    },
+    {
+      "path": "pipeline/runs/meta-llama-3-8b-instruct/completions/harmless_actadd_evaluations.json",
+      "bytes": 265290
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/direction.pt",
+      "bytes": 1967270
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/direction_metadata.json",
+      "bytes": 34
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/generate_directions/mean_diffs.pt",
+      "bytes": 1967275
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/jailbreakbench_baseline_completions.json",
+      "bytes": 116752
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/jailbreakbench_baseline_evaluations.json",
+      "bytes": 128909
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/jailbreakbench_ablation_completions.json",
+      "bytes": 179473
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/jailbreakbench_ablation_evaluations.json",
+      "bytes": 191632
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/jailbreakbench_actadd_completions.json",
+      "bytes": 244371
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/jailbreakbench_actadd_evaluations.json",
+      "bytes": 256530
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/harmless_baseline_completions.json",
+      "bytes": 156801
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/harmless_baseline_evaluations.json",
+      "bytes": 163942
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/harmless_actadd_completions.json",
+      "bytes": 282515
+    },
+    {
+      "path": "pipeline/runs/qwen-1_8b-chat/completions/harmless_actadd_evaluations.json",
+      "bytes": 289656
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/direction.pt",
+      "bytes": 6292646
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/direction_metadata.json",
+      "bytes": 34
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/generate_directions/mean_diffs.pt",
+      "bytes": 6292651
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/jailbreakbench_baseline_completions.json",
+      "bytes": 236112
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/jailbreakbench_baseline_evaluations.json",
+      "bytes": 248271
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/jailbreakbench_ablation_completions.json",
+      "bytes": 246147
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/jailbreakbench_ablation_evaluations.json",
+      "bytes": 258306
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/jailbreakbench_actadd_completions.json",
+      "bytes": 229306
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/jailbreakbench_actadd_evaluations.json",
+      "bytes": 241464
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/harmless_baseline_completions.json",
+      "bytes": 228554
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/harmless_baseline_evaluations.json",
+      "bytes": 235695
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/harmless_actadd_completions.json",
+      "bytes": 263842
+    },
+    {
+      "path": "pipeline/runs/yi-6b-chat/completions/harmless_actadd_evaluations.json",
+      "bytes": 270983
+    }
+  ]
+}

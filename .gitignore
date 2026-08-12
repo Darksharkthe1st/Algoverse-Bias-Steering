@@ -228,3 +228,8 @@ runs/_discard/
 # Ephemeral batch STATE (route/queue/control/status); coordinator CODE lives in
 # src/bias_steer/ and IS committed:
 _coordinator/
+
+# --- third-party refusal-direction artifacts (fetched, not committed) ---
+# Downloaded by scripts/fetch_refusal_artifacts.py; provenance in the pinned
+# manifest.json. Only the manifest, README, and fetch script are committed.
+third_party/refusal_direction/runs/
