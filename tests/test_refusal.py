@@ -7,6 +7,8 @@ Structural tests (mapping, catalog membership) run anywhere. Tests that actually
 if the artifacts have not been fetched (run scripts/fetch_refusal_artifacts.py).
 """
 
+import glob
+import json
 import os
 import sys
 
@@ -15,7 +17,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import src.bias_steer as bs  # noqa: E402
-from src.bias_steer import refusal, registry, artifacts, steering  # noqa: E402
+from src.bias_steer import refusal, registry, artifacts, steering, datasets, judge  # noqa: E402
+from src.bias_steer.config import DatasetSpec, JudgeSpec  # noqa: E402
 
 try:
     import torch  # noqa: F401
@@ -235,6 +238,64 @@ def test_hooks_cast_direction_to_activation_dtype():
     assert out.dtype == torch.float16                          # activation dtype preserved
     _, ablate = steering.apply_directional_ablation(_StubModel(1), direction)[0]
     assert ablate(torch.ones(1, 1, 4, dtype=torch.float16), None).dtype == torch.float16
+
+
+# ---------------------------------------------------------------- refusal metric
+
+def test_refusal_prefixes_and_matching():
+    assert len(judge.REFUSAL_PREFIXES) == 12
+    assert judge.is_refusal("I'm sorry, but I cannot help with that.")
+    assert judge.is_refusal("AS AN AI language model, I can't")   # case-insensitive
+    assert not judge.is_refusal("Sure! Here is how you do it.")
+    assert not judge.is_refusal("")
+
+
+def test_refusal_judge_labels():
+    out = judge.refusal_substring_judge(["I cannot do that", "Sure, here you go"])
+    assert out == [judge.REFUSAL, judge.COMPLIANCE]
+    # honors custom labels from a JudgeSpec (index 0 = compliance, last = refusal)
+    spec = JudgeSpec(name="refusal_substring", labels=["compliance", "refusal"])
+    assert judge.refusal_substring_judge(["I apologize"], None, spec) == ["refusal"]
+    assert "refusal_substring" in registry.JUDGES
+
+
+def test_metric_reproduces_committed_substring_labels():
+    # Zero-GPU correctness gate: our is_refusal must reproduce the paper's own
+    # per-response is_jailbreak_substring_matching (= int(not is_refusal)) and the
+    # aggregate substring_matching_success_rate, across EVERY fetched
+    # model x condition evaluations file.
+    files = sorted(glob.glob(str(refusal._ARTIFACT_ROOT / "*" / "completions" / "*_evaluations.json")))
+    if not files:
+        print("      (skipped: no artifacts fetched)")
+        return
+    total, mismatches, checked = 0, 0, 0
+    for f in files:
+        d = json.load(open(f))
+        recs = d["completions"]
+        mine = [int(not judge.is_refusal(r["response"])) for r in recs]
+        for r, m in zip(recs, mine):
+            if m != int(r["is_jailbreak_substring_matching"]):
+                mismatches += 1
+        assert abs(sum(mine) / len(mine) - d["substring_matching_success_rate"]) < 1e-9, \
+            f"{os.path.basename(f)}: aggregate rate mismatch"
+        total += len(recs); checked += 1
+    assert mismatches == 0, f"{mismatches} per-record label mismatches"
+    print(f"      reproduced {total} labels across {checked} files (0 mismatches)")
+
+
+def test_refusal_eval_loader_prompt_parity():
+    if not refusal.available_run_dirs():
+        print("      (skipped: no artifacts fetched)")
+        return
+    spec = DatasetSpec(name="refusal_eval")
+    spec.harm, spec.source_model = "harmful", "qwen-1_8b-chat"
+    exs = datasets.load_refusal_eval(spec)
+    assert len(exs) == 100
+    assert all(e.metadata["harm"] == "harmful" for e in exs)
+    src = json.loads((refusal.artifact_dir("qwen-1_8b-chat") / "completions"
+                      / "jailbreakbench_baseline_completions.json").read_text())
+    assert exs[0].prompt == src[0]["prompt"], "eval prompt drifted from the committed file"
+    assert "refusal_eval" in registry.DATASETS
 
 
 def _main():

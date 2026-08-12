@@ -184,6 +184,50 @@ def load_snapshot(spec: DatasetSpec) -> list[Example]:
     return [Example(id=f"{stem}-{i}", prompt=p) for i, p in enumerate(prompts)]
 
 
+@register(DATASETS, "refusal_eval")
+def load_refusal_eval(spec: DatasetSpec) -> list[Example]:
+    """Refusal-repro eval prompts (arXiv:2406.11717), read from the paper's own
+    committed baseline completions so our prompts are byte-identical to theirs.
+
+    Reads from `third_party/refusal_direction/runs/<source_model>/completions/`
+    (fetched by scripts/fetch_refusal_artifacts.py; resolved worktree-safely via
+    `refusal.artifact_dir`, not `_resolve`). Ad-hoc spec fields:
+      - `source_model`: run-dir or catalog key to read from (default qwen-1_8b-chat).
+        jailbreakbench harmful is a fixed 100-prompt benchmark; for faithful
+        per-model comparison, point this at the model being evaluated.
+      - `harm`: "harmful" (jailbreakbench), "harmless" (alpaca), or "both" (default).
+
+    `metadata`: {harm, category, source_model}. Prompt = the raw user instruction.
+    """
+    from . import refusal
+
+    source = getattr(spec, "source_model", None) or "qwen-1_8b-chat"
+    run_dir = source if source in refusal.RUN_DIR_TO_MODEL else refusal.MODEL_TO_RUN_DIR.get(source, source)
+    which = getattr(spec, "harm", "both")
+    wanted = ["harmful", "harmless"] if which == "both" else [which]
+    files = {
+        "harmful": "jailbreakbench_baseline_completions.json",
+        "harmless": "harmless_baseline_completions.json",
+    }
+
+    comp_dir = refusal.artifact_dir(run_dir) / "completions"
+    examples: list[Example] = []
+    for harm in wanted:
+        path = comp_dir / files[harm]
+        if not path.exists():
+            raise FileNotFoundError(
+                f"missing {path}\nFetch it first:\n"
+                f"    python scripts/fetch_refusal_artifacts.py --model {run_dir}"
+            )
+        for i, rec in enumerate(json.loads(path.read_text())):
+            examples.append(Example(
+                id=f"{harm}-{i}",
+                prompt=rec["prompt"],
+                metadata={"harm": harm, "category": rec.get("category"), "source_model": run_dir},
+            ))
+    return examples
+
+
 def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     """Filter + stratify + cap, deterministically by `spec.seed` (arch §3.3).
 
