@@ -166,6 +166,10 @@ MODEL_CATALOG = {
     "gemma-2b":  ModelSpec("gemma-2b", "google/gemma-2b-it", False, "2B"),
     "gemma-7b":  ModelSpec("gemma-7b", "google/gemma-7b-it", False, "7B"),
     "llama3-8b": ModelSpec("llama3-8b", "meta-llama/Meta-Llama-3-8B-Instruct", False, "8B"),
+    # Added for the refusal-direction repro (arXiv:2406.11717); not used by the
+    # legacy bias runs. chat_template=True because the refusal direction is defined
+    # at post-instruction template positions (see src/bias_steer/refusal.py).
+    "llama-2-7b": ModelSpec("llama-2-7b", "meta-llama/Llama-2-7b-chat-hf", True, "7B"),
 }
 
 for _name, _spec in MODEL_CATALOG.items():
