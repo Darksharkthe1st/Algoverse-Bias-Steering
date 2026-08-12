@@ -6,9 +6,12 @@ re-deriving them. This module reads the third-party artifacts fetched by
 each model ships a raw `direction.pt` of shape `(d_model,)` plus a
 `direction_metadata.json` giving the `(layer, pos)` it was extracted from.
 
+This module is only the refusal-specific glue: the run-dir -> catalog mapping,
+path resolution, and `(layer, pos)` metadata. The actual tensor read is the
+generic `artifacts.load_pt_tensor`, so this file stays torch-free and vector
+loading lives with the rest of tensor IO.
+
 Conventions matching the rest of the package:
-- torch is lazy-imported inside `load_refusal_direction`, so importing this
-  module stays safe without the ML stack.
 - Paths resolve *package-relative* (not via `utils.get_repo_root`, which looks
   for a `.git` directory and would escape a git worktree, where `.git` is a file).
 
@@ -21,6 +24,8 @@ normalizes it internally (`r̂`), while activation-addition uses the raw vector 
 from dataclasses import dataclass
 from pathlib import Path
 import json
+
+from . import artifacts
 
 # Upstream run-dir name -> this repo's MODEL_CATALOG key (see models.py).
 RUN_DIR_TO_MODEL = {
@@ -82,8 +87,6 @@ def load_refusal_direction(model: str) -> RefusalDirection:
 
     Raises FileNotFoundError (with the fetch command) if the artifact is absent.
     """
-    import torch
-
     run_dir, model_key = _resolve(model)
     d = artifact_dir(run_dir)
     dpt = d / "direction.pt"
@@ -93,13 +96,9 @@ def load_refusal_direction(model: str) -> RefusalDirection:
             f"    python scripts/fetch_refusal_artifacts.py --model {run_dir}"
         )
     meta = json.loads((d / "direction_metadata.json").read_text())
-    # The artifacts are plain tensors; weights_only=True is safe and avoids
-    # executing pickle. Fall back for torch versions predating the kwarg.
-    try:
-        tensor = torch.load(dpt, map_location="cpu", weights_only=True)
-    except TypeError:
-        tensor = torch.load(dpt, map_location="cpu")
-    direction = tensor.to(torch.float32).flatten()
+    # Generic tensor read; .float().flatten() are torch tensor methods, so this
+    # module needs no torch import of its own. Kept raw (un-normalized).
+    direction = artifacts.load_pt_tensor(dpt).float().flatten()
     return RefusalDirection(
         model_key=model_key,
         run_dir=run_dir,

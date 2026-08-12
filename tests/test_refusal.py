@@ -15,7 +15,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import src.bias_steer as bs  # noqa: E402
-from src.bias_steer import refusal, registry  # noqa: E402
+from src.bias_steer import refusal, registry, artifacts  # noqa: E402
 
 try:
     import torch  # noqa: F401
@@ -89,6 +89,22 @@ def test_missing_artifact_error_names_fetch_command():
 
 
 # ---------------------------------------------------------------- torch + data gated
+
+def test_generic_pt_loader_reads_direction_tensor():
+    # artifacts.load_pt_tensor is the reusable, refusal-agnostic loader for
+    # external .pt vectors; exercise it directly on a fetched file.
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    fetched = refusal.available_run_dirs()
+    if not fetched:
+        print("      (skipped: no artifacts fetched)")
+        return
+    import torch
+    path = refusal.artifact_dir(fetched[0]) / "direction.pt"
+    t = artifacts.load_pt_tensor(path)
+    assert isinstance(t, torch.Tensor) and t.ndim == 1 and t.numel() > 0
+
 
 def test_load_directions_shape_and_provenance():
     if not _HAS_TORCH:

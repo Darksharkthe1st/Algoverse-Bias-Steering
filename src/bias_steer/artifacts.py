@@ -17,6 +17,22 @@ def load_vector(path):
     return load_file(str(path))["vector"]
 
 
+def load_pt_tensor(path, *, device: str = "cpu"):
+    """Load a single tensor from a PyTorch `.pt` (pickle) file.
+
+    Generic counterpart to `load_vector` (which reads this repo's own
+    safetensors). Use it for externally-produced `.pt` vectors — e.g. the
+    published refusal directions in `third_party/`. `weights_only=True` so no
+    pickle code executes; falls back for torch versions predating the kwarg.
+    """
+    import torch
+
+    try:
+        return torch.load(str(path), map_location=device, weights_only=True)
+    except TypeError:
+        return torch.load(str(path), map_location=device)
+
+
 def save_residuals(path, resids_by_label: dict) -> None:
     """Save per-verdict residual stacks (bulky; git-ignored). One tensor per label,
     each (n_examples, n_layers, d_model)."""
