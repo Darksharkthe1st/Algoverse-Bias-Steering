@@ -233,3 +233,4 @@ _coordinator/
 # Downloaded by scripts/fetch_refusal_artifacts.py; provenance in the pinned
 # manifest.json. Only the manifest, README, and fetch script are committed.
 third_party/refusal_direction/runs/
+third_party/refusal_direction/dataset/
