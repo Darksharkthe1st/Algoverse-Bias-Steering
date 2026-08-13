@@ -272,6 +272,31 @@
     {
       "path": "pipeline/runs/yi-6b-chat/completions/harmless_actadd_evaluations.json",
       "bytes": 270983
+    },
+    {
+      "_comment": "Train/val/test instruction splits (NOT under pipeline/, so strip_prefix does not apply). These are the exact committed splits the paper sampled from; needed to reproduce mean_diffs.pt. See docs/06-refusal-generation.md.",
+      "path": "dataset/splits/harmful_train.json",
+      "bytes": 34613
+    },
+    {
+      "path": "dataset/splits/harmless_train.json",
+      "bytes": 2344466
+    },
+    {
+      "path": "dataset/splits/harmful_val.json",
+      "bytes": 6763
+    },
+    {
+      "path": "dataset/splits/harmless_val.json",
+      "bytes": 780532
+    },
+    {
+      "path": "dataset/splits/harmful_test.json",
+      "bytes": 115743
+    },
+    {
+      "path": "dataset/splits/harmless_test.json",
+      "bytes": 783466
     }
   ]
 }
