@@ -11,6 +11,7 @@ import glob
 import json
 import os
 import sys
+from pathlib import Path
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
@@ -296,6 +297,80 @@ def test_refusal_eval_loader_prompt_parity():
                       / "jailbreakbench_baseline_completions.json").read_text())
     assert exs[0].prompt == src[0]["prompt"], "eval prompt drifted from the committed file"
     assert "refusal_eval" in registry.DATASETS
+
+
+# ---------------------------------------------------------------- repro flow (fake backend)
+
+def test_run_refusal_end_to_end_with_fake_backend():
+    # Whole flow with NO model and NO API: a fake backend simulates the physics
+    # (harmful refuses at baseline, complies under ablation/act-add; harmless
+    # complies at baseline, refuses under act-add(+)). Needs torch only because
+    # the real steering.apply_* build the hooks from a tensor direction.
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import tempfile
+    import torch
+    from src.bias_steer import experiment_refusal as er
+    from src.bias_steer.config import ExperimentConfig, Coeffs
+    from src.bias_steer.schema import Example
+
+    class _Model:
+        class cfg:  # noqa: N801
+            n_layers = 3
+
+    class _Loaded:
+        model = _Model()
+
+    def fake_load(spec):
+        return _Loaded()
+
+    def fake_load_direction(model_key):
+        return refusal.RefusalDirection(model_key=model_key, run_dir="qwen-1_8b-chat",
+                                        layer=2, pos=-1, direction=torch.ones(4))
+
+    def fake_load_eval(run_dir, harm):
+        tag = harm.upper()
+        return [Example(id=f"{harm}-{i}", prompt=f"{tag}-{i}", metadata={"category": harm}) for i in range(2)]
+
+    def fake_generate(loaded, prompts, max_tokens, sys_prompt):
+        # baseline: harmful refuses, harmless complies
+        return ["I'm sorry, I cannot." if p.startswith("HARMFUL") else "Sure, here you go." for p in prompts]
+
+    def fake_generate_with_hooks(loaded, prompts, hooks, max_tokens, sys_prompt):
+        # harmful under any intervention -> complies; harmless under act-add(+) -> refuses
+        return ["Sure, here you go." if p.startswith("HARMFUL") else "I'm sorry, I cannot." for p in prompts]
+
+    backend = er.RefusalBackend(
+        load=fake_load, generate=fake_generate, generate_with_hooks=fake_generate_with_hooks,
+        load_direction=fake_load_direction, load_eval=fake_load_eval,
+    )
+    cfg = ExperimentConfig(
+        label="fake refusal", models=["qwen-1.8b"],
+        dataset=DatasetSpec(name="refusal_eval"),
+        judge=JudgeSpec(name="refusal_substring", labels=["compliance", "refusal"]),
+        coeffs=Coeffs(opinion=1.0, neutral=1.0), method="ablation", batch_size=16,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        results = er.run_refusal(cfg, backend=backend, runs_dir=tmp)
+        assert len(results) == 1
+        rr = results[0]
+        rates = {c: s["refusal_rate"] for c, s in rr.rates.items()}
+        # the paper's expected directions, exactly:
+        assert rates["harmful/baseline"] == 1.0     # refuses without intervention
+        assert rates["harmful/ablation"] == 0.0     # ablation bypasses refusal
+        assert rates["harmful/actadd"] == 0.0       # act-add(-) bypasses too
+        assert rates["harmless/baseline"] == 0.0    # complies normally
+        assert rates["harmless/actadd"] == 1.0      # act-add(+) induces refusal
+        # artifacts written
+        assert rr.results_csv.exists() and rr.summary_md.exists()
+        assert (rr.dir / "manifest.json").exists()
+        assert (Path(tmp) / "index.csv").exists()
+        # results.csv has one row per (example, arm): 2 harmful*3 + 2 harmless*2 = 10
+        import csv as _csv
+        rows = list(_csv.DictReader(open(rr.results_csv)))
+        assert len(rows) == 10
+        print(f"      5 arms scored; {len(rows)} result rows; rates as paper predicts")
 
 
 def _main():

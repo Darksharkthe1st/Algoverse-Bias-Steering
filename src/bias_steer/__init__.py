@@ -44,9 +44,11 @@ from . import artifacts
 from . import logs
 from . import metrics
 from . import experiment
+from . import experiment_refusal
 from . import cli
 from . import coordinator
 from .experiment import run, Backend, RunResult
+from .experiment_refusal import run_refusal, RefusalBackend, RefusalRunResult
 from .coordinator import Coordinator, RouteEntry, GitOps
 
 __all__ = [
@@ -62,6 +64,8 @@ __all__ = [
     # wiring + persistence
     "artifacts", "logs", "metrics", "experiment", "cli",
     "run", "Backend", "RunResult",
+    # refusal-direction repro (arXiv:2406.11717)
+    "experiment_refusal", "run_refusal", "RefusalBackend", "RefusalRunResult",
     # batch coordinator
     "coordinator", "Coordinator", "RouteEntry", "GitOps",
     # infra modules

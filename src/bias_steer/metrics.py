@@ -31,12 +31,65 @@ def tidy_rows(results, *, run_id, model, dataset, opin_coeff, neut_coeff) -> lis
     ]
 
 
-def write_csv(path, rows) -> None:
+def write_rows(path, rows, columns) -> None:
+    """Write `rows` (dicts) to a CSV with the given `columns` header; unknown
+    keys ignored, missing ones blank. Generic backbone for `write_csv`."""
     with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=RESULT_COLUMNS, extrasaction="ignore")
+        writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
+
+
+def write_csv(path, rows) -> None:
+    write_rows(path, rows, RESULT_COLUMNS)
+
+
+# Columns of a refusal-repro run's results.csv (arXiv:2406.11717).
+REFUSAL_RESULT_COLUMNS = [
+    "run_id", "model", "harm", "condition", "coeff", "example_id", "category", "verdict",
+]
+
+
+def refusal_rates(results, *, refusal_label="refusal") -> dict:
+    """Per-condition refusal stats from judged `Result`s.
+
+    Returns `{condition: {n, refused, refusal_rate, success_rate}}` where
+    `success_rate = 1 - refusal_rate` is the paper's
+    `substring_matching_success_rate` (fraction NOT refused)."""
+    out = {}
+    for cond, verds in condition_verdict_counts(results).items():
+        n = sum(verds.values())
+        refused = verds.get(refusal_label, 0)
+        rate = refused / n if n else 0.0
+        out[cond] = {"n": n, "refused": refused,
+                     "refusal_rate": rate, "success_rate": 1.0 - rate}
+    return out
+
+
+def render_refusal_summary(*, run_id, label, model, git, direction, coeff, rates) -> str:
+    """Human-readable summary.md for a refusal-repro run."""
+    def line(cond):
+        r = rates.get(cond)
+        if not r:
+            return f"- **{cond}**: (no data)"
+        return (f"- **{cond}**: refusal {r['refused']}/{r['n']} = "
+                f"{r['refusal_rate']:.3f}  (success {r['success_rate']:.3f})")
+
+    order = ["harmful/baseline", "harmful/ablation", "harmful/actadd",
+             "harmless/baseline", "harmless/actadd"]
+    shown = [c for c in order if c in rates] + [c for c in rates if c not in order]
+    body = "\n".join(line(c) for c in shown)
+    return (
+        f"# {label} — {model} (refusal-direction repro)\n\n"
+        f"- run_id: `{run_id}`\n"
+        f"- direction: layer={direction['layer']}, pos={direction['pos']}, "
+        f"‖r‖={direction['norm']:.3f}  |  act-add coeff magnitude={coeff}\n"
+        f"- git: `{git[0]}`{' (dirty)' if git[1] else ''}\n\n"
+        f"## Refusal rate by condition\n{body}\n\n"
+        f"_Interpretation: ablation should DROP harmful refusal; act-add(+) should "
+        f"RAISE harmless refusal (arXiv:2406.11717)._\n"
+    )
 
 
 def _by_example(results) -> dict:
