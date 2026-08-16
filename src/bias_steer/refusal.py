@@ -120,3 +120,26 @@ def load_refusal_direction(model: str) -> RefusalDirection:
 def load_all() -> list[RefusalDirection]:
     """Load every locally-fetched direction (skips models not yet fetched)."""
     return [load_refusal_direction(rd) for rd in available_run_dirs()]
+
+
+def load_native_direction(vector_path, *, layer: int, model_key: str = "native") -> RefusalDirection:
+    """Load a refusal direction WE produced (a `(n_layers, d_model)` steering
+    vector from `experiment.run`, saved as safetensors) and slice one layer into
+    a `RefusalDirection`.
+
+    This is how the "reproduce refusal in our own convention" experiment feeds a
+    natively-extracted vector into the same ablation/act-add validation used for
+    the paper's published direction. `pos` is None: our vector is a mean over
+    response tokens, not tied to a single prompt position."""
+    from . import artifacts
+
+    stack = artifacts.load_vector(vector_path).float()  # (n_layers, d_model)
+    if stack.ndim != 2:
+        raise ValueError(f"{vector_path}: expected (n_layers, d_model), got {tuple(stack.shape)}")
+    n_layers = stack.shape[0]
+    if not (0 <= layer < n_layers):
+        raise ValueError(f"layer {layer} out of range [0, {n_layers}) for {vector_path}")
+    return RefusalDirection(
+        model_key=model_key, run_dir="native",
+        layer=layer, pos=None, direction=stack[layer].contiguous(),
+    )

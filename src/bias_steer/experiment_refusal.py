@@ -124,7 +124,16 @@ def _run_one(config, model_key, judge_fn, backend, runs_dir, index_path, progres
     log.event(f"loading model {spec.hf_id}")
     loaded = backend.load(spec)
 
-    rd = backend.load_direction(model_key)
+    # By default apply the paper's published direction; if the config points at a
+    # vector WE produced (the "reproduce refusal in our convention" experiment),
+    # load a chosen layer of that native vector instead.
+    dpath = getattr(config, "direction_path", None)
+    if dpath:
+        rd = refusal.load_native_direction(dpath, layer=getattr(config, "direction_layer"),
+                                           model_key=model_key)
+        log.event(f"loaded NATIVE direction from {dpath} at layer {rd.layer}")
+    else:
+        rd = backend.load_direction(model_key)
     norm = float(rd.direction.norm())
     log.event(f"loaded refusal direction: layer={rd.layer} pos={rd.pos} |r|={norm:.3f}")
 

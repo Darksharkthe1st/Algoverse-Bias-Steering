@@ -15,6 +15,7 @@ Pure-stdlib (json) — no torch, no model.
 """
 
 import json
+import math
 
 from . import refusal
 
@@ -67,6 +68,27 @@ def compare_rates(ours: dict, theirs: dict, *, tol: float = 0.05) -> list[dict]:
             "within_tol": abs(o - t) <= tol,
         })
     return rows
+
+
+def cosine(a, b) -> float:
+    """Cosine similarity of two 1-D torch tensors (0.0 if either is degenerate)."""
+    na, nb = float(a.norm()), float(b.norm())
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return float((a.float() @ b.float()) / (na * nb))
+
+
+def per_layer_cosine(stack, vector) -> list[float]:
+    """Cosine of each row of `stack` (n_layers, d_model) against the 1-D `vector`
+    (d_model,). Used to compare a natively-extracted refusal vector to the paper's
+    single published direction, layer by layer."""
+    return [cosine(stack[l], vector) for l in range(stack.shape[0])]
+
+
+def null_cosine_std(d_model: int) -> float:
+    """Std of cosine between two random unit vectors in `d_model` dims (~1/√d).
+    A per-layer cosine within ±3·this of 0 is indistinguishable from chance."""
+    return 1.0 / math.sqrt(d_model)
 
 
 def render_comparison(rows: list[dict], *, tol: float = 0.05) -> str:

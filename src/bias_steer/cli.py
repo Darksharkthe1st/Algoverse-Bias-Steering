@@ -122,8 +122,11 @@ def main(argv=None) -> int:
         return 0
 
     # Preflight: the judge runs in BOTH phases, so a missing key means the run
-    # dies after the model load rather than before it. Check it up front.
-    if not os.getenv("OPENAI_API_KEY"):
+    # dies after the model load rather than before it. Check it up front — unless
+    # the judge is API-free (e.g. the deterministic refusal substring judge, used
+    # by the native-refusal extraction config), which needs no key.
+    _API_FREE_JUDGES = {"refusal_substring"}
+    if cfg.judge.name not in _API_FREE_JUDGES and not os.getenv("OPENAI_API_KEY"):
         print("error: OPENAI_API_KEY is not set, and the judge is needed by both "
               "the train and eval phases.\n"
               "       Put it in .env at the repo root (see .env.example) or export it.")

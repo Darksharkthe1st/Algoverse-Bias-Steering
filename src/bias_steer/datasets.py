@@ -228,6 +228,37 @@ def load_refusal_eval(spec: DatasetSpec) -> list[Example]:
     return examples
 
 
+@register(DATASETS, "refusal_contrast")
+def load_refusal_contrast(spec: DatasetSpec) -> list[Example]:
+    """Harmful + harmless instructions for one split, combined into one Example
+    list — the TRAIN set for reproducing a refusal vector with OUR native
+    `mean_diff` pipeline (bucketed by the refusal judge, not by label).
+
+    Unlike `refusal` (one split file per call), this loads both poles so the
+    pipeline sees a mix that produces refusals and compliances. `metadata["label"]`
+    ("harmful"/"harmless") is preserved so `sample(per_group=("label", N))` can
+    balance the two — recommended, since `harmless_train` is ~70x larger.
+
+    Ad-hoc `spec.split` in {train, val, test} (default "train").
+    """
+    split = getattr(spec, "split", "train")
+    examples: list[Example] = []
+    for label in ("harmful", "harmless"):
+        path = _refusal_split_path(f"{label}_{split}.json")
+        if not path.exists():
+            raise FileNotFoundError(
+                f"missing refusal split {path}\nFetch it first:\n"
+                f"    python scripts/fetch_refusal_artifacts.py"
+            )
+        for i, row in enumerate(json.loads(path.read_text())):
+            examples.append(Example(
+                id=f"refusal-{label}-{split}-{i}",
+                prompt=row["instruction"],
+                metadata={"label": label, "split": split, "category": row.get("category")},
+            ))
+    return examples
+
+
 def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     """Filter + stratify + cap, deterministically by `spec.seed` (arch §3.3).
 

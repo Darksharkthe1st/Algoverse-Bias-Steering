@@ -513,6 +513,75 @@ def test_run_refusal_end_to_end_with_fake_backend():
         print(f"      all arms used the paper template, no system turn")
 
 
+# ---------------------------------------------------------------- native-refusal experiment
+
+def test_refusal_contrast_loader_combines_both_poles():
+    from src.bias_steer import datasets as ds
+    splits = refusal._ARTIFACT_ROOT.parent / "dataset" / "splits"
+    if not (splits / "harmful_train.json").exists():
+        print("      (skipped: refusal splits not fetched)")
+        return
+    spec = DatasetSpec(name="refusal_contrast")
+    spec.split = "train"
+    exs = ds.load_refusal_contrast(spec)
+    labels = {e.metadata["label"] for e in exs}
+    assert labels == {"harmful", "harmless"}
+    assert all(e.prompt for e in exs)
+    assert "refusal_contrast" in registry.DATASETS
+
+
+def test_load_native_direction_slices_a_layer():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import tempfile
+    import torch
+    from src.bias_steer import artifacts
+    stack = torch.arange(3 * 4, dtype=torch.float32).reshape(3, 4)  # (n_layers=3, d_model=4)
+    with tempfile.TemporaryDirectory() as tmp:
+        p = Path(tmp) / "steering_vector.safetensors"
+        artifacts.save_vector(p, stack)
+        rd = refusal.load_native_direction(p, layer=2, model_key="qwen-1.8b")
+        assert rd.direction.shape == (4,)
+        assert torch.allclose(rd.direction, stack[2])
+        assert rd.layer == 2 and rd.pos is None and rd.run_dir == "native"
+        # out-of-range layer rejected
+        try:
+            refusal.load_native_direction(p, layer=9)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("expected ValueError for out-of-range layer")
+
+
+def test_per_layer_cosine_and_null_floor():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    from src.bias_steer import refusal_compare as rc
+    v = torch.tensor([1.0, 0.0, 0.0, 0.0])
+    stack = torch.tensor([[2.0, 0, 0, 0],      # parallel -> cos 1
+                          [0, 5.0, 0, 0],      # orthogonal -> cos 0
+                          [-3.0, 0, 0, 0]])    # anti-parallel -> cos -1
+    cos = rc.per_layer_cosine(stack, v)
+    assert abs(cos[0] - 1.0) < 1e-6 and abs(cos[1]) < 1e-6 and abs(cos[2] + 1.0) < 1e-6
+    assert rc.cosine(torch.zeros(4), v) == 0.0  # degenerate -> 0
+    assert abs(rc.null_cosine_std(2048) - (1 / 2048 ** 0.5)) < 1e-9
+
+
+def test_native_configs_load_and_validate():
+    from src.bias_steer.cli import load_config_file
+    from src.bias_steer.registry import validate
+    extract = load_config_file("configs/refusal_native.py")
+    validate(extract)
+    assert extract.judge.name == "refusal_substring" and extract.method == "mean_diff"
+    assert extract.dataset.name == "refusal_contrast"
+    val = load_config_file("configs/refusal_native_validate.py")
+    validate(val)
+    assert getattr(val, "direction_path", None) and getattr(val, "direction_layer", None) is not None
+
+
 def _main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

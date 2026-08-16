@@ -269,6 +269,77 @@ jailbroke Qwen cleanly in the qualitative demo. **Priority: LOW** unless the abl
 
 ---
 
+## 12. Reproduce the refusal vector in OUR extraction convention  — READY TO RUN
+
+**Why.** We replicated the refusal *mechanism* (paper's published direction: ablation collapses harmful
+refusal, act-add induces harmless refusal — see `docs/findings/2026-08-16-refusal-repro-qwen-1.8b.md`),
+but that vector was made with the paper's recipe. This experiment re-derives a refusal direction with
+**our own `mean_diff` pipeline** — the same machinery that makes our bias/opinion vectors — so the
+refusal vector lives in the identical convention as everything else we extract. Then every future
+question ("is refusal orthogonal to bias / to axis X?") is one valid cosine away, instead of requiring a
+bespoke re-extraction. It also tests whether our extraction method captures refusal *at all*.
+
+**The convention difference (this is the whole point, and the confound to watch).** Our recipe means
+**response-token** residuals bucketed by the model's *actual* refuse/comply verdict; the paper uses the
+**prompt's** last token by *known* label. Ours is more confounded — the refuse bucket is also the
+harmful-topic bucket — so the vector could encode topic, not the refusal decision. Phase 2 (does ablating
+it bypass refusal?) is exactly the test that separates those.
+
+**Prereqs.** Merged `fk/init-refusal-rewrite` (has both tracks); `python scripts/fetch_refusal_artifacts.py`
+(directions + splits); torch + transformer_lens + `HF_TOKEN`; qwen-1.8b. **No OpenAI key** — the judge is
+substring-based. **Do not run `tests/test_phase2.py` on the Lambda box** (see
+`docs/findings/2026-08-16-test-phase2-coordinator-footgun.md`).
+
+**What to run — three phases, qwen-1.8b:**
+
+1. **Extract (our recipe):**
+   ```
+   python -m src.bias_steer run configs/refusal_native.py
+   ```
+   Produces `runs/<run_id>/steering_vector.safetensors` — our native refusal vector `(n_layers, d_model)`.
+   *Check first:* the run log's bucket counts must have BOTH `refusal` and `compliance` non-trivially
+   populated (roughly harmful→refuse, harmless→comply). If one bucket is near-empty, the mean-diff is
+   meaningless — adjust `system_prompt`/`max_tokens` in the config until the model actually refuses
+   harmful prompts, and re-extract.
+
+2. **Compare to the paper (Phase 3 first — it tells you which layer to validate):**
+   ```
+   python scripts/refusal_native_compare.py --vector runs/<run_id>/steering_vector.safetensors --model qwen-1.8b
+   ```
+   Per-layer cosine of our vector vs the paper's published direction and its `mean_diffs` grid, against the
+   null floor (~1/√d ≈ 0.022 for qwen). Note the best-aligned layer.
+
+3. **Validate (does our vector work as a refusal direction?):** edit `configs/refusal_native_validate.py`
+   — set `direction_path` to the Phase-1 vector and `direction_layer` to the best-aligned layer (or sweep
+   a few) — then:
+   ```
+   python -m src.bias_steer refuse configs/refusal_native_validate.py
+   ```
+   Reuses the load-track harness: ablation should DROP harmful refusal, act-add(+) should RAISE harmless
+   refusal. The `summary.md` prints the rates (and, incidentally, a diff vs the paper's numbers).
+
+**What to log.** Phase-1 bucket counts + the saved vector path; Phase-3 per-layer cosine table + best
+layer + cosine at the paper's own layer (15); Phase-2 refusal rates per arm at the chosen layer (and any
+layer sweep). Write it up under `docs/findings/` like the first run.
+
+**Data needed to conclude.** All in-repo/fetched: the harmful/harmless splits (Phase 1), the paper's
+`direction.pt` + `mean_diffs.pt` (Phase 3), the jailbreakbench/alpaca eval sets (Phase 2). Nothing new to
+source.
+
+**Success = a defensible answer, either way:**
+- *Validates* (ablating our vector drops harmful refusal, e.g. to <0.1): we have a clean native refusal
+  vector in our convention — record its cosine to the paper's direction (how close our recipe gets) and
+  its best layer. This is the reusable artifact for all future refusal-vs-X comparisons.
+- *Fails* (ablation doesn't move refusal): our response-mean/judge-bucketed recipe captures topic, not the
+  refusal decision — itself a real, publishable finding about our extraction method, and a signal to
+  extract at the prompt position (the generation track already does this) for refusal-like axes.
+
+Note the guard that makes a null result trustworthy: `steering.check_direction` now rejects the exact
+Log-213 failure mode (§11 — a scalar broadcast from a mis-shaped/wrong-model vector), so a flat Phase-2
+result is a real null, not a silent load bug. **Priority: HIGH** (unlocks the refusal ⟂ bias line).
+
+---
+
 ## Priority summary
 
 | # | experiment | effort | priority | blocked by |
@@ -285,3 +356,4 @@ jailbroke Qwen cleanly in the qualitative demo. **Priority: LOW** unless the abl
 | 9 | complete Grok run | low | LOW–MED | 0.3 |
 | 10 | synthetic steering v2 | med | LOW | 0.1 |
 | 11 | refusal (coherence-gated) | med | LOW | 0.3 |
+| 12 | reproduce refusal in our convention (extract → compare → validate) | low–med | **HIGH** | — (ready) |
