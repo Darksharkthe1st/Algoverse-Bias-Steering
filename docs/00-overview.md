@@ -44,6 +44,7 @@ file-controllable by a supervising LLM — see
 |-----|---------|
 | [`01-feature-roadmap.md`](./01-feature-roadmap.md) | What the notebook already does today, and what needs re-implementation. A feature inventory + gap analysis. |
 | [`02-architecture-roadmap.md`](./02-architecture-roadmap.md) | How the system should be re-architected: the four abstraction contracts (model/dataset/steering-method/judge), the config model, a source file map + data-flow trace, traceability + results design, on-disk layout, the batch coordinator, and a phased build order. |
+| [`findings/`](./findings/) | Run outcomes and diagnoses — one file per investigation, newest first in its README. What we measured, what it means, and what has been **ruled out**. Design docs describe intent; these record what actually happened. |
 
 ## Status
 
