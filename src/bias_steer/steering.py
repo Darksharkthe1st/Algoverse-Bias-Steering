@@ -241,3 +241,65 @@ register(METHODS, "last_token", SteeringMethod("last_token", capture=capture_las
 # the direction's source `layer`, which the (model, vector, coeff) contract can't
 # carry, so the repro flow calls that function directly.
 register(METHODS, "ablation", SteeringMethod("ablation", apply=apply_directional_ablation))
+
+
+# --------------------------------------------------------------------------- #
+# Refusal-direction EXTRACTION (arXiv:2406.11717, generate_directions stage).
+#
+# Unlike capture_mean / capture_last (which average / last-token over the model's
+# RESPONSE), extraction reads the residual stream of the PROMPT itself, at the
+# last few post-instruction template positions, with NO generation. The paper's
+# `get_mean_activations` hooks each block's input (== hook_resid_pre) and keeps
+# positions `range(-n_pos, 0)` where n_pos = len(end-of-instruction template
+# tokens) — model-specific (qwen/gemma/llama3=5; llama-2/yi=6). The grid is
+# mean_harmful - mean_harmless, shape (n_pos, n_layers, d_model).
+#
+# capture_prompt_positions here consumes a single prompt's run_with_cache output;
+# the driver (refusal_extract.py) produces that cache from a forward pass on the
+# formatted prompt (system=None, upstream literal template) and buckets BY LABEL.
+# --------------------------------------------------------------------------- #
+
+# Fallback n_pos for the method-contract path. The real extraction driver passes
+# the model-specific n_pos (= len of end-of-instruction tokens) explicitly.
+DEFAULT_REFUSAL_N_POSITIONS = 5
+
+
+def capture_prompt_positions(cache, n_layers: int, n_pos: int = DEFAULT_REFUSAL_N_POSITIONS):
+    """Last `n_pos` prompt-token `resid_pre` per layer -> (n_pos, n_layers, d_model).
+
+    Consumes one prompt's cache (each `blocks.{l}.hook_resid_pre` is
+    `(1, seq, d_model)`), takes the final `n_pos` positions, and orders axes as
+    (position, layer, d_model) to match the paper's `mean_diffs` grid. Slicing to a
+    fixed `n_pos` (rather than keeping the whole prompt) is what lets caches from
+    different-length prompts stack in `build`.
+    """
+    import torch
+
+    per_layer = []
+    for layer in range(n_layers):
+        resid = cache[f"blocks.{layer}.hook_resid_pre"]  # (1, seq, d_model)
+        tail = resid[:, -n_pos:, :].squeeze(0)           # (n_pos, d_model)
+        per_layer.append(tail.detach().clone())
+    # (n_layers, n_pos, d_model) -> (n_pos, n_layers, d_model)
+    return torch.stack(per_layer).transpose(0, 1).contiguous()
+
+
+def build_refusal_grid(resids_by_label: dict, contrast: tuple = ("harmful", "harmless")):
+    """mean_harmful - mean_harmless per (pos, layer) -> (n_pos, n_layers, d_model).
+
+    The refusal candidate grid (the paper's `mean_diffs`). `contrast` is
+    (positive_label, negative_label) = ("harmful", "harmless"); the mechanics are
+    identical to `build_mean_difference` (mean over examples, then pos - neg) — the
+    difference is the grouping is BY DATASET LABEL, not by a judge verdict.
+    """
+    return build_mean_difference(resids_by_label, contrast)
+
+
+# Extraction method: capture prompt positions, build the mean-difference grid.
+# `apply` keeps the mean_diff default (unused — extraction produces a grid, it does
+# not steer). The driver calls capture_prompt_positions with the model-specific
+# n_pos directly; this registration is for framework discoverability + testing.
+register(METHODS, "refusal_extract",
+         SteeringMethod("refusal_extract",
+                        capture=capture_prompt_positions,
+                        build=build_refusal_grid))

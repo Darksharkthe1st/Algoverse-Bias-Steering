@@ -38,6 +38,7 @@ from .judge import parse_verdict
 # steering vectors. Import-safe without torch (lazy-imported at load time).
 from . import refusal
 from .refusal import RefusalDirection, load_refusal_direction
+from . import refusal_extract
 
 # Phase 2: wiring + persistence.
 from . import artifacts
@@ -62,6 +63,7 @@ __all__ = [
     "datasets", "models", "steering", "judge",
     "sample", "SteeringMethod", "LoadedModel", "load_model", "parse_verdict",
     "refusal", "RefusalDirection", "load_refusal_direction",
+    "refusal_extract",
     # wiring + persistence
     "artifacts", "logs", "metrics", "experiment", "cli",
     "run", "Backend", "RunResult",

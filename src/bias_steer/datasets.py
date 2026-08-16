@@ -263,3 +263,86 @@ def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
         out = [e for i, e in enumerate(out) if i in keep_idx]
 
     return out
+
+
+# --------------------------------------------------------------------------- #
+# Refusal-direction repro (arXiv:2406.11717): harmful/harmless instruction splits
+# from andyrdt/refusal_direction (fetched by scripts/fetch_refusal_artifacts.py
+# into third_party/refusal_direction/dataset/splits/). Each split file is a JSON
+# list of {"instruction", "category"}. The loader tags each Example with its
+# label ("harmful"/"harmless") and split, parsed from the filename, so the
+# extraction path can bucket BY LABEL (not by a judge verdict) — see
+# refusal_extract.run_extraction and docs/06-refusal-generation.md.
+# --------------------------------------------------------------------------- #
+
+# Worktree root (src/bias_steer/datasets.py -> src -> root). NOT get_repo_root(),
+# which follows a `.git` *directory* and would escape a git worktree (there `.git`
+# is a file). Mirrors refusal.py's package-relative resolution.
+_REFUSAL_SPLITS_DIR = (
+    Path(__file__).resolve().parents[2]
+    / "third_party" / "refusal_direction" / "dataset" / "splits"
+)
+
+_REFUSAL_LABELS = ("harmful", "harmless")
+_REFUSAL_SPLITS = ("train", "val", "test")
+
+
+def _parse_label_split(stem: str) -> tuple[str, str]:
+    """"harmful_train" -> ("harmful", "train"). Validates against the known sets."""
+    label, _, split = stem.partition("_")
+    if label not in _REFUSAL_LABELS or split not in _REFUSAL_SPLITS:
+        raise ValueError(
+            f"refusal split filename {stem!r} must be '<label>_<split>' with "
+            f"label in {_REFUSAL_LABELS} and split in {_REFUSAL_SPLITS}"
+        )
+    return label, split
+
+
+def _refusal_split_path(path: str) -> Path:
+    """Resolve a refusal split path (worktree-safe):
+
+    - absolute            -> as-is
+    - contains a '/'      -> worktree_root / path
+    - bare filename       -> third_party/.../dataset/splits/<filename>
+    """
+    if not path:
+        raise ValueError(
+            "refusal dataset needs a split file, e.g. DatasetSpec(name='refusal', "
+            "path='harmful_train.json'). Fetch splits with "
+            "scripts/fetch_refusal_artifacts.py"
+        )
+    p = Path(path)
+    if p.is_absolute():
+        return p
+    if len(p.parts) > 1:
+        return Path(__file__).resolve().parents[2] / p
+    return _REFUSAL_SPLITS_DIR / p
+
+
+@register(DATASETS, "refusal")
+def load_refusal(spec: DatasetSpec) -> list[Example]:
+    """One refusal split JSON ('<label>_<split>.json') -> Examples.
+
+    `prompt` is the bare instruction (USER turn only). Refusal-specific chat-
+    template formatting (upstream literal template, system=None) is applied later
+    by the extraction path, NOT by models.render_prompts — matching this is what
+    makes our extracted grid match the paper's mean_diffs.pt. `metadata` carries
+    the label ("harmful"/"harmless") and split (parsed from the filename) plus the
+    upstream category, so downstream code buckets by known label.
+    """
+    path = _refusal_split_path(spec.path)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"missing refusal split {path}\nFetch it first:\n"
+            f"    python scripts/fetch_refusal_artifacts.py"
+        )
+    label, split = _parse_label_split(path.stem)
+    rows = json.loads(path.read_text())
+    return [
+        Example(
+            id=f"refusal-{label}-{split}-{i}",
+            prompt=row["instruction"],
+            metadata={"label": label, "split": split, "category": row.get("category")},
+        )
+        for i, row in enumerate(rows)
+    ]
