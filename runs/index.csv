@@ -1,2 +1,3 @@
 run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,status,n_train,n_test,opin_good,neut_good
 20260809-010713_parity-log103_qwen-1.8b,parity log103,qwen-1.8b,snapshot,mean_diff,14,15,808c484ab38316a66a99899eac7178365d626b9d,True,20260809-010713,done,100,100,43,27
+20260816-010402_refusal-repro_qwen-1.8b,refusal repro,qwen-1.8b,refusal_eval,ablation,1.0,1.0,9c7273b6532f3322858b828bed688c02a1f52a27,True,20260816-010402,done,,200,,
