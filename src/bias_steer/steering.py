@@ -119,6 +119,49 @@ def all_resid_stream_hook_names(n_layers: int) -> list[str]:
     return names
 
 
+def check_direction(model, vector, *, layer: int | None = None):
+    """Validate a SINGLE-direction steering vector against `model` before it is
+    applied, and return it as a 1-D `(d_model,)` tensor.
+
+    This exists to catch the silent foot-guns of mixing conventions: a refusal
+    direction is one `(d_model,)` vector reused across layers, whereas the
+    bias-steering vectors are `(n_layers, d_model)` stacks indexed per layer.
+    Routing the wrong one here would otherwise broadcast into a plausible-looking
+    but wrong result (e.g. `vector[layer]` on a 1-D tensor yields a scalar that is
+    silently added everywhere). Turns each such case into a clear error:
+
+    - must be a torch.Tensor, exactly 1-D `(d_model,)` (not a per-layer stack or
+      the `(n_pos, n_layers, d_model)` grid),
+    - length must equal `model.cfg.d_model` (guards a wrong model/direction pair),
+    - must be finite (no NaN/Inf from a corrupt load),
+    - for act-add, `layer` must be in `[0, n_layers)` — an out-of-range layer
+      names a non-existent hook point that would silently never fire.
+    """
+    import torch
+
+    if not isinstance(vector, torch.Tensor):
+        raise TypeError(f"direction must be a torch.Tensor, got {type(vector).__name__}")
+    if vector.ndim != 1:
+        raise ValueError(
+            f"direction must be 1-D (d_model,); got shape {tuple(vector.shape)}. "
+            f"Ablation/act-add take a single direction, not a (n_layers, d_model) "
+            f"bias-steering stack or the (n_pos, n_layers, d_model) grid."
+        )
+    d_model = getattr(model.cfg, "d_model", None)
+    if d_model is not None and vector.numel() != d_model:
+        raise ValueError(
+            f"direction has {vector.numel()} elements but model d_model={d_model} "
+            f"— wrong model/direction pairing, or a per-layer stack got flattened in."
+        )
+    if not bool(torch.isfinite(vector).all()):
+        raise ValueError("direction contains NaN/Inf")
+    if layer is not None:
+        n_layers = model.cfg.n_layers
+        if not (0 <= layer < n_layers):
+            raise ValueError(f"act-add layer {layer} out of range [0, {n_layers})")
+    return vector
+
+
 def unit_direction(vector):
     """`r / (‖r‖ + 1e-8)` — the unit refusal direction `r̂` used for ablation
     (matches the paper's normalization, epsilon and all)."""
@@ -136,7 +179,7 @@ def apply_directional_ablation(model, vector, coeff: float | None = None):
     `apply(model, vector, coeff)` method contract."""
     import functools
 
-    r_hat = unit_direction(vector)
+    r_hat = unit_direction(check_direction(model, vector))
     n_layers = model.cfg.n_layers
 
     def _ablate(value, hook, r):
@@ -164,7 +207,7 @@ def apply_actadd_single(model, vector, coeff: float, *, layer: int):
     source layer (from its metadata)."""
     import functools
 
-    direction = vector.flatten()
+    direction = check_direction(model, vector, layer=layer)
 
     def _add(value, hook, vec, c):
         value[:, :, :] += c * vec.to(value.dtype).to(value.device)

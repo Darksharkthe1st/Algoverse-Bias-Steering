@@ -140,11 +140,13 @@ def test_load_directions_shape_and_provenance():
 # ---------------------------------------------------------------- steering methods (structural)
 
 class _StubCfg:
-    def __init__(self, n): self.n_layers = n
+    def __init__(self, n, d_model=4):
+        self.n_layers = n
+        self.d_model = d_model
 
 
 class _StubModel:
-    def __init__(self, n): self.cfg = _StubCfg(n)
+    def __init__(self, n, d_model=4): self.cfg = _StubCfg(n, d_model)
 
 
 def test_all_resid_stream_hook_names():
@@ -177,6 +179,80 @@ def test_actadd_single_hook_name():
     hooks = steering.apply_actadd_single(_StubModel(24), torch.ones(4), coeff=1.0, layer=15)
     assert len(hooks) == 1
     assert hooks[0][0] == "blocks.15.hook_resid_pre"
+
+
+# ---------------------------------------------------------------- steering guards (silent-bug prevention)
+
+def test_check_direction_rejects_wrong_dmodel():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    model = _StubModel(3, d_model=4)
+    # a direction sized for a different model must NOT silently apply
+    for bad in (torch.ones(5), torch.ones(8)):
+        try:
+            steering.apply_directional_ablation(model, bad)
+        except ValueError as e:
+            assert "d_model" in str(e)
+        else:
+            raise AssertionError("expected ValueError for wrong d_model")
+
+
+def test_check_direction_rejects_per_layer_stack_and_grid():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    model = _StubModel(3, d_model=4)
+    # (n_layers, d_model) bias-steering stack and (n_pos, n_layers, d_model) grid
+    for bad in (torch.ones(3, 4), torch.ones(5, 3, 4)):
+        try:
+            steering.apply_directional_ablation(model, bad)
+        except ValueError as e:
+            assert "1-D" in str(e)
+        else:
+            raise AssertionError("expected ValueError for a multi-dim direction")
+
+
+def test_check_direction_rejects_bad_actadd_layer():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    model = _StubModel(3, d_model=4)
+    for bad_layer in (3, 99, -1):
+        try:
+            steering.apply_actadd_single(model, torch.ones(4), coeff=1.0, layer=bad_layer)
+        except ValueError as e:
+            assert "layer" in str(e)
+        else:
+            raise AssertionError("expected ValueError for out-of-range layer")
+
+
+def test_check_direction_rejects_nonfinite():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    model = _StubModel(3, d_model=4)
+    bad = torch.tensor([1.0, float("nan"), 0.0, 2.0])
+    try:
+        steering.apply_directional_ablation(model, bad)
+    except ValueError as e:
+        assert "NaN" in str(e) or "Inf" in str(e)
+    else:
+        raise AssertionError("expected ValueError for non-finite direction")
+
+
+def test_check_direction_accepts_matching_direction():
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+    model = _StubModel(3, d_model=4)
+    out = steering.check_direction(model, torch.ones(4))
+    assert out.shape == (4,)
 
 
 # ---------------------------------------------------------------- steering methods (math)
@@ -362,6 +438,7 @@ def test_run_refusal_end_to_end_with_fake_backend():
     class _Model:
         class cfg:  # noqa: N801
             n_layers = 3
+            d_model = 4
 
     class _Loaded:
         model = _Model()

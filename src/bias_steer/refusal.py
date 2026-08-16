@@ -99,6 +99,15 @@ def load_refusal_direction(model: str) -> RefusalDirection:
     # Generic tensor read; .float().flatten() are torch tensor methods, so this
     # module needs no torch import of its own. Kept raw (un-normalized).
     direction = artifacts.load_pt_tensor(dpt).float().flatten()
+    # Guard against silently loading a malformed artifact (torch-free checks via
+    # tensor methods). d_model-vs-model matching happens later in
+    # steering.check_direction, when the model is known.
+    if direction.ndim != 1 or direction.numel() == 0:
+        raise ValueError(f"{dpt}: expected a 1-D (d_model,) direction, got shape {tuple(direction.shape)}")
+    if not bool(direction.isfinite().all()):
+        raise ValueError(f"{dpt}: direction contains NaN/Inf")
+    if float(direction.norm()) == 0.0:
+        raise ValueError(f"{dpt}: direction has zero norm")
     return RefusalDirection(
         model_key=model_key,
         run_dir=run_dir,
