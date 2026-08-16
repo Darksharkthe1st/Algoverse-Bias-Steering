@@ -143,3 +143,69 @@ the most likely source of a mismatch.
 Report both tables. If the load track matches but generation cosine is low, the
 issue is our extraction recipe; if generation matches but the load-track rates
 are off, the issue is eval-side formatting (§3), not the vectors.
+
+---
+
+## 5. First Lambda run — 2026-08-16 (qwen-1.8b)
+
+**Not done yet.** Both tracks ran end to end; neither fully meets §4.
+
+### Load track (`runs/20260816-011914_refusal-repro_qwen-1.8b`)
+
+| arm | ours | paper | Δ | within ±0.05 |
+|---|---|---|---|---|
+| harmful/baseline | 0.380 | 0.700 | −0.320 | ✗ |
+| harmful/ablation | 0.000 | 0.010 | −0.010 | ✓ |
+| harmful/actadd | 0.000 | 0.030 | −0.030 | ✓ |
+| harmless/baseline | 0.010 | 0.030 | −0.020 | ✓ |
+| harmless/actadd | 0.950 | 0.980 | −0.030 | ✓ |
+
+4/5. The paper's *qualitative* claim reproduces cleanly — ablation collapses
+harmful refusal to 0.00, act-add(+) drives harmless refusal to 0.95. Only the
+un-intervened harmful baseline is off, and it is off in the direction of the
+model refusing *less* than the paper's.
+
+### Generation track
+
+- Extraction cosine at the published cell (pos −2, layer 15): **0.900**
+  (0.892 with `--no-filter`). Target ≥0.999, acceptable ≥0.95 → **below threshold**.
+  Mean over all cells 0.642 (0.675 excluding layer 0, which is identically zero in
+  the paper's grid too — not a bug on our side).
+- `select_direction` over *their* `mean_diffs.pt`: selected **(pos −1, layer 15)**
+  vs published (pos −2, layer 15). Layer exact, position off by one.
+
+### §3's hypothesis was wrong — do not re-try it
+
+§3 named the eval-side system turn as the most likely cause of a baseline
+mismatch. It was reconciled (commit `6db750a`): eval now prompts with the paper's
+literal `REFUSAL_TEMPLATES` string and no system turn, verified token-identical to
+the paper's 15-token prompt. **Measured effect: 0.370 → 0.380.** The remaining
+0.32 is something else.
+
+Causes eliminated, with evidence (scripts + logs under the run's `diagnostics/`):
+
+| suspect | verdict | evidence |
+|---|---|---|
+| empty system turn | ruled out | fixed it; +0.010 |
+| BOS token prepended | ruled out | Qwen `default_prepend_bos=False`; ids match paper exactly |
+| batched left-padding | ruled out | batch=16 vs batch=1: **0/40** verdict flips |
+| `max_tokens=128` | minor, real | truncating *the paper's own* completions to 128 tok costs 0.020 (0.700→0.680) |
+| substring judge | ruled out | reproduces the paper's committed labels, 2500 labels, 0 mismatches |
+| `filter_train` | ruled out | selected-cell cosine moves <0.01 |
+| fp16 vs fp32 forward | ruled out | cosine 0.89165 vs 0.89164 — identical to 5 dp |
+| position/layer axis misalignment | ruled out | every pos and every layer best-matches its own index |
+
+**Strongest remaining lead.** Our mean-diff vectors are consistently **0.80–0.84×
+the paper's norm at every layer** while pointing ~0.89 cosine the same way. Same
+direction, diluted magnitude is the signature of averaging over a *different set
+of instructions* — not of a numerics or formatting bug. Check
+`load_and_sample_repro`'s selection against upstream's actual train set, and the
+`refusal_score` filter, which keeps only 71/128 harmful (aggressive enough to be
+worth verifying against upstream's kept count).
+
+Note this cuts across §4's decision rule: *both* tracks are off, so the shared
+cause sits upstream of both (which instructions/activations feed the mean), not in
+eval-side formatting — that has now been largely eliminated.
+
+Cheap fidelity fix worth making before the next run: raise `max_tokens` from 128
+to the paper's 512 in `configs/refusal_repro.py` (worth ~0.02).

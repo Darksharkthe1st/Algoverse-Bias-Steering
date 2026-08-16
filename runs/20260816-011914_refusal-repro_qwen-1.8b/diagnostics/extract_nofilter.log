@@ -1,0 +1,23 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[1/5] loading qwen-1.8b ...
+Loaded pretrained model Qwen/Qwen1.5-1.8B-Chat into HookedTransformer
+Moving model to device:  cuda
+      n_pos=5  n_layers=24  device=cuda
+[2/5] sampling instructions (seed 42) ...
+[3/5] filtering SKIPPED (--no-filter)
+[4/5] extracting grid (prompt resid_pre, last n_pos, no generation) ...
+Loaded pretrained model Qwen/Qwen1.5-1.8B-Chat into HookedTransformer
+Moving model to device:  cuda
+[5/5] cosine vs committed mean_diffs.pt ...
+
+cosine per (pos_index, layer):
+  pos[0] (tok -5): 0.000  0.762  0.700  0.632  0.613  0.603  0.634  0.643  0.629  0.668  0.689  0.680  0.664  0.655  0.645  0.615  0.587  0.574  0.562  0.521  0.518  0.505  0.460  0.445
+  pos[1] (tok -4): 0.000  0.908  0.732  0.724  0.707  0.717  0.737  0.679  0.668  0.779  0.802  0.866  0.882  0.902  0.885  0.885  0.862  0.823  0.804  0.794  0.768  0.726  0.713  0.683
+  pos[2] (tok -3): 0.000  0.675  0.439  0.416  0.343  0.273  0.254  0.310  0.328  0.362  0.477  0.433  0.422  0.487  0.495  0.490  0.476  0.479  0.468  0.423  0.416  0.417  0.373  0.362
+  pos[3] (tok -2): 0.000  0.623  0.607  0.641  0.631  0.629  0.675  0.722  0.660  0.685  0.690  0.760  0.765  0.831  0.837  0.892  0.885  0.883  0.879  0.876  0.877  0.872  0.864  0.850
+  pos[4] (tok -1): 0.000  0.873  0.746  0.635  0.656  0.670  0.736  0.735  0.702  0.724  0.721  0.805  0.805  0.847  0.842  0.882  0.872  0.870  0.866  0.864  0.867  0.861  0.856  0.846
+
+min=0.0000  mean=0.6465  max=0.9083
+selected cell (pos=-2, layer=15) cosine = 0.89165
+
+VERDICT (worst cell): PROBLEM (<0.95): debug formatting/positions/filtering
