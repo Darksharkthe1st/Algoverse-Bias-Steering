@@ -18,7 +18,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import src.bias_steer as bs  # noqa: E402
-from src.bias_steer import refusal, registry, artifacts, steering, datasets, judge  # noqa: E402
+from src.bias_steer import refusal, registry, artifacts, steering, datasets, judge, refusal_extract  # noqa: E402
 from src.bias_steer.config import DatasetSpec, JudgeSpec  # noqa: E402
 
 try:
@@ -454,11 +454,17 @@ def test_run_refusal_end_to_end_with_fake_backend():
         tag = harm.upper()
         return [Example(id=f"{harm}-{i}", prompt=f"{tag}-{i}", metadata={"category": harm}) for i in range(2)]
 
-    def fake_generate(loaded, prompts, max_tokens, sys_prompt):
+    # `template` is the paper's literal prompt template, threaded through by
+    # experiment_refusal for models with a published one (models.render_prompts).
+    seen_templates = []
+
+    def fake_generate(loaded, prompts, max_tokens, sys_prompt, *, template=None):
+        seen_templates.append(template)
         # baseline: harmful refuses, harmless complies
         return ["I'm sorry, I cannot." if p.startswith("HARMFUL") else "Sure, here you go." for p in prompts]
 
-    def fake_generate_with_hooks(loaded, prompts, hooks, max_tokens, sys_prompt):
+    def fake_generate_with_hooks(loaded, prompts, hooks, max_tokens, sys_prompt, *, template=None):
+        seen_templates.append(template)
         # harmful under any intervention -> complies; harmless under act-add(+) -> refuses
         return ["Sure, here you go." if p.startswith("HARMFUL") else "I'm sorry, I cannot." for p in prompts]
 
@@ -496,7 +502,15 @@ def test_run_refusal_end_to_end_with_fake_backend():
         if "qwen-1_8b-chat" in refusal.available_run_dirs():
             assert rr.comparison is not None and len(rr.comparison) == 5
             assert "vs. paper" in rr.summary_md.read_text()
+        # Every arm must be prompted with the paper's literal template and NO
+        # system turn. Rendering a system turn (even an empty one) cost -0.33 on
+        # harmful/baseline for qwen (docs/05-refusal-repro.md §3), so pin it here.
+        assert len(seen_templates) == 5, f"expected 5 arms, got {len(seen_templates)}"
+        assert all(t == refusal_extract.REFUSAL_TEMPLATES["qwen-1.8b"].template
+                   for t in seen_templates), seen_templates
+        assert all("system" not in t for t in seen_templates)
         print(f"      5 arms scored; {len(rows)} result rows; rates as paper predicts")
+        print(f"      all arms used the paper template, no system turn")
 
 
 def _main():

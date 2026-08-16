@@ -62,18 +62,32 @@ def build_chat_messages(system: str, user: str) -> list[dict]:
     ]
 
 
-def render_prompts(loaded: LoadedModel, prompts, system_prompt):
+def render_prompts(loaded: LoadedModel, prompts, system_prompt, *, template=None):
     """Return (token_lists, prompt_strs). Chat models get the system+user chat
     template; base models (`chat_template=False`) get the raw prompt.
 
     NOTE: this mirrors the notebook, where gemma/llama-3 ran with
     `apply_chat_template=False` (no system instruction). Revisit per-model if that
     turns out to matter — it's one `ModelSpec.chat_template` flag.
+
+    `template` overrides both branches with a literal format string containing
+    `{instruction}`, rendered verbatim with NO system turn. The refusal repro
+    (arXiv:2406.11717) needs this: the paper formats with the model's raw chat
+    template and no system turn, and neither branch above reproduces that for
+    Qwen — `build_chat_messages` emits an *empty* system turn
+    (`<|im_start|>system\\n<|im_end|>`, 20 tok), while dropping the system message
+    makes HF inject its default "You are a helpful assistant." (26 tok). The
+    paper's own string is 15 tok. That gap moved harmful/baseline refusal by
+    -0.33 (see docs/05-refusal-repro.md §3).
     """
     tok = loaded.tokenizer
     token_lists, strs = [], []
     for p in prompts:
-        if loaded.spec.chat_template:
+        if template is not None:
+            s = template.format(instruction=p)
+            token_lists.append(tok(s).input_ids)
+            strs.append(s)
+        elif loaded.spec.chat_template:
             msg = build_chat_messages(system_prompt, p)
             token_lists.append(tok.apply_chat_template(msg, tokenize=True, add_generation_prompt=True))
             strs.append(tok.apply_chat_template(msg, tokenize=False, add_generation_prompt=True))
@@ -106,9 +120,9 @@ def _strip(loaded: LoadedModel, out_tokens, n_input: int) -> list[str]:
     ]
 
 
-def generate(loaded: LoadedModel, prompts, max_new_tokens, system_prompt) -> list[str]:
+def generate(loaded: LoadedModel, prompts, max_new_tokens, system_prompt, *, template=None) -> list[str]:
     """Greedy generation. Ports notebook `normal_generation`."""
-    _, strs = render_prompts(loaded, prompts, system_prompt)
+    _, strs = render_prompts(loaded, prompts, system_prompt, template=template)
     tokens = loaded.model.to_tokens(strs)  # left-padded to a uniform width
     out = loaded.model.generate(tokens, max_new_tokens=max_new_tokens,
                                 do_sample=False, return_type="tokens")
@@ -143,10 +157,11 @@ def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_pro
     return responses, caches
 
 
-def generate_with_hooks(loaded: LoadedModel, prompts, fwd_hooks, max_new_tokens, system_prompt) -> list[str]:
+def generate_with_hooks(loaded: LoadedModel, prompts, fwd_hooks, max_new_tokens, system_prompt,
+                        *, template=None) -> list[str]:
     """Steered generation under `fwd_hooks` (build them with `steering.apply_*`).
     Ports notebook `batched_generation`."""
-    _, strs = render_prompts(loaded, prompts, system_prompt)
+    _, strs = render_prompts(loaded, prompts, system_prompt, template=template)
     tokens = loaded.model.to_tokens(strs)
     with loaded.model.hooks(fwd_hooks):
         # temperature=0 is greedy: sample_logits early-returns argmax on 0.0, so

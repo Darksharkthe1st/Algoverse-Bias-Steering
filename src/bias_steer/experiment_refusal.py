@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Callable
 
 from ..utils import get_current_time_str
-from . import metrics, models, refusal, refusal_compare, steering
+from . import metrics, models, refusal, refusal_compare, refusal_extract, steering
 from .config import DatasetSpec, ExperimentConfig
 from .datasets import load_refusal_eval
 from .logs import RunLogger
@@ -88,17 +88,22 @@ def run_refusal(config: ExperimentConfig, *, backend: RefusalBackend | None = No
 
 
 def _run_arm(config, backend, loaded, judge_fn, examples, harm, condition, coeff,
-             hook_builder, sys_prompt, progress, log) -> list[Result]:
+             hook_builder, sys_prompt, progress, log, template=None) -> list[Result]:
     """Generate + judge one arm. `hook_builder(model) -> fwd_hooks`, or None for
-    the un-intervened baseline."""
+    the un-intervened baseline.
+
+    `template` is the paper's literal prompt template (no system turn); see
+    `models.render_prompts`. Passed only when set, so backends that predate the
+    parameter (e.g. the test fakes) keep working."""
+    kw = {} if template is None else {"template": template}
     out: list[Result] = []
     for batch in progress(list(_batches(examples, config.batch_size)), desc=condition):
         prompts = [e.prompt for e in batch]
         if hook_builder is None:
-            responses = backend.generate(loaded, prompts, config.max_tokens, sys_prompt)
+            responses = backend.generate(loaded, prompts, config.max_tokens, sys_prompt, **kw)
         else:
             hooks = hook_builder(loaded.model)
-            responses = backend.generate_with_hooks(loaded, prompts, hooks, config.max_tokens, sys_prompt)
+            responses = backend.generate_with_hooks(loaded, prompts, hooks, config.max_tokens, sys_prompt, **kw)
         verdicts = judge_fn(responses, batch, config.judge)
         for ex, resp, verdict in zip(batch, responses, verdicts):
             out.append(Result(ex.id, condition, resp, verdict,
@@ -142,10 +147,25 @@ def _run_one(config, model_key, judge_fn, backend, runs_dir, index_path, progres
         (harmless, "harmless", "harmless/actadd",  +mag,  actadd(+mag)),
     ]
 
+    # The paper formats with the model's chat template and NO system turn. Use its
+    # literal template rather than `models.render_prompts`' system+user rendering —
+    # for Qwen the latter emits an empty system turn, which cost -0.33 on
+    # harmful/baseline (docs/05-refusal-repro.md §3). Falls back to the old
+    # rendering for any model without a published template.
+    try:
+        template = refusal_extract.REFUSAL_TEMPLATES[
+            refusal_extract._resolve_model_key(model_key)].template
+        log.event(f"prompt template (paper, no system turn): {template!r}")
+    except KeyError:
+        template = None
+        log.event(f"no paper template for {model_key}; falling back to chat template "
+                  f"with system_prompt={sys_prompt!r}")
+
     results: list[Result] = []
     for examples, harm, condition, coeff, hook_builder in arms:
         results += _run_arm(config, backend, loaded, judge_fn, examples, harm,
-                            condition, coeff, hook_builder, sys_prompt, progress, log)
+                            condition, coeff, hook_builder, sys_prompt, progress, log,
+                            template=template)
 
     # --- metrics + persistence ---
     rates = metrics.refusal_rates(results)
