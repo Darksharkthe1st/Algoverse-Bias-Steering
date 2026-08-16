@@ -45,6 +45,7 @@ from . import logs
 from . import metrics
 from . import experiment
 from . import experiment_refusal
+from . import refusal_compare
 from . import cli
 from . import coordinator
 from .experiment import run, Backend, RunResult
@@ -66,6 +67,7 @@ __all__ = [
     "run", "Backend", "RunResult",
     # refusal-direction repro (arXiv:2406.11717)
     "experiment_refusal", "run_refusal", "RefusalBackend", "RefusalRunResult",
+    "refusal_compare",
     # batch coordinator
     "coordinator", "Coordinator", "RouteEntry", "GitOps",
     # infra modules

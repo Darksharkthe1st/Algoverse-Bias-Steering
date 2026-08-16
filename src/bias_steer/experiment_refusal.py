@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Callable
 
 from ..utils import get_current_time_str
-from . import metrics, models, refusal, steering
+from . import metrics, models, refusal, refusal_compare, steering
 from .config import DatasetSpec, ExperimentConfig
 from .datasets import load_refusal_eval
 from .logs import RunLogger
@@ -61,6 +61,7 @@ class RefusalRunResult:
     results_csv: Path
     summary_md: Path
     rates: dict
+    comparison: list = None  # our-vs-paper rows (refusal_compare.compare_rates), if fetched
 
 
 def _batches(seq, n):
@@ -157,12 +158,22 @@ def _run_one(config, model_key, judge_fn, backend, runs_dir, index_path, progres
     results_csv = handle.dir / "results.csv"
     metrics.write_rows(results_csv, rows, metrics.REFUSAL_RESULT_COLUMNS)
 
+    # Diff against the paper's committed rates (if the eval files are fetched).
+    theirs = refusal_compare.paper_rates(model_key)
+    comparison = refusal_compare.compare_rates(rates, theirs)
+    if comparison:
+        n_ok = sum(r["within_tol"] for r in comparison)
+        log.event(f"vs paper: {n_ok}/{len(comparison)} arms within tolerance")
+
     sha, dirty = git_sha()
     summary_md = handle.dir / "summary.md"
-    summary_md.write_text(metrics.render_refusal_summary(
+    summary = metrics.render_refusal_summary(
         run_id=handle.run_id, label=config.label, model=model_key, git=(sha, dirty),
         direction={"layer": rd.layer, "pos": rd.pos, "norm": norm}, coeff=mag, rates=rates,
-    ))
+    )
+    if comparison:
+        summary += "\n" + refusal_compare.render_comparison(comparison)
+    summary_md.write_text(summary)
 
     row = index_row(config, model_key, handle.run_id, sha, dirty, when, status="done")
     row.update({"n_test": len(harmful) + len(harmless)})
@@ -170,4 +181,4 @@ def _run_one(config, model_key, judge_fn, backend, runs_dir, index_path, progres
     log.event("done")
     on_phase("eval", handle.run_id)
 
-    return RefusalRunResult(handle.run_id, handle.dir, results_csv, summary_md, rates)
+    return RefusalRunResult(handle.run_id, handle.dir, results_csv, summary_md, rates, comparison)

@@ -299,6 +299,50 @@ def test_refusal_eval_loader_prompt_parity():
     assert "refusal_eval" in registry.DATASETS
 
 
+# ---------------------------------------------------------------- comparison harness
+
+def test_compare_rates_math_and_tolerance():
+    from src.bias_steer import refusal_compare as rc
+    ours = {"harmful/baseline": {"refusal_rate": 0.90}, "harmful/ablation": {"refusal_rate": 0.10}}
+    theirs = {"harmful/baseline": {"refusal_rate": 0.88}, "harmful/ablation": {"refusal_rate": 0.12}}
+    rows = rc.compare_rates(ours, theirs, tol=0.05)
+    assert [r["condition"] for r in rows] == ["harmful/baseline", "harmful/ablation"]  # canonical order
+    d = {r["condition"]: r for r in rows}
+    assert abs(d["harmful/ablation"]["delta"] - (-0.02)) < 1e-9
+    assert d["harmful/ablation"]["within_tol"] is True
+    # a large gap fails tolerance
+    big = rc.compare_rates({"harmless/actadd": {"refusal_rate": 0.2}},
+                           {"harmless/actadd": {"refusal_rate": 0.9}}, tol=0.05)
+    assert big[0]["within_tol"] is False
+    # only arms present in BOTH are compared
+    assert rc.compare_rates({"harmful/baseline": {"refusal_rate": 0.5}}, {}) == []
+
+
+def test_paper_rates_matches_recomputed_from_committed_responses():
+    # Threads the whole harness through the paper's own data, torch-free: for each
+    # fetched model x arm, paper_rates (from their aggregate) must equal the rate we
+    # recompute by running our is_refusal over their committed responses.
+    from src.bias_steer import refusal_compare as rc
+    fetched = refusal.available_run_dirs()
+    if not fetched:
+        print("      (skipped: no artifacts fetched)")
+        return
+    checked = 0
+    for run_dir in fetched:
+        theirs = rc.paper_rates(run_dir)
+        comp_dir = refusal.artifact_dir(run_dir) / "completions"
+        for cond, ev_file in rc.ARM_TO_EVAL_FILE.items():
+            if cond not in theirs:
+                continue
+            recs = json.loads((comp_dir / ev_file).read_text())["completions"]
+            recomputed = sum(judge.is_refusal(r["response"]) for r in recs) / len(recs)
+            assert abs(recomputed - theirs[cond]["refusal_rate"]) < 1e-9, \
+                f"{run_dir}/{cond}: paper {theirs[cond]['refusal_rate']} != recomputed {recomputed}"
+            checked += 1
+    assert checked > 0
+    print(f"      paper_rates == our metric on {checked} model×arm rates (0 drift)")
+
+
 # ---------------------------------------------------------------- repro flow (fake backend)
 
 def test_run_refusal_end_to_end_with_fake_backend():
@@ -370,6 +414,11 @@ def test_run_refusal_end_to_end_with_fake_backend():
         import csv as _csv
         rows = list(_csv.DictReader(open(rr.results_csv)))
         assert len(rows) == 10
+        # comparison harness is wired in: with qwen artifacts fetched, run produces
+        # a 5-arm our-vs-paper diff and writes it into the summary.
+        if "qwen-1_8b-chat" in refusal.available_run_dirs():
+            assert rr.comparison is not None and len(rr.comparison) == 5
+            assert "vs. paper" in rr.summary_md.read_text()
         print(f"      5 arms scored; {len(rows)} result rows; rates as paper predicts")
 
 

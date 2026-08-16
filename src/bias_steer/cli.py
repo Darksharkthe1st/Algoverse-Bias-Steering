@@ -112,6 +112,13 @@ def main(argv=None) -> int:
             print(f"\ndone: {r.dir}\n  summary: {r.summary_md}\n  results: {r.results_csv}")
             for cond, s in r.rates.items():
                 print(f"    {cond}: refusal {s['refusal_rate']:.3f} (success {s['success_rate']:.3f})")
+            if r.comparison:
+                n_ok = sum(row["within_tol"] for row in r.comparison)
+                print(f"  vs paper: {n_ok}/{len(r.comparison)} arms within tolerance")
+                for row in r.comparison:
+                    flag = "ok" if row["within_tol"] else "OFF"
+                    print(f"    {row['condition']}: ours {row['ours_refusal']:.3f} "
+                          f"vs paper {row['theirs_refusal']:.3f}  Δ{row['delta']:+.3f} [{flag}]")
         return 0
 
     # Preflight: the judge runs in BOTH phases, so a missing key means the run
