@@ -100,6 +100,42 @@ def run(config: ExperimentConfig, *, backend: Backend | None = None,
     ]
 
 
+#: Files a completed run must have written. `logs/run.log` is deliberately NOT
+#: here — it is the one file a hollow run still produces, so it is worthless as
+#: evidence of success.
+REQUIRED_RUN_ARTIFACTS = (
+    "results.csv",
+    "summary.md",
+    "manifest.json",
+    "steering_vector.safetensors",
+)
+
+
+class IncompleteRunError(RuntimeError):
+    """A run reached the end without writing its evidence."""
+
+
+def assert_run_artifacts(run_dir, required=REQUIRED_RUN_ARTIFACTS) -> None:
+    """Raise unless every required artifact exists and is non-empty.
+
+    Status is derived from evidence, not from control flow. Without this a run
+    can log "done", append a `status=done` index row, and leave nothing behind
+    that anyone could analyse — which is indistinguishable, downstream, from a
+    successful run.
+    """
+    run_dir = Path(run_dir)
+    missing = [
+        name for name in required
+        if not (run_dir / name).is_file() or (run_dir / name).stat().st_size == 0
+    ]
+    if missing:
+        raise IncompleteRunError(
+            f"run {run_dir.name} reached completion without writing "
+            f"{', '.join(missing)}. Not indexing it as done — a run is complete "
+            f"when its evidence exists, not when the code reaches the end."
+        )
+
+
 def _run_one(config, model_key, train, test, method, judge_fn, contrast,
              backend, runs_dir, index_path, progress, on_phase) -> RunResult:
     when = get_current_time_str()
@@ -174,6 +210,13 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
         dataset=config.dataset.name, coeffs=config.coeffs, git=(sha, dirty),
         n_train=len(train), n_test=len(test), counts=counts, quality=quality,
     ))
+
+    # A run is "done" only if its evidence is on disk. Reaching this line is not
+    # evidence: the Aug-9 campaign logged "done" for 13 runs and 12 of them were
+    # later found holding a 167-byte log and nothing else (the artifacts turned
+    # out to be recoverable from phase commits, but nothing here would have
+    # noticed either way). Fail loudly rather than index a hollow run.
+    assert_run_artifacts(handle.dir)
 
     row = index_row(config, model_key, handle.run_id, sha, dirty, when, status="done")
     row.update({

@@ -208,6 +208,42 @@ def test_cli_queue_requires_a_route_file():
     assert cli.main(["run", "--queue"]) == 2
 
 
+
+def test_assert_run_artifacts_rejects_a_hollow_run():
+    """A run that logged 'done' but wrote nothing must not be indexed as done.
+
+    Regression for the Aug-9 campaign: 13 runs logged "done", 12 held only a
+    167-byte run.log. Nothing in the pipeline noticed.
+    """
+    import tempfile, os
+    def _expect(exc_type, fn):
+        try:
+            fn()
+        except exc_type as e:
+            return e
+        raise AssertionError(f"expected {exc_type.__name__}")
+    from src.bias_steer.experiment import (
+        assert_run_artifacts, IncompleteRunError, REQUIRED_RUN_ARTIFACTS,
+    )
+    with tempfile.TemporaryDirectory() as d:
+        os.makedirs(os.path.join(d, "logs"), exist_ok=True)
+        with open(os.path.join(d, "logs", "run.log"), "w") as f:
+            f.write("[t] done\n")          # the hollow run's only output
+        err = _expect(IncompleteRunError, lambda: assert_run_artifacts(d))
+        assert "results.csv" in str(err)
+
+        # empty files do not count as evidence either
+        for name in REQUIRED_RUN_ARTIFACTS:
+            open(os.path.join(d, name), "w").close()
+        _expect(IncompleteRunError, lambda: assert_run_artifacts(d))
+
+        # non-empty everywhere -> passes
+        for name in REQUIRED_RUN_ARTIFACTS:
+            with open(os.path.join(d, name), "w") as f:
+                f.write("x")
+        assert_run_artifacts(d)
+
+
 def _main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

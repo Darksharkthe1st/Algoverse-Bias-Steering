@@ -32,11 +32,6 @@ project studies: a disagreement invisible in any single document.
 | Rubric calibration workflow / Saturday decisions | **`docs/RUBRIC_CALIBRATION.md`** | link only; labels still only in `RUBRIC_v2.md` |
 | Team norms (humans vs agents, epistemic bar) | **`docs/TEAM_HOW_WE_WORK.md`** | link only |
 | Labeling examples / difficulty walkthrough | **`docs/LABELING_WALKTHROUGH.md`** | link only; labels still only in `RUBRIC_v2.md` |
-| BASI / community-intel character map (not paper) | **`experiments/community_methods/DOSSIER.md`** | link only; never a paper source or results number |
-| RFC 2119 as system-prompt pattern (not paper) | **`experiments/community_methods/RFC2119_SYSTEM_PROMPTS.md`** | link only |
-| Personal-site brief derived from harvest (not paper) | **`experiments/community_methods/SITE_BRIEF.md`** | hand to a site agent; **do not** upload the dossier |
-| Spiralism / parasitic-AI harvest notes (00–08; not paper) | **`experiments/community_methods/notebook/`** (index: `README.md`) | link only; never a paper source; do not patch `notebooklm/` |
-| Four-spirals landscape essay + infection literature (not paper) | **Blueprint vault** `research/four-spirals-field-guide.md` and `research/one-untrusted-agent.md`; public cuts at **`edward-lcl.github.io`** `/questions/do-not-collapse-the-spirals/` and `/questions/one-untrusted-agent-is-enough/` | Algoverse `notebook/09` and `10` are stubs; do not restate the essay here |
 
 ## Derived — never edit by hand
 
@@ -44,8 +39,6 @@ project studies: a disagreement invisible in any single document.
   narrative constants at the top of the script, rebuild, redeploy.
 - `notebooklm/*.md` — regenerated from the *paper* owners above. If one is
   wrong, fix the owner and regenerate; do not patch the pack. This is
-  **not** `experiments/community_methods/notebook/` (harvest notes 00–08)
-  and not the four-spirals essay, which lives in the Blueprint vault.
 - `AGENTS.md` — a byte-for-byte mirror of `CLAUDE.md`, because different agent
   stacks read different filenames. **Mirror rule:** change `CLAUDE.md`, then
   `cp CLAUDE.md AGENTS.md` in the same commit. Never edit `AGENTS.md` directly.

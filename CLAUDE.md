@@ -1,5 +1,39 @@
 # Algoverse-Bias-Steering — agent instructions
 
+## READ THIS FIRST — the control plane
+
+**The project is FROZEN as of 2026-08-17.** Four files are canonical. Nothing
+else governs, including anything under `docs/superseded/`.
+
+| File | Owns |
+|---|---|
+| **`PROJECT_STATE.md`** | current paper, gate, blockers, next actions. **Start here.** |
+| **`RESEARCH_CONTRACT.md`** | the frozen science. Changing it needs a dated amendment. |
+| **`WORK_LEDGER.md`** | execution packages, evidence-of-done |
+| **`docs/PREREG.md`** | frozen choices fixed before outcomes were inspected |
+
+`DECISION_LOG.md` explains *why* earlier documents no longer apply. It is
+history, not doctrine.
+
+**Rules for every agent:**
+
+1. **Do not plan or execute from `docs/superseded/`.** Those files describe cut
+   framings — byte-fallback perturbation, a four-claim structure, the eight-way
+   rubric, the Qwen-27B trajectory, the steering-technique survey. They are kept
+   for provenance and are explicitly not current.
+2. **Do not expand scope.** `RESEARCH_CONTRACT.md` §12 lists the only five things
+   that may reopen the contract. "This would be more interesting" is not one.
+3. **`RUNBOOK_*` and `HANDOFF_*` are personal scratchpads.** They may not redefine
+   the paper, a metric, a model set, a deadline, or a definition of done.
+4. **A task is done when its evidence exists and validates**, not when a report
+   says it ran. See `WORK_LEDGER.md`.
+5. **Do not coin terminology.** The behaviour is *hedging*; the failure mode is
+   *over-abstention on answerable items*. "Soft refusal" is retired.
+
+---
+
+## Historical context (the project this used to be)
+
 Soft-refusal steering: we study whether "does the model take a side at all"
 (opinionation vs neutrality on controversial-but-not-harmful prompts) is a
 measurable, steerable representation in open-weight LLMs, and how it relates to
@@ -17,7 +51,7 @@ the Arditi hard-refusal direction. Revival sprint, Aug 2026; 2025 assets
    owner, in a PR, plus the claim ledger in the same PR if it changes what we
    assert. A new doc must claim a row in the registry or it does not get made.
 2. **Framing is centralized.** Before writing or editing ANY paper text, related
-   work, abstract, summary, or review response, read `PAPER_FRAMING.md` and
+   work, abstract, summary, or review response, read `RESEARCH_CONTRACT.md` and
    follow it exactly. If you disagree, PR that file — do not introduce a
    different framing in a draft, comment, or commit message.
 3. **Numbers trace to artifacts — and recount from TEXT LOGS, not pickles.**
@@ -59,7 +93,7 @@ the Arditi hard-refusal direction. Revival sprint, Aug 2026; 2025 assets
 ## Key docs
 
 - `docs/SOURCES_OF_TRUTH.md` — **the fact-ownership registry; read first**
-- `PAPER_FRAMING.md` — canonical framing, terminology, must-cites
+- `RESEARCH_CONTRACT.md` — canonical framing, terminology, must-cites
 - `docs/2026-08-01_project_analysis.md` — post-mortem + 2025–26 frontier scan
 - `RUNBOOK_<NAME>.md` — per-person marching orders (one file per person)
 - Dashboard: `scripts/build_dashboard.py` (narrative constants at the top) →

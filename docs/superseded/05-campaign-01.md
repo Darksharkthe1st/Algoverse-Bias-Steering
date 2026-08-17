@@ -1,3 +1,17 @@
+> ## ⛔ SUPERSEDED — NOT CURRENT DOCTRINE
+>
+> This document does **not** govern the project. It is retained for provenance
+> only. It describes framing, claims, taxonomies, model sets or experiment plans
+> that were **cut** during the 2026-08-17 freeze.
+>
+> Canonical state lives in **`PROJECT_STATE.md`**, **`RESEARCH_CONTRACT.md`**,
+> **`WORK_LEDGER.md`** and **`docs/PREREG.md`**.
+>
+> Humans and agents: if anything here conflicts with those four files, those four
+> files win. Do not plan, cite, or execute from this document.
+>
+> Why it was superseded: **`DECISION_LOG.md`**.
+
 # Campaign 01 — coefficient sweep, anchors, CrowS
 
 The first experiment campaign run on the validated pipeline (see

@@ -44,14 +44,18 @@ and positive-control failure.
 `fix/steering-shape-guard` into `main`. Both are clean; the first is a
 fast-forward. This retires three supposed blockers as merge commits.
 
-**G1 already PASSES.** `runs/20260816-011914_refusal-repro_qwen-1.8b`: harmful
-baseline 38/100 → ablation **0/100**, ΔP_harm = −0.38 against a −0.15 gate. The
-Arditi replication is reproduced on hardware. Earlier plans, mine included, wrongly
-listed this as the blocking unknown.
+**G1 is NOT satisfied.** `runs/20260816-011914_refusal-repro_qwen-1.8b` shows the
+*mechanism* — harmful 38/100 → **0/100** under ablation — but the run's own
+findings doc records **"Not reproduced"**: baseline 0.380 vs the paper's 0.700
+(Δ −0.32), extraction cosine **0.90** vs a 0.999 target, on Qwen1.5-1.8B, which is
+not a submission model. It proves the operator works. It is not the gate.
 
-**The real gate is G2, Thu Aug 20** — pilot at λ=1, ~600 generations, ~6 min GPU.
-Requires `z_stance ≥ 4`. If it fails, no achievable n rescues the identification
-question and we publish the bound.
+**G1 now requires, on the submission model:** ΔP_harm ≤ −0.15 **and** cosine ≥ 0.95
+**and** baseline within ±0.05 of reference.
+
+**Then G2, Thu Aug 20** — pilot at λ=1, ~600 generations, ~6 min GPU, needs
+`z_stance ≥ 4`. If it fails, no achievable n rescues the identification question
+and we publish the bound.
 
 ## Decided most recently (2026-08-17)
 
@@ -88,12 +92,23 @@ Second model · S3 appropriate-hedging arm · post-training trajectory · SAEs �
 ACE/cone/gradient methods · bias taxonomy · the forensic reconstruction of the
 2025 scalar-broadcast bug · dashboard.
 
+## Freeze
+
+**Tag `freeze-2026-08-17`.** SHA recorded at the bottom of this file. Any change
+to the science after this point needs a dated amendment in
+`RESEARCH_CONTRACT.md` §12 and an entry in `DECISION_LOG.md`.
+
+Superseded doctrine lives in `docs/superseded/`, each file carrying a banner. It
+is retained for provenance and **does not govern**. `RUNBOOK_*` and `HANDOFF_*`
+are personal scratchpads, marked non-canonical.
+
 ## Canonical evidence
 
 `RESEARCH_CONTRACT.md` (science, frozen) · `WORK_LEDGER.md` (execution) ·
 `docs/PREREG.md` (hash before any off-target read) · `docs/REVIVAL_AUDIT.md`
 (why the 2025 numbers are not evidence) · `analysis/sim_lambda_*.py` (the
-simulations behind the decision rule) · `runs/` (12 recovered campaign runs).
+simulations behind the decision rule) · `runs/` (12 recovered campaign runs +
+the refusal repro) · `DECISION_LOG.md` (why earlier documents no longer apply).
 
 ## Standing rules
 
