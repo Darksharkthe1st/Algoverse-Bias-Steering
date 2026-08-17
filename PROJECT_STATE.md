@@ -120,6 +120,16 @@ projection · stratum labels on the 293 items · DV extractor + ternary audit
 (n=120, 2 annotators) · preregistration hash · the two statistical fixes (delete
 whitening; match bootstrap map).
 
+## Known blocker, not on the critical path
+
+**`bias-steering.exe.xyz` has no known deployment path.** The repo's
+`dashboard/index.html` is current and CI rebuilds it on every push to a
+canonical doc, but the live host still serves the pre-rebuild legacy page and
+**no deploy step exists anywhere in the repo** — the workflow commits the page
+back to `main` and stops. Whoever owns that nginx box has to say how it is fed;
+until then the site is not a projection of this repo and should not be cited as
+one. No hosting was built to paper over it (`DECISION_LOG.md` D-018).
+
 ## Does *not* block the paper
 
 Second model · S3 appropriate-hedging arm · post-training trajectory · SAEs ·
