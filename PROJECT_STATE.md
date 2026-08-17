@@ -7,7 +7,7 @@
 |---|---|
 | **Venue** | Interpretability as a Science @ NeurIPS 2026 (Sydney), long track ≤9pp, non-archival |
 | **Deadline** | **2026-08-28 AoE** · numbers freeze **2026-08-24** · red team **2026-08-26** |
-| **Next decision** | **Tue 2026-08-19** — ratify the frozen contract, or amend it |
+| **Next decision** | **Tue 2026-08-19** — G1 result on a submission model. Contract is frozen; only §12 reopens it |
 
 ## The paper, in one sentence
 
@@ -40,11 +40,12 @@ and positive-control failure.
 
 ## Current gate
 
-**G0 — merge, Tue Aug 18 12:00.** `origin/fk/init-refusal-rewrite` and
-`fix/steering-shape-guard` into `main`. Both are clean; the first is a
-fast-forward. This retires three supposed blockers as merge commits.
+**G0 — reconciliation: DONE.** `fk/init-refusal-rewrite`, `team-kit` and
+`fix/steering-shape-guard` are merged into `main` at `aed0141`; those branches are
+deleted. Suite green. The ablation operator, prompt-position extraction and the
+deterministic refusal judge are all on `main` — they were merges, not builds.
 
-**G1 is NOT satisfied.** `runs/20260816-011914_refusal-repro_qwen-1.8b` shows the
+**→ THE GATE IS NOW G1, and G1 is NOT satisfied.** `runs/20260816-011914_refusal-repro_qwen-1.8b` shows the
 *mechanism* — harmful 38/100 → **0/100** under ablation — but the run's own
 findings doc records **"Not reproduced"**: baseline 0.380 vs the paper's 0.700
 (Δ −0.32), extraction cosine **0.90** vs a 0.999 target, on Qwen1.5-1.8B, which is
