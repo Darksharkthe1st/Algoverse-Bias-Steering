@@ -234,3 +234,18 @@ _coordinator/
 # manifest.json. Only the manifest, README, and fetch script are committed.
 third_party/refusal_direction/runs/
 third_party/refusal_direction/dataset/
+
+# Community Discord harvest — raw dumps have usernames/PII; keep local only
+experiments/community_methods/raw/
+experiments/community_methods/HARVEST_SUMMARY.json
+# HARVEST_STATS.json / MINING_REPORT.md / method_cards.yaml are OK to commit
+
+# Fusion workspace — holds the unpublished manuscript (a nested git repo whose
+# origin is the Overleaf bridge, auth cached), the append-only claim ledger, and
+# gate archives. None of it belongs in this repo. Was untracked-but-unignored,
+# so a single `git add -A` would have published it.
+.fusion-private/
+.pi/
+
+# Annotation pools contain model text + sealed arm keys — local only
+experiments/annotation_pools/
