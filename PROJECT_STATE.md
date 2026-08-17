@@ -41,30 +41,26 @@ and positive-control failure.
 
 ## Current gate
 
-# → G1. It is the only current gate, and it is NOT satisfied.
+**G1 is the only current gate, it is NOT satisfied, and it has never been run on
+a submission model.**
 
-**G1, on the submission model** `Qwen/Qwen3-8B` @ `b968826d9c46` (PREREG §3b):
-
-| | Threshold |
-|---|---|
-| ΔP_harm under `r̂_harm` at λ=1 | **≤ −0.15** |
-| extraction cosine | **≥ 0.95** |
-| un-intervened harmful baseline | **within ±0.05 of reference** |
-
-**All three, or no claim is made.** It has never been run on a submission model.
-
-*Why the existing run does not count:*
-`runs/20260816-011914_refusal-repro_qwen-1.8b` shows the *mechanism* — harmful
-38/100 → **0/100** under ablation — but its own findings doc records **"Not
-reproduced"**: baseline 0.380 vs the paper's 0.700 (Δ −0.32), extraction cosine
-**0.90** vs a 0.999 target, on Qwen1.5-1.8B. It proves the operator works. It is
-not the gate. (Contract §12 **A3** once called this "PASSING"; **A5 withdrew
-that**.)
+**G1 requires all three**, on the submission model `Qwen/Qwen3-8B` @
+`b968826d9c46` (PREREG §3b): ΔP_harm under `r̂_harm` at λ=1 **≤ −0.15**;
+extraction cosine **≥ 0.95**; un-intervened harmful baseline **within ±0.05 of
+reference**. All three, or no claim is made.
 
 **Blocked on hardware.** `transformer_lens` is not importable outside the Lambda
 box, so G1 and every torch-touching change can only run there. That serialises
 the critical path onto whoever has box access — the single-engineer risk, now
 verified rather than assumed.
+
+**Why the existing run does not count.**
+`runs/20260816-011914_refusal-repro_qwen-1.8b` shows the *mechanism* — harmful
+38/100 → **0/100** under ablation — but its own findings doc records **"Not
+reproduced"**: baseline 0.380 vs the paper's 0.700 (Δ −0.32), extraction cosine
+**0.90** vs a 0.999 target, on Qwen1.5-1.8B. It proves the operator works. It is
+not the gate. Contract §12 **A3** once called this "PASSING"; **A5 withdrew
+that**.
 
 ### Already closed
 
