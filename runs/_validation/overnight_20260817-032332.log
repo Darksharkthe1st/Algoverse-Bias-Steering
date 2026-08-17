@@ -1,0 +1,28 @@
+=== overnight validation Mon Aug 17 07:23:32 UTC 2026 ===
+--- full test suite ---
+test_phase0.py                     8/8 passed
+test_phase1.py                     17/17 passed
+test_phase2.py                     7/7 passed
+test_phase3.py                     9/9 passed
+test_phase4.py                     7/7 passed
+test_refusal.py                    31/31 passed
+test_refusal_datasets.py           8/8 passed
+test_refusal_extract.py            7/8 passed
+test_refusal_grid_provenance.py    2/2 passed
+test_repro_foundation.py           see pytest
+--- provenance + guard sweep ---
+{
+  "runs_total": 16,
+  "runs_complete": 12,
+  "runs_all_2d": true,
+  "archive_checked": 5,
+  "archive_1d_rejected_by_guard": 5,
+  "archive_1d_MISSED_by_guard": 0
+}
+--- Qwen checkpoint watch (provenance only; NOT added to the paper) ---
+  Qwen/Qwen3-8B  rev=b968826d9c46  lastModified=2025-07-26T03:49:13.000Z
+  Qwen/Qwen3.5-9B  rev=c20223623576  lastModified=2026-03-02T00:51:43.000Z
+  Qwen/Qwen3.8-27B  rev=1d4bf0f2ff60  lastModified=2026-08-14T15:00:01.000Z
+--- transformer_lens availability ---
+ModuleNotFoundError: No module named 'transformer_lens'
+=== done Mon Aug 17 07:23:38 UTC 2026 ===

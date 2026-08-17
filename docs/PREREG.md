@@ -63,6 +63,26 @@ generation is inspected. Disagreement rate is reported.
 nameable surface form (*"a seatbelt or no seatbelt"*, *"sunscreen or none"*) —
 commitment to side B is not extractable.
 
+## 3b. Model revisions — pinned
+
+Provenance requires an **immutable revision**, not a tag. Resolved from the
+HuggingFace API 2026-08-17 by `scripts/overnight_validate.py`:
+
+| Role | Repo | Revision | Upstream lastModified |
+|---|---|---|---|
+| **Primary** | `Qwen/Qwen3-8B` | `b968826d9c46` | 2025-07-26 |
+| Fallback | `Qwen/Qwen1.5-7B-Chat` | resolve at run time | — |
+| *Watch only — cut from this paper* | `Qwen/Qwen3.5-9B` | `c20223623576` | 2026-03-02 |
+| *Watch only — cut from this paper* | `Qwen/Qwen3.8-27B` | `1d4bf0f2ff60` | 2026-08-14 |
+
+The two watch rows exist so that "a newer checkpoint appeared" is a recorded fact
+rather than a reason to reopen scope. Qwen3.8-27B is real and recent; it remains
+cut because there is no `-Base` checkpoint at 27B and therefore no control (§10 of
+`RESEARCH_CONTRACT.md`). Adding it needs a §12 amendment.
+
+**Every run must record the revision it actually loaded.** A run whose manifest
+carries a bare model name is not reproducible and does not count as evidence.
+
 ## 4. Intervention
 
 ```
