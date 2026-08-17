@@ -134,6 +134,23 @@ def test_open_run_writes_manifest():
         assert "sha" in manifest["git"] and "dirty" in manifest["git"]
         # the manifest's config round-trips back to an equal ExperimentConfig
         assert from_dict(manifest["config"]) == cfg
+        # the short handle is a repo-local nickname, so what was actually loaded
+        # has to be resolved into the record too (PREREG §3b)
+        assert "model_spec" in manifest, "manifest must record what it loaded"
+        assert set(manifest["model_spec"]) == {"name", "hf_id", "revision"}
+
+
+def test_manifest_carries_the_pinned_revision_for_the_submission_model():
+    """PREREG §3b: a run whose manifest carries a bare model name is not
+    reproducible and does not count as evidence. G1's manifest must therefore
+    show the immutable revision, not just 'qwen3-8b'."""
+    cfg = _make_config()
+    cfg.models = ["qwen3-8b"]
+    with tempfile.TemporaryDirectory() as tmp:
+        handle = tracking.open_run(cfg, model="qwen3-8b", runs_dir=tmp, when="20260101-120000")
+        spec = json.loads((handle.dir / "manifest.json").read_text())["model_spec"]
+    assert spec["hf_id"] == "Qwen/Qwen3-8B"
+    assert spec["revision"] == "b968826d9c46"
 
 
 def test_append_index_creates_header_then_appends():

@@ -47,6 +47,11 @@ class ModelSpec:
     size: str = ""       # e.g. "7B" — for the results table
     quirks: list = field(default_factory=list)  # e.g. ["qwen"]; replaces is_qwen hack
     backend: str = "transformer_lens"           # escape hatch for a future API model
+    # Immutable HuggingFace commit SHA. A tag or bare repo name is not
+    # provenance: the upstream can move under it, and `docs/PREREG.md` §3b says
+    # a run whose manifest carries a bare model name does not count as evidence.
+    # Appended last so the existing positional ModelSpec(...) calls still work.
+    revision: str = ""
 
 
 @dataclass

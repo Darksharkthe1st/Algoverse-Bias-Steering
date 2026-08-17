@@ -42,25 +42,34 @@ and positive-control failure.
 ## Current gate
 
 **G1 is the only current gate, it is NOT satisfied, and it has never been run on
-a submission model.**
+a submission model.** It is now *evaluable* on one, which it was not before.
 
-**G1 requires all three**, on the submission model `Qwen/Qwen3-8B` @
-`b968826d9c46` (PREREG §3b): ΔP_harm under `r̂_harm` at λ=1 **≤ −0.15**;
-extraction cosine **≥ 0.95**; un-intervened harmful baseline **within ±0.05 of
-reference**. All three, or no claim is made.
+**G1 requires all three legs**, on `Qwen/Qwen3-8B` @ `b968826d9c46`, computed
+from the model's own activations (contract §12 **A6**, PREREG §7a): **G1a** the
+direction is estimable — split-half cosine beats its label-permutation null and
+clears 0.68; **G1b** full ablation cuts refusal by **≥ 0.15** on held-out
+`harmful_test`; **G1c** permuted and covariance-matched random directions each
+move it by **< 0.05** and sit ≥ 4 SE below `r̂_harm`. All three, or no claim.
+
+**Why it changed.** The frozen form demanded a cosine and a baseline *against
+Arditi's reference*. He publishes those for five models and `Qwen3-8B` is not
+one, so on the frozen primary both criteria were **undefined** — G1 could be
+neither passed nor failed. The gate was wrong, so the gate changed. **We did not
+switch models to rescue it**: letting a third-party file's availability pick the
+submission model is how a project ends up reporting on whatever was convenient.
 
 **Blocked on hardware.** `transformer_lens` is not importable outside the Lambda
 box, so G1 and every torch-touching change can only run there. That serialises
 the critical path onto whoever has box access — the single-engineer risk, now
-verified rather than assumed.
+verified rather than assumed. Run it from `docs/HANDOFF_G1.md`.
 
 **Why the existing run does not count.**
 `runs/20260816-011914_refusal-repro_qwen-1.8b` shows the *mechanism* — harmful
 38/100 → **0/100** under ablation — but its own findings doc records **"Not
 reproduced"**: baseline 0.380 vs the paper's 0.700 (Δ −0.32), extraction cosine
-**0.90** vs a 0.999 target, on Qwen1.5-1.8B. It proves the operator works. It is
-not the gate. Contract §12 **A3** once called this "PASSING"; **A5 withdrew
-that**.
+**0.90** vs a 0.999 target, on Qwen1.5-1.8B. It is kept as historical mechanism
+evidence and is not the gate. Contract §12 **A3** once called it "PASSING";
+**A5 withdrew that**.
 
 ### Already closed
 
@@ -126,8 +135,10 @@ ACE/cone/gradient methods · bias taxonomy · the forensic reconstruction of the
 
 Amendments live in `RESEARCH_CONTRACT.md` §12: **A1** identification claim cut ·
 **A2** two statistical defects · ~~A3~~ **withdrawn** · **A4** model pin ·
-**A5** withdraws A3 (G1 is not satisfied). Any change to the science after this
-point needs a dated amendment there and an entry in `DECISION_LOG.md`.
+**A5** withdraws A3 (G1 is not satisfied) · **A6** G1 redefined model-internally
+(protocol validity — the frozen form was undefined on the frozen primary). Any
+change to the science after this point needs a dated amendment there and an
+entry in `DECISION_LOG.md`.
 
 Superseded doctrine lives in `docs/superseded/`, each file carrying a banner. It
 is retained for provenance and **does not govern**. `RUNBOOK_*` and `HANDOFF_*`

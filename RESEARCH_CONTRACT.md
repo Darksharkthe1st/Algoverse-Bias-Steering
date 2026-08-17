@@ -355,6 +355,66 @@ target — and it ran on Qwen1.5-1.8B, which is not a submission model. See
 `DECISION_LOG.md` D-015, which has governed since the freeze; A3 was left standing
 in this file by oversight and is the last text in the repo that disagreed with it.
 
-**G1 stands as written in §6:** on the **submission** model, ΔP_harm ≤ −0.15
-**and** extraction cosine ≥ 0.95 **and** un-intervened harmful baseline within
-±0.05 of reference. It has never been run. It is the sole current gate.
+**G1 stands as written in §6** — *superseded by A6, which makes it evaluable.*
+It has never been run. It is the sole current gate.
+
+**2026-08-17 — A6. G1 is redefined model-internally. Protocol validity, not
+scope.** Reason: stop-rule §12.4 — an implementation error affecting the primary
+result. As written, G1 required an *extraction cosine ≥ 0.95 against reference*
+and an *un-intervened baseline within ±0.05 of reference*. Both reference
+quantities come from Arditi's per-model artifacts, which exist for exactly five
+models — `gemma-2b-it`, `llama-2-7b-chat-hf`, `meta-llama-3-8b-instruct`,
+`qwen-1_8b-chat`, `yi-6b-chat`. **`Qwen/Qwen3-8B` is not among them.** On the
+frozen primary these two criteria are not demanding, they are *undefined*, so
+G1 could never be passed or failed as written.
+
+**We did not switch models to rescue the gate.** Letting the availability of a
+third-party file choose the submission model is how a project ends up reporting
+on whichever model was convenient. The gate is what was wrong, so the gate is
+what changed.
+
+**What G1 was for is unchanged**: prove, *before* the main experiment, that the
+harm-refusal direction on this model is real, causal, and specific. A6 restates
+those three requirements using only the model's own activations:
+
+| | Leg | Criterion |
+|---|---|---|
+| **G1a** | **Estimable** | `S_split` = cos of directions from two disjoint halves of the contrast pool. Pass iff `S_split` > the 99th percentile of a **label-permutation null** *and* `S_split ≥ 0.68`. |
+| **G1b** | **Causal** | Full ablation (λ=1) of `r̂_harm` on **held-out** `harmful_test`: **ΔP_refuse ≤ −0.15**. Regime check: baseline refusal ≥ 0.60 on `harmful_test` and ≤ 0.10 on `harmless_test`. |
+| **G1c** | **Specific** | A **label-permuted** direction and a **covariance-matched random** direction each move refusal by \|ΔP\| < 0.05, and `r̂_harm` exceeds each by ≥ 4 SE. |
+
+**All three legs, or no claim is made.** Definitions and the derivation of the
+0.68 floor are in `docs/PREREG.md` §7a; the implementation is
+`src/bias_steer/g1_stability.py`, tested in `tests/test_g1_stability.py`.
+
+**Why this is identifiable on Qwen3-8B when the old form was not.** Of the 71
+files Arditi ships, **only 6 are model-independent** — the harmful/harmless
+prompt splits — and those 6 are all G1 needs. Everything else G1 now compares
+against is computed from Qwen3-8B itself: one half of its own contrast pool
+against the other, and its own labels against its own permuted labels.
+
+**The null is calibrated rather than assumed, and that matters here.** Residual
+streams are strongly anisotropic, so chance cosine is not near zero; a Gaussian
+random-direction null would call shared prompt geometry a discovery. Permuting
+labels holds the prompt set, layer, token position, sample sizes and geometry
+fixed and removes only the label signal. It costs one extraction pass, not 500,
+because a direction is a difference of means over cached residuals.
+
+**The 0.68 floor is derived, not inherited.** Modelling each half-direction as
+signal plus independent isotropic noise, the full-pool direction's alignment
+with the population direction is ≈ `sqrt(2·S_split/(1+S_split))`; `S_split =
+0.68` is where that reaches **0.90**. The isotropy assumption is optimistic, so
+this is an upper bound on direction quality — which is the conservative way to
+use one, since it sets a bar to clear. Both legs of G1a are required because
+either alone is gameable: a tight null can be cleared by a direction far too
+noisy to intervene with, and a high cosine can come from shared prompt geometry
+carrying no label signal at all.
+
+**`runs/20260816-011914_refusal-repro_qwen-1.8b` is preserved as historical
+mechanism evidence and is not the gate.** It shows the operator works
+(harmful 38/100 → 0/100). It remains a failed *replication* by its own findings
+doc, on a non-submission model, and A5 stands.
+
+*A6 changes no hypothesis, no primary statistic (θ), no threshold (θ_eq=25°), no
+model set, and no item stratification. It changes how the positive control is
+verified, on the only model where the frozen form has no referent.*

@@ -128,7 +128,7 @@ admits false "shared" for nested. Valid window [20°, 30°].
 
 | | Gate | Threshold |
 |---|---|---|
-| **G1** | Positive control **on the submission model** | ΔP_harm under `r̂_harm` at λ=1 ≤ −0.15 **and** extraction cosine ≥ 0.95 **and** un-intervened harmful baseline within ±0.05 of reference |
+| **G1** | Positive control **on the submission model** — model-internal, three legs, all required (§7a) | **G1a** `S_split` beats its permutation null *and* ≥ 0.68 · **G1b** ΔP_refuse ≤ −0.15 on held-out `harmful_test` · **G1c** permuted and random controls each \|ΔP\| < 0.05 and ≥ 4 SE below `r̂_harm` |
 | **G2** | Precision — each direction moves its **own** target DV | \|Δlogit\|/SE ≥ 4 |
 | **G3** | Specificity — covariance-matched random direction | moves both DVs by < 4 SE |
 | **G4** | Coherence | no reversal >2 SE against trend where \|ΔP\|>0.05; no sign disagreement when both \|ΔP\|>0.05 |
@@ -137,7 +137,92 @@ admits false "shared" for nested. Valid window [20°, 30°].
 the *mechanism* — harmful 38/100 → 0/100 under ablation — but its own findings
 doc records **"Not reproduced"**: baseline 0.380 vs the paper's 0.700 (Δ −0.32),
 extraction cosine 0.90 vs a 0.999 target. **That run demonstrates the operator
-works. It does not satisfy G1, and it is not on a submission model.**
+works. It does not satisfy G1, and it is not on a submission model.** It is
+retained as historical mechanism evidence (contract §12 A6).
+
+## 7a. G1 — the model-internal positive control · FROZEN BEFORE ANY QWEN3-8B OUTCOME
+
+Fixed by contract §12 **A6**, before any Qwen3-8B activation was inspected.
+
+**Why not the reference cosine.** Arditi ships per-model artifacts for five
+models; `Qwen/Qwen3-8B` is not one. Of his 71 files exactly **6 are
+model-independent** (the harmful/harmless prompt splits) and those 6 are all G1
+needs. "Cosine ≥ 0.95 against reference" is therefore *undefined* on the frozen
+primary, not merely hard. We changed the gate rather than the model.
+
+### G1a — the direction is reproducibly estimable
+
+Split the harmful and harmless contrast pools into two disjoint halves each,
+preserving the 1:1 balance. Extract a direction from each half by the frozen
+recipe (difference in means at the selected cell, fp32, normalised), and take
+
+> **`S_split` = cos( r̂(half A), r̂(half B) )**
+
+**Null — label permutation, B = 500.** Pool the two label groups, re-draw the
+harmful/harmless assignment preserving group sizes, recompute `S_split` by the
+identical code path. This holds prompt set, layer, token position, sample sizes
+and the residual stream's anisotropy fixed and removes only the label signal. A
+Gaussian random-direction null would sit near 0 and mistake shared prompt
+geometry for signal. **Cost is one extraction pass, not 500** — a direction is a
+difference of means over already-cached residuals.
+
+**Pass requires both:**
+
+1. `S_split` > 99th percentile of the null (one-sided permutation test,
+   α = 0.01; p reported with the Phipson–Smyth `+1` so it is never 0), **and**
+2. `S_split ≥ 0.68`.
+
+**Where 0.68 comes from — derived, not inherited from Arditi's 0.999/0.95.**
+Model each half-direction as signal plus independent isotropic noise. Then
+E[cos(A,B)] is the signal fraction ρ, each half aligns with the population
+direction at ≈ √ρ, and the full pool — twice the data, half the noise variance —
+aligns at
+
+> **alignment_full ≈ sqrt( 2·S_split / (1 + S_split) )**
+
+`S_split = 0.68` is where that reaches **0.90**. Isotropy is optimistic (real
+residual noise correlates with the signal), so this is an **upper bound** on
+direction quality — the conservative way to use one, since it sets a bar to
+clear rather than a result to quote.
+
+**Both legs, because either alone is gameable.** A tight null can be cleared by
+a direction far too noisy to intervene with; a high cosine can be produced by
+shared prompt geometry carrying no label signal at all.
+
+### G1b — full ablation materially reduces refusal, held out
+
+λ=1 directional ablation of `r̂_harm` over the frozen Arditi hook set, scored by
+the deterministic `refusal_substring` judge on **`harmful_test`** — a split
+touched by neither extraction (`*_train`) nor cell selection (`*_val`).
+
+> **ΔP_refuse ≤ −0.15**
+
+**Regime check, replacing "baseline within ±0.05 of reference":** baseline
+refusal **≥ 0.60** on `harmful_test` (the model is refusal-trained and there is
+headroom for a −0.15 move) and **≤ 0.10** on `harmless_test` (not pathologically
+over-refusing, which would make ΔP_harm easy for the wrong reason). Both are
+properties of this model, needing no external number.
+
+### G1c — matched controls do not reproduce the effect
+
+Two controls, each extracted and applied by the identical pipeline:
+
+- **`r̂_perm`** — a direction from one label permutation. Matches data, norm,
+  layer, position and geometry; differs only in carrying no label signal. This
+  is the stronger control, and it is the one the old gate lacked.
+- **`r̂_random`** — covariance-matched random direction (already in §4).
+
+> Each must move refusal by **\|ΔP\| < 0.05**, and `r̂_harm`'s effect must exceed
+> each control's by **≥ 4 SE**.
+
+### What passes, what fails
+
+**Pass** = G1a ∧ G1b ∧ G1c. Any single leg failing fails G1, and failing G1
+fires stop-rule §12.2 — it does not get retried with a different model until it
+passes. A leg-specific failure is diagnostic, and is reported as such: G1a alone
+implicates extraction; G1b alone implicates the operator or the regime; G1c
+alone means the effect is generic rank-1 damage, which is one of the two worlds
+§3 lists as mimicking "shared".
 
 ## 8. Inference — deliberately asymmetric
 

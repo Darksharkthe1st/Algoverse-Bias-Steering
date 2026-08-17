@@ -223,3 +223,47 @@ this repo: it serves the pre-rebuild legacy page, and no tracked CI step deploys
 to it. The dashboard workflow commits `dashboard/index.html` back to `main` and
 stops there. Repo-to-site agreement is therefore an open item, not a property.
 **Status.** Governing.
+
+## D-019 · 2026-08-17 · G1 was unevaluable on the model it gates
+**Decision.** Redefine G1 model-internally (contract §12 **A6**, PREREG §7a).
+Keep `Qwen/Qwen3-8B` as the frozen primary. Do **not** switch models.
+**Evidence.** G1 required extraction cosine ≥0.95 *and* baseline within ±0.05
+*of reference*. Both references are Arditi per-model artifacts.
+`third_party/refusal_direction/manifest.json` ships 71 files for exactly five
+models — gemma-2b-it, llama-2-7b-chat-hf, meta-llama-3-8b-instruct,
+qwen-1_8b-chat, yi-6b-chat. **Qwen3-8B is not among them.** On the frozen primary
+the two criteria were not demanding but *undefined*: G1 could be neither passed
+nor failed. That is stop-rule §12.4, an implementation error affecting the
+primary result.
+**Why not switch models.** Three of the five have references and would have made
+G1 evaluable tomorrow. Taking that path lets the availability of a third-party
+file choose the submission model, which is how a project ends up reporting on
+whatever was convenient rather than what it froze. The gate was the defect.
+**What replaces it.** Only 6 of the 71 upstream files are model-independent —
+the harmful/harmless prompt splits — and those 6 are all G1 needs. Everything
+else is computed from Qwen3-8B itself. G1a: split-half cosine `S_split` against a
+**label-permutation null** (B=500), which holds prompt set, layer, position,
+sizes and the residual stream's anisotropy fixed and removes only the label
+signal; a Gaussian random-direction null would sit near 0 and mistake shared
+geometry for signal. The null costs one extraction pass, not 500, because a
+direction is a difference of means over cached residuals. G1b: ΔP_refuse ≤ −0.15
+on held-out `harmful_test`, plus a model-internal regime check (baseline ≥0.60
+harmful, ≤0.10 harmless) replacing "within ±0.05 of reference". G1c: a
+label-permuted direction and a covariance-matched random direction each move
+refusal <0.05 and sit ≥4 SE below `r̂_harm`.
+**Threshold provenance.** The 0.68 floor is **derived, not inherited**: under
+signal-plus-isotropic-noise the full-pool direction aligns with the population
+direction at ≈ sqrt(2·S/(1+S)), and S=0.68 is where that reaches 0.90. Isotropy
+is optimistic, so it is an upper bound on quality — the conservative way to use
+one. Both G1a legs are required because either alone is gameable, and
+`tests/test_g1_stability.py` pins the case that proves it: a signal real enough
+to beat the null (s≈0.49) yet far too noisy to intervene with.
+**Also fixed.** The suite was green per-file and 17/110 red under normal
+collection, because `test_phase0` cleared the global registries without
+restoring. `tests/conftest.py` now rolls every test back and fails any test that
+removes or rebinds a registered component; `build_dashboard` runs `pytest -q`
+once over the repo instead of per-file. The published green was an artifact of
+the measurement.
+**Preserved.** `runs/20260816-011914_refusal-repro_qwen-1.8b` remains historical
+mechanism evidence, not the gate.
+**Status.** Governing.

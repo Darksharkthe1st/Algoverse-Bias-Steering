@@ -57,9 +57,9 @@ code{font-family:var(--mono);font-size:.92em;background:#171d24;padding:1px 5px;
 details summary{cursor:pointer;color:var(--dim);font-size:13px;padding:6px 0}
 </style></head><body>
 <header><div class="wrap"><div class="status">
-<span class="chip"><b>freeze-2026-08-17-a1</b> · 023be1b</span>
+<span class="chip"><b>freeze-2026-08-17-a1</b> · a24858b</span>
 <span class="chip bad">uncommitted changes</span>
-<span class="chip ok">tests <b>109/109</b></span>
+<span class="chip ok">tests <b>122/122</b></span>
 <span class="chip">runs complete <b>12/16</b></span>
 <span class="chip bad">positive control <b>not satisfied</b></span>
 <span class="chip"><b>Fri 2026-08-28 AoE · numbers freeze Mon 2026-08-24 · red team Wed 2026-08-26</b></span>
@@ -116,12 +116,12 @@ nothing on its own</strong> — every identified nuisance biases θ toward “di
 “shared”. Inference is deliberately asymmetric.</p></div></div></section>
 
 <section><h1>Current gate</h1><div class="card gate">
-<p>G1 is the only current gate, it is NOT satisfied, and it has never been run on a submission model.</p><p>G1 requires all three, on the submission model Qwen/Qwen3-8B @ b968826d9c46 (PREREG §3b): ΔP_harm under r̂_harm at λ=1 ≤ −0.15; extraction cosine ≥ 0.95; un-intervened harmful baseline within ±0.05 of reference. All three, or no claim is made.</p><p>Blocked on hardware. transformer_lens is not importable outside the Lambda box, so G1 and every torch-touching change can only run there. That serialises the critical path onto whoever has box access — the single-engineer risk, now verified rather than assumed.</p><p>Why the existing run does not count. runs/20260816-011914_refusal-repro_qwen-1.8b shows the mechanism — harmful 38/100 → 0/100 under ablation — but its own findings doc records &quot;Not reproduced&quot;: baseline 0.380 vs the paper&#x27;s 0.700 (Δ −0.32), extraction cosine 0.90 vs a 0.999 target, on Qwen1.5-1.8B. It proves the operator works. It is not the gate. Contract §12 A3 once called this &quot;PASSING&quot;; A5 withdrew that.</p>
+<p>G1 is the only current gate, it is NOT satisfied, and it has never been run on a submission model. It is now evaluable on one, which it was not before.</p><p>G1 requires all three legs, on Qwen/Qwen3-8B @ b968826d9c46, computed from the model&#x27;s own activations (contract §12 A6, PREREG §7a): G1a the direction is estimable — split-half cosine beats its label-permutation null and clears 0.68; G1b full ablation cuts refusal by ≥ 0.15 on held-out harmful_test; G1c permuted and covariance-matched random directions each move it by &lt; 0.05 and sit ≥ 4 SE below r̂_harm. All three, or no claim.</p><p>Why it changed. The frozen form demanded a cosine and a baseline against Arditi&#x27;s reference. He publishes those for five models and Qwen3-8B is not one, so on the frozen primary both criteria were undefined — G1 could be neither passed nor failed. The gate was wrong, so the gate changed. We did not switch models to rescue it: letting a third-party file&#x27;s availability pick the submission model is how a project ends up reporting on whatever was convenient.</p><p>Blocked on hardware. transformer_lens is not importable outside the Lambda box, so G1 and every torch-touching change can only run there. That serialises the critical path onto whoever has box access — the single-engineer risk, now verified rather than assumed. Run it from docs/HANDOFF_G1.md.</p>
 </div></section>
 
 <section><h1>Evidence</h1><div class="grid g3">
-<div class="card"><h3>Test suite</h3><div class="big">109/109</div>
-<p class="dim mono">10 files &middot; pytest -q (normal collection) &middot; 1 skipped</p>
+<div class="card"><h3>Test suite</h3><div class="big">122/122</div>
+<p class="dim mono">11 files &middot; pytest -q (normal collection) &middot; 1 skipped</p>
 </div>
 <div class="card"><h3>Run artifacts</h3><div class="big">12/16</div>
 <p class="dim mono">complete = results + summary + manifest + vector</p></div>
@@ -180,7 +180,9 @@ setting. That is why the headline statistic changed.</p>
 <div class="meta">D-017 · 2026-08-17</div><h4>Venue</h4>
 <p>Interpretability as a Science @ NeurIPS 2026, Sydney. ≤9pp long track, non-archival. Deadline 2026-08-28 AoE.</p><p class="dim">Verified from primary CFPs. Its scope is standards for measurement, causal claims and falsifiability — which is what this paper now is. The alternative, Interp4Discovery (Aug 29, ≤5pp), frames around domain knowledge discovery, which fits worse, and 5pp cannot hold the controls.</p></div><div class="ev">
 <div class="meta">D-018 · 2026-08-17</div><h4>Post-freeze pin, and the last text that disagreed with D-015</h4>
-<p>(a) Pin model revisions to immutable SHAs — contract Amendment</p><p class="dim"></p></div></div></section><section><h1>Execution</h1>
+<p>(a) Pin model revisions to immutable SHAs — contract Amendment</p><p class="dim"></p></div><div class="ev">
+<div class="meta">D-019 · 2026-08-17</div><h4>G1 was unevaluable on the model it gates</h4>
+<p>Redefine G1 model-internally (contract §12</p><p class="dim">G1 required extraction cosine ≥0.95 and baseline within ±0.05 of reference. Both references are Arditi per-model artifacts. third_party/refusal_direction/manifest.json ships 71 files for exactly five models — gemma-2b-it, llama-2-7b-chat-hf, meta-llama-3-8b-instruct, qwen-1_8b-chat, yi-6b-chat.</p></div></div></section><section><h1>Execution</h1>
 <p class="sub">Work packages, not personal agendas. Owner is metadata — a package keeps its meaning
 when it changes hands. A package is done when its <strong>evidence exists and validates</strong>.</p>
 <table><tr><th>ID</th><th>Objective</th><th>Status</th><th>Owner</th><th>Evidence required</th></tr><tr><td class="mono">WP-01</td><td>Merge the correctness + recovery branch into the working line</td>
@@ -227,9 +229,9 @@ carrying a banner. 2025 results are <strong>not</strong> current evidence — th
 were invalidated by a one-dimensional tensor broadcast, documented in
 <code>docs/REVIVAL_AUDIT.md</code>. Nothing there is a paper claim.</p></section>
 
-<div class="foot">Projection of <code>main</code> @ <code>023be1b</code> · tag
-<code>freeze-2026-08-17-a1</code> · 683 commits · built
-2026-08-17 17:29 UTC.<br>
+<div class="foot">Projection of <code>main</code> @ <code>a24858b</code> · tag
+<code>freeze-2026-08-17-a1</code> · 684 commits · built
+2026-08-17 17:39 UTC.<br>
 Generated from <code>PROJECT_STATE.md</code>, <code>RESEARCH_CONTRACT.md</code>,
 <code>WORK_LEDGER.md</code>, <code>DECISION_LOG.md</code>, <code>runs/</code>, git and the live test
 suite. A projection, never a source of truth — if this page disagrees with the repo, the repo wins.

@@ -42,12 +42,17 @@ def load_model(spec: ModelSpec, device: str | None = None) -> LoadedModel:
     from transformer_lens import HookedTransformer
 
     device = device or get_device()
+    # Pin the weights when the spec names an immutable revision. Passed through
+    # to the HF fetch, so the run loads the exact commit PREREG §3b froze rather
+    # than whatever the branch points at today.
+    extra = {"revision": spec.revision} if spec.revision else {}
     model = HookedTransformer.from_pretrained_no_processing(
         spec.hf_id,
         device=device,
         dtype=torch.float16,
         default_padding_side="left",
         output_hidden_states=True,
+        **extra,
     )
     model.eval()
     model.to(device)
@@ -185,6 +190,12 @@ MODEL_CATALOG = {
     # legacy bias runs. chat_template=True because the refusal direction is defined
     # at post-instruction template positions (see src/bias_steer/refusal.py).
     "llama-2-7b": ModelSpec("llama-2-7b", "meta-llama/Llama-2-7b-chat-hf", True, "7B"),
+    # The frozen submission model (docs/PREREG.md §3b; contract §12 A4). Arditi
+    # ships no per-model artifact for it, which is exactly why G1 is defined
+    # model-internally (contract §12 A6): the only thing G1 needs from
+    # third_party/ is the prompt splits, and those are model-independent.
+    "qwen3-8b": ModelSpec("qwen3-8b", "Qwen/Qwen3-8B", True, "8B", ["qwen"],
+                          revision="b968826d9c46"),
 }
 
 for _name, _spec in MODEL_CATALOG.items():

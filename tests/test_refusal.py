@@ -57,6 +57,26 @@ def test_llama2_catalog_entry():
     assert spec.chat_template is True  # refusal direction needs the chat template
 
 
+def test_submission_model_is_registered_and_pinned():
+    """G1 runs on qwen3-8b, and PREREG §3b pins it to an immutable revision.
+
+    A bare repo name is not provenance — upstream can move under it. The
+    contract says a run whose manifest carries one does not count as evidence,
+    so the pin lives in the spec rather than in someone's shell history.
+    """
+    spec = registry.MODELS["qwen3-8b"]
+    assert spec.hf_id == "Qwen/Qwen3-8B"
+    assert spec.revision == "b968826d9c46", "PREREG §3b pins this revision"
+    assert spec.chat_template is True  # refusal direction is at post-instruction positions
+
+
+def test_no_arditi_artifact_is_required_for_the_submission_model():
+    """qwen3-8b deliberately has no upstream run dir — that is why G1 is
+    model-internal (contract §12 A6). If someone later maps it to one, the
+    cosine-to-published-reference gate would silently come back."""
+    assert "qwen3-8b" not in refusal.RUN_DIR_TO_MODEL.values()
+
+
 def test_resolve_accepts_both_key_forms():
     assert refusal._resolve("qwen-1.8b") == ("qwen-1_8b-chat", "qwen-1.8b")
     assert refusal._resolve("qwen-1_8b-chat") == ("qwen-1_8b-chat", "qwen-1.8b")
@@ -580,6 +600,23 @@ def test_native_configs_load_and_validate():
     val = load_config_file("configs/refusal_native_validate.py")
     validate(val)
     assert getattr(val, "direction_path", None) and getattr(val, "direction_layer", None) is not None
+
+
+def test_g1_config_is_executable_as_written():
+    """The G1 handoff is only a handoff if the command in it actually resolves.
+
+    Catches the whole class of "the config names something unregistered" that
+    would otherwise surface after a model load on a rented GPU.
+    """
+    from src.bias_steer.cli import load_config_file
+    from src.bias_steer.registry import validate
+    cfg = load_config_file("configs/g1_qwen3_8b.py")
+    cfg.validate()
+    validate(cfg)
+    assert cfg.models == ["qwen3-8b"], "G1 runs on the frozen submission model"
+    assert cfg.method == "ablation"
+    assert cfg.judge.name == "refusal_substring", "no API key on the box"
+    assert cfg.dataset.name == "refusal_eval"
 
 
 def _main():
