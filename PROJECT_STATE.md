@@ -18,16 +18,19 @@ hedging on them is controlled by the same mechanism as harm refusal.
 
 ## The experiment
 
-Partial directional ablation `x − λ(x·r̂)r̂` at λ ∈ {0, 0.5, 1}, for
-`r̂_stance` and `r̂_harm`, measured on both batteries. Primary statistic **θ**, the
-angle between the two directions' trajectories **in logit space**.
+Partial directional ablation `x − λ(x·r̂)r̂` at λ ∈ {0, 0.5, 1}, for `r̂_stance`,
+`r̂_harm` and `r̂_random`, on both batteries. Statistic **θ** = angle between the
+two directions' trajectories **in logit space**, 90% CI by item bootstrap.
 
-- **θ small (CI_hi < 25°)** → one shared control
-- **θ large (CI_lo > 25°)** → distinct controls
-- **otherwise** → inconclusive, reported as such
+**We claim only the equivalence direction.** `CI_hi < 25°` → consistent with the
+shared non-compliance control. Otherwise we report **θ̂ with its CI as a
+preregistered bound**, plus the n needed to resolve it — because at k=1 (forced by
+greedy decoding) the 296-item asset cannot separate shared from nested, and every
+nuisance biases θ toward "distinct". A "distinct control" headline is not
+available and is not being sought.
 
-Four gates must pass first or no claim is made: positive control, direction
-precision, random-direction specificity, coherence.
+Four gates must pass or no claim is made: positive control, direction precision,
+random-direction specificity, coherence.
 
 ## Hypothesis space
 
@@ -37,10 +40,18 @@ and positive-control failure.
 
 ## Current gate
 
-**G1 — the positive control has never been run.** Ablating `r̂_harm` must suppress
-harm refusal by ≥0.15 on the primary model. No 2026-model generation exists yet;
-every number in every plan so far is simulated or assumed. **If G1 fails there is
-no paper.**
+**G0 — merge, Tue Aug 18 12:00.** `origin/fk/init-refusal-rewrite` and
+`fix/steering-shape-guard` into `main`. Both are clean; the first is a
+fast-forward. This retires three supposed blockers as merge commits.
+
+**G1 already PASSES.** `runs/20260816-011914_refusal-repro_qwen-1.8b`: harmful
+baseline 38/100 → ablation **0/100**, ΔP_harm = −0.38 against a −0.15 gate. The
+Arditi replication is reproduced on hardware. Earlier plans, mine included, wrongly
+listed this as the blocking unknown.
+
+**The real gate is G2, Thu Aug 20** — pilot at λ=1, ~600 generations, ~6 min GPU.
+Requires `z_stance ≥ 4`. If it fails, no achievable n rescues the identification
+question and we publish the bound.
 
 ## Decided most recently (2026-08-17)
 
@@ -61,14 +72,15 @@ no paper.**
 
 ## Running now
 
-Final adversarial freeze review (novelty · identifiability · statistics ·
-execution). **Nothing else should start until the contract is ratified.**
+Nothing. The freeze review is complete and its verdict is in the contract (§0,
+amendments A1–A3). **Execute, validate, write.**
 
 ## Blocks the paper
 
-Positive control (G1) · ablation operator (does not exist) · extraction protocol
-(current `generate_with_cache()` substrate is invalid) · stratum labels on the 296
-items · DV extractor + ternary validation · preregistration hash.
+Merge (G0) · partial-λ on the existing ablation operator (~15 LOC — the operator
+itself already exists) · fp32 projection · stratum labels on the 296 items · DV
+extractor + ternary audit (n=120, 2 annotators) · preregistration hash · the two
+statistical fixes (delete whitening; match bootstrap map).
 
 ## Does *not* block the paper
 

@@ -1,6 +1,7 @@
 # RESEARCH_CONTRACT.md — scientific commitments
 
-**Status: FROZEN pending final adversarial review (WP-13).**
+**Status: FROZEN 2026-08-17 after adversarial review. Scope reduced by that
+review — see §0.**
 Owner: Edward. Venue: **Interpretability as a Science @ NeurIPS 2026**, Sydney,
 long track ≤9pp, non-archival. **Deadline 2026-08-28 AoE. Numbers freeze 2026-08-24.**
 
@@ -12,6 +13,44 @@ a deadline, a model set, a rubric, a claim, or a definition of done.
 **After freeze, material change requires a dated amendment in §12 with a reason.**
 
 ---
+
+## 0. What the freeze review changed — the identification claim is CUT
+
+The adversarial review triggered stop-rule §12.5 (*"analysis showing the design
+cannot distinguish the hypotheses at achievable n"*). Three independent findings,
+each verified in code:
+
+**0.1 Greedy decoding makes k>1 fictional — so k=1 is forced.** The protocol
+mandates greedy decoding for Arditi parity. Under greedy, five generations of one
+item are five byte-identical strings. Measured: z_stance median 3.11→4.54 for
+sampled k=1→5, but **3.01→3.16 for greedy** — 5× GPU and 5× labelling for zero
+variance return. And at k=1 with the 296-item asset, correct-verdict rates are
+**0.11 / 0.14 / 0.72 / 0.02** — unusable.
+
+**0.2 Reaching the claim needs 4.7× the asset.** At 80% power, greedy k=1, 2:1
+split: distinguishing *nested* (the hardest alternative) needs **n_ben=1400,
+n_harm=700 ≈ 10,500 generations**, plus **≥240 audited responses per cell**
+(~2,100 human judgements). We have 296 items, ~193 of them S2, and 11 days. The
+binding constraint is `n_harm`, not `n_ben` — the angle's precision is set by each
+trajectory's *off-target* SE.
+
+**0.3 Every nuisance biases θ upward, toward "distinct".** No nuisance found
+biases toward "shared". So the design can *confirm* Joad et al.'s shared-knob
+result but cannot credibly *refute* it, and a "distinct control" headline would
+rest on a statistic whose only failure direction is the one that produces it.
+
+Two implementation defects were also found and must be fixed regardless, because
+they are one afternoon of work: the axis whitening ties θ to the benign/harm
+budget split (θ_eq=25° calibrated at 1:1 becomes 33° at 14:1 — inside the bound
+meant to exclude nested); and the bootstrap whitens by a different map than the
+statistic, giving **0.22 coverage under nested, erring 78% toward falsely
+declaring "shared"**. Delete the whitening — the logit invariant makes θ=0 exact
+under any linear rescaling, so the null is untouched.
+
+**Consequence.** The λ-ablation machinery, the gates, and the statistic are
+**retained and reported**, but the paper's headline is now the measurement
+contribution plus a *preregistered bound*, not a mechanism verdict. §5–§7 below
+define the machinery; §7.1 defines what we actually claim.
 
 ## 1. The question
 
@@ -164,12 +203,22 @@ is falsified iff all gates pass and `CI_hi < 25°`.
 ≤10° under mild contamination; oblique 51°, nested 66°, distinct 90°. θ_eq=15°
 costs equivalence power (0.75); θ_eq=40° admits false "shared" for nested.
 
-**Power.** Critical values (95th pct under shared): n=150,k=1 → 24.3°;
-n=296,k=1 → 15.9°; **n=296,k=5 → 9.2°**. Minimum detectable true angle at 80%
-power: **27° at n=296,k=1; 14° at k=5.** Detecting distinct (90°) is ≥0.985
-powered at every configuration tested including n=100,k=1. **Run k=5** — the
-primary battery is S2 (~193 items), so k=5 is what keeps the oblique case (51°)
-comfortably detectable.
+### 7.1 What we actually claim — the bounded result
+
+Because of §0, the decision rule above is run and reported, but **only the
+equivalence direction is claimable**, and a null is reported as a bound rather
+than a finding:
+
+- If `CI_hi < 25°` → **"consistent with the shared non-compliance control Joad et
+  al. identify"**, reported with its power.
+- Otherwise → **"θ̂ = X° (90% CI [a,b]); at this n we cannot exclude a shared
+  control, and we cannot exclude battery-specific leakage that reproduces the same
+  signature under a single knob."** State the n required to resolve it: **1400
+  benign / 700 harmful, ~10,500 generations, ~2,100 audit judgements.**
+
+**k = 1, forced** (§0.1). **Split 2:1 benign:harm**, not 5:1 — `n_harm` binds.
+**Delete the axis whitening** and **match the bootstrap map to the statistic**
+before any θ is computed; without both fixes the interval does not cover.
 
 ## 8. Outcome measurement
 
@@ -262,4 +311,20 @@ proposing a more ambitious paper.
 Once the contract survives WP-13, the default is **execute, validate, write.**
 
 ### Amendments
-*(none — dated entries with reasons go here)*
+
+**2026-08-17 — A1. Identification claim cut; headline reduced to measurement +
+bound.** Reason: stop-rule §12.5. Greedy decoding forces k=1; at k=1 the 296-item
+asset yields correct-verdict rates 0.11/0.14/0.72/0.02; reaching the claim needs
+n_ben=1400/n_harm=700 plus ~2,100 audit judgements, i.e. 4.7× the asset in 11
+days. Every identified nuisance biases θ toward "distinct", so only the
+equivalence direction is credible. Machinery retained; headline changed. See §0.
+
+**2026-08-17 — A2. Two statistical defects fixed before any θ is computed.**
+Reason: measured coverage 0.22 under nested. Delete axis whitening (ties the
+estimand to the budget split); match the bootstrap whitening map to the statistic.
+
+**2026-08-17 — A3. G1 reclassified from "never run" to PASSING.** Reason: audit
+found `runs/20260816-011914_refusal-repro_qwen-1.8b` — harmful baseline 38/100 →
+ablation **0/100**, ΔP_harm = −0.38 against a −0.15 gate. The positive control was
+already reproduced on hardware; earlier plans (mine included) wrongly listed it as
+the blocking unknown.
