@@ -12,6 +12,7 @@ debugging session, and the thing most often re-tried by the next person.
 | date | finding | verdict |
 |---|---|---|
 | 2026-08-16 | [Refusal repro, qwen-1.8b — both tracks](./2026-08-16-refusal-repro-qwen-1.8b.md) | ✗ not reproduced; 8 causes eliminated |
+| 2026-08-16 | [Refusal in OUR extraction convention, qwen-1.8b (§12)](./2026-08-16-refusal-native-extraction-qwen-1.8b.md) | ✓ validates *after* mean-centering; raw ablation "win" was model collapse |
 | 2026-08-16 | [`test_phase2` starts a real coordinator campaign](./2026-08-16-test-phase2-coordinator-footgun.md) | environment footgun; unfixed in code |
 
 ## Related, not yet migrated

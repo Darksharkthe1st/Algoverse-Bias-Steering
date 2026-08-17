@@ -269,7 +269,22 @@ jailbroke Qwen cleanly in the qualitative demo. **Priority: LOW** unless the abl
 
 ---
 
-## 12. Reproduce the refusal vector in OUR extraction convention  — READY TO RUN
+## 12. Reproduce the refusal vector in OUR extraction convention  — DONE (2026-08-16)
+
+> **Result:** [`findings/2026-08-16-refusal-native-extraction-qwen-1.8b.md`](./findings/2026-08-16-refusal-native-extraction-qwen-1.8b.md).
+> Validates, with one required correction: our response-mean rows carry a large component
+> along the residual stream's grand-mean direction (|cos| up to 0.92), and ablating that
+> collapses the model — the raw layer-15 "refusal 0.00" is 80% token-loop gibberish scored
+> as compliance. Mean-centering (`r ← r − (r·m̂)m̂`) fixes it: refusal 0.01 at 8% degeneracy,
+> coherent. Dose-matched act-add induces harmless refusal 0.01 → 0.59. Cosine to the
+> paper's direction: +0.358 @ layer 15, best +0.370 @ layer 19. **Use the mean-centered
+> vector for any refusal-vs-X comparison.** Two follow-ups it opens: log completions +
+> degeneracy in `experiment_refusal` (§0.3), and a topic-matched control to separate
+> refusal from harmful-topic content.
+
+<details>
+<summary>Original spec (as run)</summary>
+
 
 **Why.** We replicated the refusal *mechanism* (paper's published direction: ablation collapses harmful
 refusal, act-add induces harmless refusal — see `docs/findings/2026-08-16-refusal-repro-qwen-1.8b.md`),
@@ -337,6 +352,8 @@ source.
 Note the guard that makes a null result trustworthy: `steering.check_direction` now rejects the exact
 Log-213 failure mode (§11 — a scalar broadcast from a mis-shaped/wrong-model vector), so a flat Phase-2
 result is a real null, not a silent load bug. **Priority: HIGH** (unlocks the refusal ⟂ bias line).
+
+</details>
 
 ---
 

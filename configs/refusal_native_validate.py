@@ -28,5 +28,7 @@ config = ExperimentConfig(
     batch_size=16,
 )
 # ---- FILL THESE IN from the Phase-1 run ----
-config.direction_path = "runs/REPLACE_WITH_PHASE1_RUN/steering_vector.safetensors"
-config.direction_layer = 15  # qwen's canonical refusal layer; sweep if a cell is off
+config.direction_path = "runs/20260816-230451_refusal-native_qwen-1.8b/steering_vector.safetensors"
+# Phase 3 (scripts/refusal_native_compare.py) put our best alignment to the paper's
+# direction at layer 19 (cos +0.370; +0.358 at the paper's own layer 15).
+config.direction_layer = 19
