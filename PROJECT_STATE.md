@@ -94,7 +94,7 @@ ACE/cone/gradient methods · bias taxonomy · the forensic reconstruction of the
 
 ## Freeze
 
-**Tag `freeze-2026-08-17`.** SHA recorded at the bottom of this file. Any change
+**Tag `freeze-2026-08-17` · SHA `aed0141`.** Any change
 to the science after this point needs a dated amendment in
 `RESEARCH_CONTRACT.md` §12 and an entry in `DECISION_LOG.md`.
 
