@@ -75,19 +75,44 @@ def git_state() -> dict:
 
 
 def test_state() -> dict:
+    """Run the suite the way a human runs it: one `pytest -q` over the repo.
+
+    This used to invoke each test file in its own process. That hid cross-test
+    state contamination by construction — the registries a test clobbered were
+    restored for free by the next process — so the page published "96/97 green"
+    while a normal `python -m pytest -q` gave 17 failures. A control surface
+    that cannot reproduce its own headline number is worse than no number.
+
+    Falls back to the per-file runners only if pytest is unavailable, and says
+    so in `mode` rather than quietly reporting a weaker check as the same thing.
+    """
+    out = sh("python3 -m pytest -q 2>&1 | tail -25")
+    m = re.search(r"^(?:(\d+) failed,? ?)?(\d+) passed(?:,? (\d+) skipped)?", out, re.M)
+    if m:
+        failed = int(m.group(1) or 0)
+        passed = int(m.group(2))
+        skipped = int(m.group(3) or 0)
+        failing = [{"name": n.split("::")[0].split("/")[-1], "why": strip_md(w)[:160]}
+                   for n, w in re.findall(r"^FAILED (\S+)(?: - (.*))?$", out, re.M)]
+        return {"files": sorted(p.name for p in (ROOT / "tests").glob("test_*.py")),
+                "passed": passed, "total": passed + failed, "skipped": skipped,
+                "failing": failing, "mode": "pytest -q (normal collection)"}
+
+    # No pytest — fall back to the standalone runners, and label it as such.
     files, passed, total, failing = [], 0, 0, []
     for f in sorted((ROOT / "tests").glob("test_*.py")):
-        out = sh(f"python3 {f} 2>&1 | grep -E '^[0-9]+/[0-9]+ passed' | tail -1")
-        m = re.match(r"(\d+)/(\d+) passed", out)
-        if not m:
+        r = sh(f"python3 {f} 2>&1 | grep -E '^[0-9]+/[0-9]+ passed' | tail -1")
+        mm = re.match(r"(\d+)/(\d+) passed", r)
+        if not mm:
             continue
-        p, t = int(m.group(1)), int(m.group(2))
+        p, t = int(mm.group(1)), int(mm.group(2))
         passed += p; total += t
         files.append(f.name)
         if p < t:
             failing.append({"name": f.name,
                             "why": strip_md(sh(f"python3 {f} 2>&1 | grep -E '^FAIL' | head -1"))[:160]})
-    return {"files": files, "passed": passed, "total": total, "failing": failing}
+    return {"files": files, "passed": passed, "total": total, "skipped": 0,
+            "failing": failing, "mode": "per-file fallback (pytest unavailable)"}
 
 
 def run_evidence() -> list[dict]:
@@ -309,7 +334,7 @@ nothing on its own</strong> — every identified nuisance biases θ toward “di
 
 <section><h1>Evidence</h1><div class="grid g3">
 <div class="card"><h3>Test suite</h3><div class="big">{t['passed']}/{t['total']}</div>
-<p class="dim mono">{len(t['files'])} files, executed at build time</p>
+<p class="dim mono">{len(t['files'])} files &middot; {E(t['mode'])}{f" &middot; {t['skipped']} skipped" if t.get('skipped') else ''}</p>
 {''.join(f"<p class='dim mono'>{E(f['why'])}</p>" for f in t['failing'])}</div>
 <div class="card"><h3>Run artifacts</h3><div class="big">{complete}/{len(runs)}</div>
 <p class="dim mono">complete = results + summary + manifest + vector</p></div>

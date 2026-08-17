@@ -26,6 +26,18 @@ try:
 except Exception:
     _HAS_TORCH = False
 
+# The refusal splits are third-party artifacts fetched by
+# `scripts/fetch_refusal_artifacts.py`, not committed (they are gitignored). A
+# test needing them must self-skip when they are absent, the same way the
+# numeric tests self-skip without torch. Hard-failing reports a missing download
+# as a broken repo — which is how this suite came to carry a permanent red that
+# everyone learned to read past.
+_SPLITS_DIR = os.path.join(
+    _REPO_ROOT, "third_party", "refusal_direction", "dataset", "splits"
+)
+_HAS_SPLITS = os.path.isdir(_SPLITS_DIR) and bool(os.listdir(_SPLITS_DIR))
+_NO_SPLITS = "refusal splits not fetched: python scripts/fetch_refusal_artifacts.py"
+
 
 # ---------------------------------------------------------------- structural
 
@@ -62,6 +74,15 @@ def test_eoi_suffix():
 
 
 def test_sampling_deterministic_and_sized():
+    if not _HAS_SPLITS:
+        # Gate on actually running under pytest, not on pytest being importable:
+        # `pytest.skip()` outside a pytest run raises Skipped, which the plain
+        # `python3 tests/...` runner would report as a failure.
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            import pytest
+            pytest.skip(_NO_SPLITS)
+        print(f"      (skipped: {_NO_SPLITS})")
+        return
     s1 = rx.load_and_sample_repro(n_train=128, n_val=32)
     s2 = rx.load_and_sample_repro(n_train=128, n_val=32)
     assert s1 == s2  # deterministic (seed 42, fixed input order)
