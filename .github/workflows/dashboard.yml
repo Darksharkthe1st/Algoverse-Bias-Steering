@@ -2,6 +2,11 @@ name: Rebuild dashboard
 
 on:
   push:
+    # Branches only. A tag push (e.g. a freeze tag) would otherwise trigger a
+    # build on a detached ref, which cannot push its result and fails red at
+    # exactly the moment someone cuts a freeze.
+    branches:
+      - main
     paths:
       # The site is a projection of canonical state. Rebuild when that state moves.
       - 'PROJECT_STATE.md'
@@ -21,6 +26,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The dashboard derives the freeze marker from
+          # `git describe --match 'freeze-*'` and the commit count from history.
+          # The default shallow, tagless clone makes both unavailable, so CI was
+          # republishing the page with "(untagged) · 1 commits" and overwriting
+          # the correct locally-built marker. Full history + tags.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
