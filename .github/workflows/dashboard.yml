@@ -39,6 +39,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install pytest
+        # Without it build_dashboard falls back to invoking each test file in
+        # its own process — the exact mode that hid the registry leak, because
+        # a fresh process restores global state for free. The fallback labels
+        # itself on the page, but the page should not need the excuse.
+        run: python3 -m pip install --quiet pytest
+
       - name: Rebuild dashboard
         run: python3 scripts/build_dashboard.py --out dashboard/index.html
 
