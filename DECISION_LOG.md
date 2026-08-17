@@ -197,3 +197,29 @@ alternative, Interp4Discovery (Aug 29, ≤5pp), frames around domain knowledge
 discovery, which fits worse, and 5pp cannot hold the controls. **InterpScience
 forbids concurrent workshop review — one venue only.**
 **Status.** Governing.
+
+## D-018 · 2026-08-17 · Post-freeze pin, and the last text that disagreed with D-015
+**Decision.** (a) Pin model revisions to immutable SHAs — contract Amendment
+**A4**, `docs/PREREG.md` §3b. (b) Withdraw contract Amendment **A3** — Amendment
+**A5**. Tag the resulting state `freeze-2026-08-17-a1`; leave
+`freeze-2026-08-17` → `aed0141` untouched.
+**Evidence (a).** `scripts/overnight_validate.py` resolved the HuggingFace API:
+`Qwen/Qwen3-8B` @ `b968826d9c46`. The contract already required an immutable
+revision for a run to count as evidence while PREREG named only repos — so no run
+could have satisfied its own provenance rule. This is a self-consistency fix, not
+a scientific change: no hypothesis, statistic, threshold, gate or model set moved.
+Qwen3.8-27B (`1d4bf0f2ff60`, upstream 2026-08-14) is recorded **watch-only and
+cut** — no `-Base` at 27B, therefore no control.
+**Evidence (b).** A3 claimed "G1 reclassified ... to PASSING" on effect size
+alone, reading a *mechanism* demonstration as a *replication*. D-015 has governed
+since the freeze and says the opposite; `PROJECT_STATE.md`, PREREG §7 and contract
+§6 all already said G1 is unsatisfied. A3 was the one place in the repo still
+disagreeing. Withdrawn in place, retained for provenance, superseded by A5.
+**Consequence.** G1 is the sole current gate: on the submission model, ΔP_harm
+≤ −0.15 **and** cosine ≥ 0.95 **and** baseline within ±0.05 of reference. Never
+run. Blocked on the Lambda box — `transformer_lens` is not importable elsewhere.
+**Also recorded.** The site at `bias-steering.exe.xyz` is **not** a projection of
+this repo: it serves the pre-rebuild legacy page, and no tracked CI step deploys
+to it. The dashboard workflow commits `dashboard/index.html` back to `main` and
+stops there. Repo-to-site agreement is therefore an open item, not a property.
+**Status.** Governing.

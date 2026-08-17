@@ -189,4 +189,15 @@ a new visualisation · more compute · an agent proposing a more ambitious paper
 
 ## Amendments
 
-*(dated entries with reasons go here — none yet)*
+Amendments are numbered in `RESEARCH_CONTRACT.md` §12. Each entry below is a
+pointer; the reason lives there.
+
+**2026-08-17 — A4. §3b added: model revisions pinned to immutable SHAs.** The
+only post-freeze change to this document. It fixes a self-inconsistency — this
+file demanded an immutable revision as a condition of evidence while naming only
+repos — and it changes no hypothesis, statistic, threshold, gate or model set.
+State after this amendment is tagged **`freeze-2026-08-17-a1`**; the base freeze
+**`freeze-2026-08-17` → `aed0141`** is unchanged and remains the reference for
+every pre-outcome choice in §1–§10.
+
+*No other section of this file has changed since the freeze.*

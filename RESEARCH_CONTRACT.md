@@ -323,8 +323,38 @@ equivalence direction is credible. Machinery retained; headline changed. See §0
 Reason: measured coverage 0.22 under nested. Delete axis whitening (ties the
 estimand to the budget split); match the bootstrap whitening map to the statistic.
 
-**2026-08-17 — A3. G1 reclassified from "never run" to PASSING.** Reason: audit
-found `runs/20260816-011914_refusal-repro_qwen-1.8b` — harmful baseline 38/100 →
+**2026-08-17 — A3. G1 reclassified from "never run" to PASSING.**
+**⛔ WITHDRAWN — superseded by A5. Do not cite. Retained for provenance.**
+Reason given at the time: audit found
+`runs/20260816-011914_refusal-repro_qwen-1.8b` — harmful baseline 38/100 →
 ablation **0/100**, ΔP_harm = −0.38 against a −0.15 gate. The positive control was
 already reproduced on hardware; earlier plans (mine included) wrongly listed it as
 the blocking unknown.
+
+**2026-08-17 — A4. Model revisions pinned to immutable SHAs (post-freeze,
+non-scientific).** Reason: the contract requires an immutable revision for a run
+to count as evidence, and `docs/PREREG.md` named repos only — so no run could
+have satisfied its own provenance rule. `scripts/overnight_validate.py` resolved
+them against the HuggingFace API and PREREG §3b now records: primary
+`Qwen/Qwen3-8B` @ `b968826d9c46`; watch-only and **cut from this paper**,
+`Qwen/Qwen3.5-9B` @ `c20223623576` and `Qwen/Qwen3.8-27B` @ `1d4bf0f2ff60`.
+
+*This amendment changes no hypothesis, statistic, threshold, gate or model set.*
+The two watch rows exist so that "a newer checkpoint appeared" is a **recorded
+fact rather than a reason to reopen scope**; Qwen3.8-27B is real and was updated
+2026-08-14, and it stays cut because there is no `-Base` checkpoint at 27B and
+therefore no control (§10). Adding it would need its own amendment.
+Tagged `freeze-2026-08-17-a1`. The base freeze `freeze-2026-08-17` → `aed0141`
+is unchanged.
+
+**2026-08-17 — A5. A3 is withdrawn: G1 is NOT satisfied.** Reason: A3 tested only
+the effect size and read a *mechanism* demonstration as a *replication*. The run
+it cites records **"Not reproduced"** in its own findings doc — baseline 0.380
+against the paper's 0.700 (Δ −0.32) and extraction cosine **0.90** against a 0.999
+target — and it ran on Qwen1.5-1.8B, which is not a submission model. See
+`DECISION_LOG.md` D-015, which has governed since the freeze; A3 was left standing
+in this file by oversight and is the last text in the repo that disagreed with it.
+
+**G1 stands as written in §6:** on the **submission** model, ΔP_harm ≤ −0.15
+**and** extraction cosine ≥ 0.95 **and** un-intervened harmful baseline within
+±0.05 of reference. It has never been run. It is the sole current gate.
