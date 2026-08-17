@@ -22,6 +22,55 @@ def resid_pre_hook_names(n_layers: int) -> list[str]:
     return [f"blocks.{layer}.hook_resid_pre" for layer in range(n_layers)]
 
 
+class SteeringShapeError(ValueError):
+    """A steering vector was not `(n_layers, d_model)`."""
+
+
+def assert_steering_shape(vector, n_layers: int, d_model: int) -> None:
+    """Reject any vector that is not `(n_layers, d_model)`, loudly.
+
+    This guards the failure that invalidated the 2025 refusal arms and is the
+    reason those runs are not evidence (`docs/REVIVAL_AUDIT.md`). Archived `.pt`
+    files hold **one-dimensional** hidden-width tensors. Indexing one of those
+    with `vector[layer]` returns a **scalar**, and `value[:, :, :] += scaled *
+    scalar` then broadcasts a uniform DC offset across the whole residual width.
+    Torch raises nothing. The model still generates. The run still writes a CSV
+    with plausible numbers — and none of it tests the intended direction.
+
+    Vectors built in-process by `build_mean_difference` are already the right
+    shape; this exists for the path that actually broke, which is loading a
+    saved artifact. Fail here rather than in the results.
+    """
+    shape = getattr(vector, "shape", None)
+
+    if shape is None:
+        # Not a tensor — a structural stand-in (the torch-free hook-wiring test
+        # passes a plain list). The 1-D failure cannot arise here; only check that
+        # there is one entry per layer.
+        length = len(vector) if hasattr(vector, "__len__") else None
+        if length is not None and length != n_layers:
+            raise SteeringShapeError(
+                f"steering vector has {length} entries; expected one per layer "
+                f"({n_layers})."
+            )
+        return
+
+    shape = tuple(shape)
+    if len(shape) == 2 and shape[0] == n_layers and (d_model is None or shape[1] == d_model):
+        return
+    if len(shape) == 1:
+        raise SteeringShapeError(
+            f"steering vector is 1-D {shape}; expected ({n_layers}, {d_model}). "
+            "Indexing this per layer yields a scalar and silently broadcasts a "
+            "uniform offset instead of steering along a direction — the bug that "
+            "voided the 2025 refusal arms. Re-extract the vector, or reshape only "
+            "if you have verified it is a per-layer stack."
+        )
+    raise SteeringShapeError(
+        f"steering vector has shape {shape}; expected ({n_layers}, {d_model})."
+    )
+
+
 def capture_mean(cache, n_layers: int):
     """Mean over tokens of `resid_pre` per layer -> (n_layers, d_model).
 
@@ -62,6 +111,7 @@ def apply_resid_pre_add(model, vector, coeff: float):
     import functools
 
     n_layers = model.cfg.n_layers
+    assert_steering_shape(vector, n_layers, getattr(model.cfg, "d_model", None))
     scaled = coeff / n_layers
 
     def _steer(value, hook, vec):
