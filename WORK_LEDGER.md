@@ -28,7 +28,9 @@ path; everything else waits.
 | **WP-02** | Reconcile `main` ← `team-kit` ← `fk/init-refusal-rewrite` | WP-01 | **done** | Claude | One line holding pipeline + docs; `.gitignore` = union | Merge commit; suite still 31/31 | Re-run suite post-merge | Y |
 | **WP-03** | Partial λ on the existing `apply_directional_ablation` (~15 LOC; operator already on `main`) | WP-02 | **not started** | Aryaman | `x − λ(x·r̂)r̂` at contract-specified layers/positions; shape-guarded; unit-tested | `src/bias_steer/steering.py` diff + tests | λ=0 is identity; λ=1 zeroes the component; random-direction control runs | Y |
 | **WP-04** | Extraction protocol implementation | WP-02 | **not started** | Farhan | Replaces `generate_with_cache()` re-run-the-response-string substrate with the contract's prompt-position capture | Code diff + one direction file with metadata | Direction hash reproducible from committed inputs | Y |
-| **WP-05** | Positive control: Arditi replication (E0) | WP-03, WP-04 | **not started** | Farhan | Ablating `r̂_harm` measurably suppresses harm refusal on the harm battery | Run dir with results + provenance record | Effect present and signed correctly, else **project kill gate** | Y |
+| **WP-05** | **G1 — model-internal positive control on `qwen3-8b`** (was: Arditi replication E0; redefined by contract §12 **A6**, because the reference-cosine form is undefined on the frozen primary) | — | **ready to run — needs the Lambda box** | Farhan | Three legs on the model's own activations: **G1a** `S_split` beats its permutation null and ≥ 0.68 · **G1b** ΔP_refuse ≤ −0.15 on held-out `harmful_test` · **G1c** permuted + random controls < 0.05 and ≥ 4 SE below `r̂_harm` | Run dir with `results.csv`, `summary.md`, `manifest.json` carrying `model_spec.revision`, plus the `assess()` report | All three legs pass, else stop-rule §12.2 — **not** retried on another model | Y |
+| **WP-05a** | G1 execution assets: pinned `ModelSpec`, config, statistic, handoff | — | **done** | Claude | `qwen3-8b` @ `b968826d9c46` registered; revision plumbed to loader and manifest; `g1_stability.assess()` implemented | `configs/g1_qwen3_8b.py`, `src/bias_steer/g1_stability.py`, `docs/HANDOFF_G1.md`, `tests/test_g1_stability.py` | Config loads + validates; 122/122 under normal collection | Y |
+| **WP-05b** | Wire G1a to the cached residuals at the selected cell (~20 LOC) | WP-05a | **not started** | Farhan | Hand `assess()` the `(n, d)` harmful/harmless slices from the extraction pass — no second forward pass | Diff + the report written into the run dir | `assess()` output present in the G1 run dir | Y |
 | **WP-06** | Primary DV extractor `named_a_side` | — | **not started** | Jeremiah | Deterministic extractor over the 296 forced-binary items | `scripts/extract_named_side.py` + per-item output | Human-validated on a sample; error bounded per contract | Y |
 | **WP-07** | Validity instrument + blinded annotation | WP-06 | **not started** | Jeremiah | Minimal binary/ternary validity judgement, blinded to condition | Blinded pools, individual label files, agreement computation, frozen version tag | Agreement meets the contract's gate on the load-bearing category | Y |
 | **WP-08** | λ-sweep, both directions × both batteries, k generations/item | WP-05, WP-06 | **not started** | Farhan | Full preregistered grid executed | Raw generations + results + provenance per cell | Provenance record complete for every cell | Y |
@@ -73,7 +75,7 @@ is from the **artifact and the contract**, not from a conversation.
 |---|---|---|
 | WP-03 ablation operator | Aryaman | Farhan |
 | WP-04 extraction protocol | Farhan | Aryaman |
-| WP-05 positive control | Farhan | Jeremiah (reads the run dir, not the notebook) |
+| WP-05 G1 positive control | Farhan | Jeremiah (reads the run dir and the `assess()` report, not the notebook) |
 | WP-06 DV extractor | Jeremiah | Edward |
 | WP-08 λ-sweep | Farhan | Jeremiah |
 | WP-10 analysis | Jeremiah | Farhan |

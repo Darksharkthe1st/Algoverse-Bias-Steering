@@ -57,9 +57,9 @@ code{font-family:var(--mono);font-size:.92em;background:#171d24;padding:1px 5px;
 details summary{cursor:pointer;color:var(--dim);font-size:13px;padding:6px 0}
 </style></head><body>
 <header><div class="wrap"><div class="status">
-<span class="chip"><b>freeze-2026-08-17-a1</b> · 84f8e86</span>
-<span class="chip ok">clean tree</span>
-<span class="chip ok">tests <b>110/110</b></span>
+<span class="chip"><b>freeze-2026-08-17-a1</b> · 6b2b491</span>
+<span class="chip bad">uncommitted changes</span>
+<span class="chip ok">tests <b>122/122</b></span>
 <span class="chip">runs complete <b>12/16</b></span>
 <span class="chip bad">positive control <b>not satisfied</b></span>
 <span class="chip"><b>Fri 2026-08-28 AoE · numbers freeze Mon 2026-08-24 · red team Wed 2026-08-26</b></span>
@@ -120,12 +120,12 @@ nothing on its own</strong> — every identified nuisance biases θ toward “di
 </div></section>
 
 <section><h1>Evidence</h1><div class="grid g3">
-<div class="card"><h3>Test suite</h3><div class="big">110/110</div>
-<p class="dim mono">10 files &middot; per-file fallback (pytest unavailable)</p>
+<div class="card"><h3>Test suite</h3><div class="big">122/122</div>
+<p class="dim mono">11 files &middot; pytest -q (normal collection) &middot; 1 skipped</p>
 </div>
 <div class="card"><h3>Run artifacts</h3><div class="big">12/16</div>
 <p class="dim mono">complete = results + summary + manifest + vector</p></div>
-<div class="card"><h3>Blocking packages</h3><div class="big">3/14</div>
+<div class="card"><h3>Blocking packages</h3><div class="big">4/16</div>
 <p class="dim mono">done by evidence, not by report</p></div></div><div class="card" style="margin-top:14px">
 <h3>Positive control — mechanism yes, replication no</h3><table><tr><td class='mono'>harmful/baseline</td><td class='mono'>37/100 refused</td></tr><tr><td class='mono'>harmful/ablation</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmful/actadd</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmless/baseline</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmless/actadd</td><td class='mono'>95/100 refused</td></tr></table>
 <p class="hint">Ablation collapses harmful refusal, so the operator works. But the run's own findings
@@ -193,9 +193,13 @@ when it changes hands. A package is done when its <strong>evidence exists and va
 <td><span class="pill">not started</span></td><td class="mono dim">Aryaman</td>
 <td class="dim mono">src/bias_steer/steering.py diff + tests</td></tr><tr><td class="mono">WP-04</td><td>Extraction protocol implementation</td>
 <td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
-<td class="dim mono">Code diff + one direction file with metadata</td></tr><tr><td class="mono">WP-05</td><td>Positive control: Arditi replication (E0)</td>
+<td class="dim mono">Code diff + one direction file with metadata</td></tr><tr><td class="mono">WP-05</td><td>G1 — model-internal positive control on qwen3-8b (was: Arditi replication E0; redefined by contract §12 A6, because the reference-cosine form is undefined on the frozen primary)</td>
 <td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
-<td class="dim mono">Run dir with results + provenance record</td></tr><tr><td class="mono">WP-06</td><td>Primary DV extractor named_a_side</td>
+<td class="dim mono">Run dir with results.csv, summary.md, manifest.json carrying model_spe</td></tr><tr><td class="mono">WP-05a</td><td>G1 execution assets: pinned ModelSpec, config, statistic, handoff</td>
+<td><span class="pill done">done</span></td><td class="mono dim">Claude</td>
+<td class="dim mono">configs/g1_qwen3_8b.py, src/bias_steer/g1_stability.py, docs/HANDOFF_G</td></tr><tr><td class="mono">WP-05b</td><td>Wire G1a to the cached residuals at the selected cell (~20 LOC)</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
+<td class="dim mono">Diff + the report written into the run dir</td></tr><tr><td class="mono">WP-06</td><td>Primary DV extractor named_a_side</td>
 <td><span class="pill">not started</span></td><td class="mono dim">Jeremiah</td>
 <td class="dim mono">scripts/extract_named_side.py + per-item output</td></tr><tr><td class="mono">WP-07</td><td>Validity instrument + blinded annotation</td>
 <td><span class="pill">not started</span></td><td class="mono dim">Jeremiah</td>
@@ -229,9 +233,9 @@ carrying a banner. 2025 results are <strong>not</strong> current evidence — th
 were invalidated by a one-dimensional tensor broadcast, documented in
 <code>docs/REVIVAL_AUDIT.md</code>. Nothing there is a paper claim.</p></section>
 
-<div class="foot">Projection of <code>main</code> @ <code>84f8e86</code> · tag
-<code>freeze-2026-08-17-a1</code> · 685 commits · built
-2026-08-17 17:40 UTC.<br>
+<div class="foot">Projection of <code>main</code> @ <code>6b2b491</code> · tag
+<code>freeze-2026-08-17-a1</code> · 687 commits · built
+2026-08-17 17:43 UTC.<br>
 Generated from <code>PROJECT_STATE.md</code>, <code>RESEARCH_CONTRACT.md</code>,
 <code>WORK_LEDGER.md</code>, <code>DECISION_LOG.md</code>, <code>runs/</code>, git and the live test
 suite. A projection, never a source of truth — if this page disagrees with the repo, the repo wins.
