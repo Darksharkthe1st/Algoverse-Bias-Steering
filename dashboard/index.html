@@ -57,8 +57,8 @@ code{font-family:var(--mono);font-size:.92em;background:#171d24;padding:1px 5px;
 details summary{cursor:pointer;color:var(--dim);font-size:13px;padding:6px 0}
 </style></head><body>
 <header><div class="wrap"><div class="status">
-<span class="chip"><b>freeze-2026-08-17</b> · e8e21b8</span>
-<span class="chip bad">uncommitted changes</span>
+<span class="chip"><b>(untagged)</b> · 25a18c7</span>
+<span class="chip ok">clean tree</span>
 <span class="chip warn">tests <b>96/97</b></span>
 <span class="chip">runs complete <b>12/16</b></span>
 <span class="chip bad">positive control <b>not satisfied</b></span>
@@ -116,16 +116,16 @@ nothing on its own</strong> — every identified nuisance biases θ toward “di
 “shared”. Inference is deliberately asymmetric.</p></div></div></section>
 
 <section><h1>Current gate</h1><div class="card gate">
-<p>G0 — merge, Tue Aug 18 12:00. origin/fk/init-refusal-rewrite and fix/steering-shape-guard into main. Both are clean; the first is a fast-forward. This retires three supposed blockers as merge commits.</p><p>G1 is NOT satisfied. runs/20260816-011914_refusal-repro_qwen-1.8b shows the mechanism — harmful 38/100 → 0/100 under ablation — but the run&#x27;s own findings doc records &quot;Not reproduced&quot;: baseline 0.380 vs the paper&#x27;s 0.700 (Δ −0.32), extraction cosine 0.90 vs a 0.999 target, on Qwen1.5-1.8B, which is not a submission model. It proves the operator works. It is not the gate.</p><p>G1 now requires, on the submission model: ΔP_harm ≤ −0.15 and cosine ≥ 0.95 and baseline within ±0.05 of reference.</p><p>Then G2, Thu Aug 20 — pilot at λ=1, ~600 generations, ~6 min GPU, needs z_stance ≥ 4. If it fails, no achievable n rescues the identification question and we publish the bound.</p>
+<p>G0 — reconciliation: DONE. fk/init-refusal-rewrite, team-kit and fix/steering-shape-guard are merged into main at aed0141; those branches are deleted. Suite green. The ablation operator, prompt-position extraction and the deterministic refusal judge are all on main — they were merges, not builds.</p><p>→ THE GATE IS NOW G1, and G1 is NOT satisfied. runs/20260816-011914_refusal-repro_qwen-1.8b shows the mechanism — harmful 38/100 → 0/100 under ablation — but the run&#x27;s own findings doc records &quot;Not reproduced&quot;: baseline 0.380 vs the paper&#x27;s 0.700 (Δ −0.32), extraction cosine 0.90 vs a 0.999 target, on Qwen1.5-1.8B, which is not a submission model. It proves the operator works. It is not the gate.</p><p>G1 now requires, on the submission model: ΔP_harm ≤ −0.15 and cosine ≥ 0.95 and baseline within ±0.05 of reference.</p><p>Then G2, Thu Aug 20 — pilot at λ=1, ~600 generations, ~6 min GPU, needs z_stance ≥ 4. If it fails, no achievable n rescues the identification question and we publish the bound.</p>
 </div></section>
 
 <section><h1>Evidence</h1><div class="grid g3">
 <div class="card"><h3>Test suite</h3><div class="big">96/97</div>
 <p class="dim mono">9 files, executed at build time</p>
-<p class='dim mono'>FAIL test_sampling_deterministic_and_sized: FileNotFoundError: missing refusal split /private/tmp/algo-canon/third_party/refusal_direction/dataset/splits/harmfu</p></div>
+<p class='dim mono'>FAIL test_sampling_deterministic_and_sized: FileNotFoundError: missing refusal split /home/runner/work/Algoverse-Bias-Steering/Algoverse-Bias-Steering/third_par</p></div>
 <div class="card"><h3>Run artifacts</h3><div class="big">12/16</div>
 <p class="dim mono">complete = results + summary + manifest + vector</p></div>
-<div class="card"><h3>Blocking packages</h3><div class="big">1/14</div>
+<div class="card"><h3>Blocking packages</h3><div class="big">3/14</div>
 <p class="dim mono">done by evidence, not by report</p></div></div><div class="card" style="margin-top:14px">
 <h3>Positive control — mechanism yes, replication no</h3><table><tr><td class='mono'>harmful/baseline</td><td class='mono'>37/100 refused</td></tr><tr><td class='mono'>harmful/ablation</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmful/actadd</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmless/baseline</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmless/actadd</td><td class='mono'>95/100 refused</td></tr></table>
 <p class="hint">Ablation collapses harmful refusal, so the operator works. But the run's own findings
@@ -183,9 +183,9 @@ setting. That is why the headline statistic changed.</p>
 when it changes hands. A package is done when its <strong>evidence exists and validates</strong>.</p>
 <table><tr><th>ID</th><th>Objective</th><th>Status</th><th>Owner</th><th>Evidence required</th></tr><tr><td class="mono">WP-01</td><td>Merge the correctness + recovery branch into the working line</td>
 <td><span class="pill done">done</span></td><td class="mono dim">Claude</td>
-<td class="dim mono">fix/steering-shape-guard @ d2a79f8</td></tr><tr><td class="mono">WP-02</td><td>Reconcile main ← team-kit</td>
-<td><span class="pill run">in flight</span></td><td class="mono dim">Farhan</td>
-<td class="dim mono">Merge commit; suite still 31/31</td></tr><tr><td class="mono">WP-03</td><td>Ablation operator apply_resid_ablate (partial, λ-parameterised)</td>
+<td class="dim mono">fix/steering-shape-guard @ d2a79f8</td></tr><tr><td class="mono">WP-02</td><td>Reconcile main ← team-kit ← fk/init-refusal-rewrite</td>
+<td><span class="pill done">done</span></td><td class="mono dim">Claude</td>
+<td class="dim mono">Merge commit; suite still 31/31</td></tr><tr><td class="mono">WP-03</td><td>Partial λ on the existing apply_directional_ablation (~15 LOC; operator already on main)</td>
 <td><span class="pill">not started</span></td><td class="mono dim">Aryaman</td>
 <td class="dim mono">src/bias_steer/steering.py diff + tests</td></tr><tr><td class="mono">WP-04</td><td>Extraction protocol implementation</td>
 <td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
@@ -206,7 +206,7 @@ when it changes hands. A package is done when its <strong>evidence exists and va
 <td class="dim mono">Commit hash in the contract</td></tr><tr><td class="mono">WP-25</td><td>Stratify the battery (S1/S2/S3)</td>
 <td><span class="pill">not started</span></td><td class="mono dim">Edward</td>
 <td class="dim mono">Committed CSV + adjudication notes</td></tr><tr><td class="mono">WP-13</td><td>Final adversarial freeze review</td>
-<td><span class="pill run">in flight</span></td><td class="mono dim">Claude</td>
+<td><span class="pill done">done</span></td><td class="mono dim">Claude</td>
 <td class="dim mono">Critic reports + resolutions in contract §12</td></tr><tr><td class="mono">WP-12</td><td>Judge pinning + k≥3 with majority</td>
 <td><span class="pill">not started</span></td><td class="mono dim">Aryaman</td>
 <td class="dim mono">Config diff + judge agreement file</td></tr></table><div class="grid g2" style="margin-top:16px">
@@ -225,9 +225,9 @@ carrying a banner. 2025 results are <strong>not</strong> current evidence — th
 were invalidated by a one-dimensional tensor broadcast, documented in
 <code>docs/REVIVAL_AUDIT.md</code>. Nothing there is a paper claim.</p></section>
 
-<div class="foot">Projection of <code>main</code> @ <code>e8e21b8</code> · tag
-<code>freeze-2026-08-17</code> · 668 commits · built
-2026-08-17 07:19 UTC.<br>
+<div class="foot">Projection of <code>main</code> @ <code>25a18c7</code> · tag
+<code>(untagged)</code> · 1 commits · built
+2026-08-17 07:25 UTC.<br>
 Generated from <code>PROJECT_STATE.md</code>, <code>RESEARCH_CONTRACT.md</code>,
 <code>WORK_LEDGER.md</code>, <code>DECISION_LOG.md</code>, <code>runs/</code>, git and the live test
 suite. A projection, never a source of truth — if this page disagrees with the repo, the repo wins.
