@@ -1,837 +1,399 @@
-"""Generate a self-contained HTML status dashboard for the bias-steering revival.
+#!/usr/bin/env python3
+"""Build the team-facing research control surface from canonical repo state.
 
-Built so a newcomer or returning member can drop in cold and get oriented in
-under a minute: what we're building, why it was revived, where we are, the
-headline (and honest-negative) results, decisions, the task board, and what's
-next. Pure stdlib; renders the results tables directly from committed CSV
-artifacts under experiments/past_logs/. Narrative constants at the top are
-hand-maintained — edit them via PR (see .claude/skills/dashboard-update/).
+The site is a **projection**, never a source of truth. Every fact rendered here
+is read at build time from one of:
 
-    python3 -m scripts.build_dashboard --out dashboard/index.html
+    PROJECT_STATE.md      current paper, gate, blockers
+    RESEARCH_CONTRACT.md  frozen science
+    WORK_LEDGER.md        execution packages
+    DECISION_LOG.md       why earlier documents no longer apply
+    runs/                 actual experiment artifacts
+    git                   freeze tag, SHA, dirty state
+    tests/                live suite result
+
+If a fact is not in one of those, it does not belong on the page. Hand-writing a
+claim here re-creates the exact failure this project spent a week undoing.
+
+Usage:  python3 scripts/build_dashboard.py --out dashboard/index.html
 """
-import os
-import csv
-import html
+
+from __future__ import annotations
+
 import argparse
-import datetime
+import html
+import json
+import re
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
-# Committed result artifacts (do not point these at uncommitted files)
-BATCHED_CSV = "experiments/past_logs/methodology_experiments/batched_tests/Batched_Gen.csv"
-CROWS_CSV = "experiments/past_logs/crows_experiments/Crows_Opin_Tests/Crows_Opin.csv"
-
-# Docs live on the working branch until it merges to main. Flip to "main" in
-# the same PR that merges, or every link on this page 404s.
-REPO = "https://github.com/Darksharkthe1st/Algoverse-Bias-Steering"
-BRANCH = "team-kit"
-
-
-def blob(path):
-    return f"{REPO}/blob/{BRANCH}/{path}"
-
-# ---- editable narrative state -------------------------------------------------
-TAGLINE = "Testing whether the 'soft refusal' direction is real — by showing an input perturbation nobody designed moves models along it, and that removing that component abolishes the behavior change."
-
-OVERVIEW = [
-    ("What we're building",
-     "An activation-space account of <b>soft refusal</b> — the behavior where a model declines to take sides on controversial-but-not-harmful prompts. We extract steering vectors/subspaces with TransformerLens (difference-in-means and 2026-grade upgrades), steer open-weight models toward opinionation or neutrality, and test how soft refusal relates to the Arditi <i>hard</i>-refusal direction."),
-    ("Why it was revived",
-     "The 2025 Algoverse run got a real result — <b>bidirectional in-distribution steering with coherence preserved</b> — but stalled on OOD transfer and ran out of team. Revived <b>Aug 2026</b> by a three-person team. The frontier moved (refusal is now cones/subspaces, not single directions; labs ship persona vectors and even-handedness evals), yet the exact soft-refusal claim is <b>still unclaimed</b>."),
-    ("Where we are today",
-     "<b>REVIVAL SPRINT — week 0. Scope is PROPOSED, not decided.</b> A machine-generated design+critique pass (<code>docs/2026-08-02_sprint_proposal.md</code>) argues for expanding the thesis to <b>\"Two Routes to One Boundary\"</b> — convergent validation via an undesigned input perturbation, with a <b>mediation test</b> as the headline. <b>That proposal has not been reviewed by the person who built the 2025 pipeline, and several of its claims are about that pipeline.</b> Venue is verified: Interp4Discovery @ NeurIPS 2026, <b>Aug 29 AoE</b>. The one genuinely time-critical item is freezing the judge rubric before annotation starts."),
-]
-
-RESEARCH_Q = ("The research question",
-    "Is the <b>soft-refusal direction</b> an artifact of the intervention that found it? Every steering paper faces this (non-identifiability, arXiv:2602.06801): a vector that responds to your own push is not evidence you found the model's representation. Our answer is <b>convergent validity</b> — a single-character substitution forcing byte-fallback tokenization, designed with no reference to any direction, displaces activations <i>preferentially along</i> d_soft; the <b>signed</b> projection predicts which prompts flip; and <b>nulling that component abolishes the flip while injecting it reproduces it</b>. Full plan: docs/2026-08-02_sprint_proposal.md.")
-
-PHASE = "REVIVAL SPRINT week 0→1. Scope PROPOSED (see the proposal's preamble — machine-generated, unreviewed by the pipeline owner). Time-critical: freeze the judge rubric before annotation starts. Open for the team: whether the perturbation arm is in scope, whether mediation is worth its GPU-hours, whether ICLR in parallel is realistic."
-
-RUNS = [  # (label, state) state in {running, done, queued}
-    ("2025 · In-distribution bidirectional steering, 9 models — VERIFIED: reproduces 7/7 from per-record artifacts (n=96/arm)", "done"),
-    ("2025 · Zero-vector ablation control — UNDER REVIEW: 'nonsense' may be judge-extraction failure, not degeneration", "queued"),
-    ("2025 · Per-model coefficient sweeps (0–20) — explained: per-layer norm profile varies 2× (gemma) to 1391× (Qwen-14B)", "done"),
-    ("2025 · BBQ transfer — semi-failed; provenance recovered by payload SHA-256 (Logs 185–191 are BBQ-trained)", "done"),
-    ("2025 · CrowS-Pairs transfer — FAILED (honest negative, kept)", "done"),
-    ("2025 · Refusal↔opinion cross-application — RETRACTED: INVALID, not null (1-D vector indexed as layers → scalar DC offset; + model/vector order mismatch)", "done"),
-    ("2025 · Synthetic-neutral-output steering — failed (Dec 2025, last commit)", "done"),
-    ("2026-08-06/07 · Two independent CPU audits: text-log recount (5/5 + 7/7 rows) and pickle recount (7/7 rows)", "done"),
-    ("W0 · PREREG.md filed + six-way rubric frozen by commit hash + paper/.tex skeleton", "queued"),
-    ("W1 · HARNESS: resumable runner + write-once per-layer residual cache (CRITICAL PATH)", "queued"),
-    ("W1 · Six-way screen: 150 double-annotated gold labels → per-category κ; re-judge archive", "queued"),
-    ("W1 · Perturbation library: 8 arms / 18 cells, unit-tested (byte-identity, appearance-identity)", "queued"),
-    ("W2 · Unified extraction: d_soft (2 routes) + d_harm + d_OOD + d_length, all layers, 5 redraws", "queued"),
-    ("W2 · E(f) steering-efficacy sweep at 9 fractional depths → l* locked by commit hash", "queued"),
-    ("W2 · Forward-pass displacement grid + covariance-matched null battery → C2 figure", "queued"),
-    ("W3 · Designed grid: 4 models × 5 conditions × 2 batteries, dose-matched (~16k gens)", "queued"),
-    ("W3 · Perturbation generation subset with sampling-noise floor (~14k gens, queued unattended)", "queued"),
-    ("W3 · MEDIATION: necessity (null along d) + sufficiency (inject measured π̂·d̂), 2 controls each", "queued"),
-    ("W4 · Freeze Aug 24 · figures · 5pp draft · anonymization sweep · red-team Aug 26 · submit Aug 28", "queued"),
-]
-
-DECISIONS = [
-    ("Core method (baseline)", "Difference-in-means steering at all layers/positions",
-     "The 2025 recipe. Now the BASELINE, not the method — upgrades (affine/ACE, capping, conditional) are sprint work, per the frontier scan."),
-    ("Judge", "RETIRED — no v1 label may appear in any new analysis, figure, or sentence",
-     "Not a caveat — a hard rule. The v1 rubric scored any clear stance 'opinionated' even when factual, so every archived vector was built from a contrast set mixing 'took a side' with 'stated a fact'. Reproducing those labels validates the bookkeeping, not the construct. v1 counts may be cited only as 'what the 2025 pipeline recorded'. No table may ever mix v1 and v2."),
-    ("Models", "REFRESHED — Qwen3.5 {2B,9B,27B} ladder · Qwen3.6-27B · gemma-4-31B-it · gemma-4-26B-A4B (MoE)",
-     "Verified 2026-08-07 against HF configs + the TransformerLens registry. Not just a vintage fix: Qwen3.5-27B and Qwen3.6-27B have BYTE-IDENTICAL configs and differ only in post-training, giving a free controlled test of whether the refusal direction moves under re-alignment — and a positive control for our whole apparatus. gemma-4 dense-vs-MoE is a second free contrast. No Llama arm: there is no Llama 5, and Llama 4 is gated with an unverified TL adapter. docs/MODEL_SET_2026-08-07.md."),
-    ("Reasoning mode", "Fit ALL directions in non-thinking mode; report thinking mode as secondary",
-     "Static steering degrades badly on reasoning models (arXiv:2605.26772: 39% compliance with CoT fixed vs 94% with CoT regenerated) — but that paper tests ONE model with no non-reasoning control, and Qwen3.5/3.6 have a within-checkpoint toggle that supplies exactly the missing control. Never mix modes when fitting a direction: the think block shifts token positions and contaminates the contrast set."),
-    ("Evals", "Opinion: held-out comparisons + IssueBench subset + Paired Prompts · Safety: XSTest + JailbreakBench · Capability: MMLU slice",
-     "The 2×2 grid needs BOTH batteries per condition; BBQ/CrowS-Pairs retired to historical context (CrowS widely criticized)."),
-    ("Venue", "Interpretability as a Science — Aug 28, LONG paper (9pp). Interp4Discovery is the Gate-1-failure fallback.",
-     "Decided on fit, not taste. Three of Interp-as-Science's seven topics describe this paper verbatim — 'experimental designs that distinguish mechanisms from artifacts', 'measurement validity, identifiability, and evaluation design', 'pathways to replicable science'. Interp4Discovery's remit is discovery, which we are not. Deciding practical factor: 9pp vs 5pp — the susceptibility table, its controls, detector hit/FP rates and the archive existence proof do not fit in 5. Mutually exclusive (their rule blocks the pair either way). FLIP CONDITION: if Gate 1 fails and we pivot to the short construct-validity note, that IS a negative result and Interp4Discovery becomes correct. Both non-archival; archival path unaffected. docs/PRIOR_ART_2026-08-07.md."),
-    ("Dual-use", "Only contested-but-benign prompts are ever perturbed",
-     "A construction constraint, not a policy: no harmful battery is perturbed in any arm, so no attack-efficacy number can exist in the paper. Released artifact is the projection monitor + evaluation harness, never a perturbation generator. Lead with accidental typographic drift, never adversarial framing."),
-    ("Scope", "Open-weight models only; no cone-fitting; no ideology direction; no twin-break headline",
-     "Twin-break demoted to appendix — two critics independently derived that it is algebraically self-defeating (an orthogonal twin inherits the prediction). Scope cuts are doctrine — decision doc §2."),
-]
-
-TASKS = [  # who, track, status (active|blocked|queued|done), next action
-    ("Farhan", "Pipeline · generation", "active",
-     "<b>Week 1 = CRITICAL PATH: productionize the notebook.</b> Config-driven resumable runner + write-once per-layer residual cache readable with zero GPU; integrate the refreshed model set (docs/MODEL_SET_2026-08-07.md); verify one cell unattended. (<b>Corrected 2026-08-07:</b> the earlier &lsquo;no harness exists&rsquo; call was inferred from src/ line count without opening the notebook, and was wrong — ~30 named functions cover the whole pipeline including resumable save/load and compare_vectors. This is <b>packaging, not building</b>, and how long it takes is his call to make.) Then W2 unified extraction + E(f) sweep + dose calibration; W3 the grid, then queued perturbation + mediation."),
-    ("Edward", "Measurement · geometry · analysis", "active",
-     "Week 0: file docs/PREREG.md (rubric hash, 18 perturbation cells, endpoints, l* rule, TOST margins, multiplicity plan). W1: 150 double-annotated gold labels → per-category κ ≥ 0.7, re-judge archive. W2: d_OOD + d_length, forward-pass displacement grid off Farhan's cache, covariance-matched null battery, C2 selectivity figure, Gate 1.5 pilot. W3: rolling judging, mediation analysis. Daily scoop watch."),
-    ("Jeremiah", "OWNER · fault-susceptibility study + measurement geometry", "active",
-     "<b>Owns two workstreams, not a task list.</b> (1) The <b>injected-fault susceptibility study</b> — on current evidence the paper's central contribution, and the thing an external prior-art scan said we need or we have 'a blog post with a bibliography'. Design authority and veto over its own results are his. (2) <b>Measurement geometry</b>, including the <b>extraction-variance floor that does not exist yet</b> and which gates every cosine we would report — the two archived Qwen1.5-7B vectors are byte-identical copies, so we have no estimate at all. Shared: gold-set annotation with Edward; writing lead; paper/.tex skeleton in W0. RUNBOOK_JEREMIAH.md."),
-]
-
-HOW_WE_WORK = [
-    ("Cadence", "Tue / Thu / Sat <b>9pm ET</b> syncs · Slack/Discord between meetings"),
-    ("Compute", "Lambda Cloud (~$377 credits, Farhan) · possibly a small GPU cluster (Edward) · archived 2025 outputs cover judge/eval work with <b>zero GPU</b>"),
-    ("Code", "This repo only — PRs, no direct pushes to main; runs land as raw CSVs + pickles under <code>experiments/</code>"),
-    ("Agents", "Coding agents are first-class: they read <code>CLAUDE.md</code>/<code>AGENTS.md</code> and <code>PAPER_FRAMING.md</code>; doctrine disagreements are PRs to those files, not forked narratives"),
-]
-
-MILESTONES = [
-    ("done", "2025 core result: bidirectional in-distribution steering, 9 models, ablation-controlled"),
-    ("done", "Post-mortem + frontier scan + fused sprint plan + venue verified (docs/)"),
-    ("done", "Team kit: dashboard · framing doctrine · agent instructions · handoffs"),
-    ("now", "Week 1 → Gate 1: thesis sign-off (Tue) · judge v2 (kappa ≥ 0.7) · re-judge archived outputs · unified re-extraction"),
-    ("next", "Week 2 → Gate 2: reproduce steering + Arditi with re-extracted vectors · geometry package · eval harness"),
-    ("then", "Week 3: the 2×2 grid (~30k gens) · Week 4: robustness + 5pp draft → SUBMIT Aug 29 AoE"),
-]
-
-PATH_TO_SUBMISSION = [
-    ("done", "Edward", "Post-mortem, frontier scan, team kit, sprint plan, venue verification committed."),
-    ("now", "Team", "Tue: sign off thesis + sprint plan (PAPER_FRAMING.md, docs/2026-08-01_sprint_plan.md)."),
-    ("now", "Edward", "Judge v2 rubric → kappa ≥ 0.7 vs ~150 gold labels (Jeremiah co-annotates) → re-judge archived outputs. GATE 1(a)+(b) end of week 1."),
-    ("now", "Farhan", "Unified Arditi-convention re-extraction of both direction families, 4 models (~20 GPU-hrs)."),
-    ("next", "Farhan", "Gate 2: reproduce bidirectional steering (≥20pp, ≥3/4 models) + Arditi bypass/induction (≥30pp) with re-extracted vectors."),
-    ("next", "Edward", "Benchmark harness (agent-assisted): IssueBench subset · Paired Prompts · XSTest · JailbreakBench + geometry package (per-layer cosines, principal angles)."),
-    ("then", "Farhan", "Week 3 crunch: 4×5×2 cross-steering grid (~110-130 GPU-hrs); degradation order pre-committed — never shrink the safety battery."),
-    ("then", "Edward+Jeremiah", "Judging/aggregation + MMLU audit as results stream; per-example distribution figures."),
-    ("then", "Team", "Freeze Aug 26 · red-team read Aug 27 · SUBMIT Interp4Discovery @ NeurIPS 2026, Aug 29 AoE."),
-]
-
-LINKS = [
-    ("Live dashboard", "https://bias-steering.exe.xyz"),
-    ("★ SOURCES OF TRUTH (read before writing any fact)", blob("docs/SOURCES_OF_TRUTH.md")),
-    ("★ RUBRIC v2 — canonical, needs freezing", blob("docs/RUBRIC_v2.md")),
-    ("Prior art + venue conflict", blob("docs/PRIOR_ART_2026-08-07.md")),
-    ("★ RUNBOOK — Farhan (pipeline)", blob("RUNBOOK_FARHAN.md")),
-    ("RUNBOOK — Edward (measurement)", blob("RUNBOOK_EDWARD.md")),
-    ("★ RUNBOOK — Jeremiah (fault study · geometry)", blob("RUNBOOK_JEREMIAH.md")),
-    ("Research program: geometry of refusal (parked)", blob("docs/RESEARCH_PROGRAM_GEOMETRY.md")),
-    ("Model set + Qwen 3.8 watch", blob("docs/MODEL_SET_2026-08-07.md")),
-    ("Verification pass (2026-08-07)", blob("docs/VERIFICATION_2026-08-07.md")),
-    ("Governed archive audit (2026-08-06)", blob("docs/REVIVAL_AUDIT.md")),
-    ("★ The Correct Problem (read first)", blob("docs/THE_CORRECT_PROBLEM.md")),
-    ("Framing doctrine (PAPER_FRAMING.md)", blob("PAPER_FRAMING.md")),
-    ("★ Sprint proposal (needs sign-off)", blob("docs/2026-08-02_sprint_proposal.md")),
-    ("Post-mortem + frontier scan", blob("docs/2026-08-01_project_analysis.md")),
-    ("Model set (verified 2026-08-07)", blob("docs/MODEL_SET_2026-08-07.md")),
-    ("Interp4Discovery CFP (target venue)", "https://interpretability4discovery.github.io/cfp.html"),
-    ("Repo", REPO),
-    ("2025 paper outline (rough)", "https://www.overleaf.com/4514258212zmrztmsxptvy#2adb04"),
-    ("Arditi refusal-direction paper", "https://arxiv.org/abs/2406.11717"),
-    ("Anthropic even-handedness eval (open-source)", "https://github.com/anthropics/political-neutrality-eval"),
-]
-
-# ---- claim ledger -------------------------------------------------------------
-# The working artifact: what we are allowed to say, and on what evidence.
-# status in {certified, retracted, review, open}. Update in the SAME PR as any
-# doc that repeats the claim.
-CLAIMS = [
-    ("certified", "2025 in-distribution steering moves judged opinionation, 7 models",
-     "Two independent CPU recounts agree: text-log recount (harness, Aug 6) and per-record pickle recount (Aug 7). 7/7 rows of Batched_Gen.csv reproduce exactly. n=96 per arm.",
-     "scripts/verify_2025_results.py · src/recount.py"),
-    ("certified", "Archived count tables reproduce for 12 further rows",
-     "Refusal_To_Opinion.csv 5/5 and BBQ_On_Normal.csv 7/7 match the text-log recount. Historical CSVs remain UNTRUSTED comparators regardless.",
-     "src/recount.py · docs/REVIVAL_AUDIT.md"),
-    ("certified", "Arrow-named CSV columns are per-arm MARGINALS, not transitions",
-     "GeneralResults.update_results increments one bucket from each arm's single judgement. 'Init-&gt;Opin' = 'the initial arm was judged opinionated'. Transitions require prompt-level pairing.",
-     "docs/REVIVAL_AUDIT.md"),
-    ("retracted", "&ldquo;Refusal↔opinion cross-application failed both ways&rdquo;",
-     "INVALID, not null. The archived refusal .pt files are 1-D hidden-width tensors; steering_vector[layer] on a 1-D tensor returns a SCALAR broadcast across the residual width — a DC offset, not a direction. Compounded by a model/vector_files ordering mismatch recovered via payload SHA-256. The soft-vs-hard refusal relation is UNTESTED.",
-     "docs/REVIVAL_AUDIT.md · docs/VERIFICATION_2026-08-07.md"),
-    ("retracted", "&ldquo;1% → 27% unsafe under the opinion vector on Llama-2-7B&rdquo;",
-     "The marginals are real text-log counts; the causal label is false. Log 213 saved the payload of Qwen-1_5-1_8B.pt, not a Llama opinion vector.",
-     "docs/REVIVAL_AUDIT.md"),
-    ("review", "Zero-vector ablation &ldquo;collapses to 99% nonsense&rdquo;",
-     "2,032 case-insensitive 'none' markers across 107 archived files are judge-EXTRACTION failures, not degeneration. Until that run's markers are separated, this is not a usable control.",
-     "src/judging.py"),
-    ("review", "&ldquo;All-layer&rdquo; steering is all-layer",
-     "Per-layer vector norms span 2–3× on gemma but 600–1391× on Qwen/Yi/Llama. With one scalar coefficient the intervention concentrates where the norm is largest, so on most families this is effectively LATE-layer steering. Any cross-model depth claim must unit-normalize first.",
-     "dashboard/data/vector_norm_profiles.json"),
-    ("open", "Do the 2025 labels measure stance-taking, or style?",
-     "The construct is unvalidated: the v1 rubric scored factual decisiveness as opinionation. Reproducing a label is not validating it. This is exactly what the Week-1 rubric gate exists to settle.",
-     "docs/THE_CORRECT_PROBLEM.md"),
-    ("review", "Is the &ldquo;silent failure&rdquo; framing ours to make?",
-     "PARTIALLY TAKEN. arXiv:2607.02586 (Jul 2026) already defines silent as invisible-in-reported-numbers and ships a disclosure protocol. Genuinely open: silent BROADCAST (legal shapes, wrong semantics — never measured), tensor-payload hashing as a validity control, and the claim that published nulls are bug artifacts (unmade anywhere, and we have zero evidence for it). Instantiate their protocol; do not reintroduce their concept.",
-     "docs/PRIOR_ART_2026-08-07.md"),
-    ("open", "Is soft refusal separable from hard refusal?",
-     "Genuinely untested — the only archived experiment that bore on it was invalid. Not a null to build on.",
-     "—"),
-]
-
-AUDITS = [
-    ("2026-08-06", "Text-log recount (fusion harness)",
-     "Parses archived .txt logs with strict full-line delimiters; never deserializes the adjacent pickles. Derives the label mapping from observed pairs, refuses ambiguous label spaces, hashes source logs, tracks unparsed markers separately.",
-     "5/5 + 7/7 rows · 13 tests OK · found the 1-D-vector and ordering defects"),
-    ("2026-08-07", "Per-record pickle recount (independent)",
-     "Loads the response pickles with the project's own classes and recounts judgements per arm. Different artifact family, different code path, no shared assumptions with the text-log route.",
-     "7/7 rows · found n=96, cumulative pickles, norm profiles, scaffold pollution"),
-]
-
-# Frontier reading list — mirrors PAPER_FRAMING.md (doctrine lives there; this
-# renders it). action in {must-cite, nice, watch}. From the 2026-08-01 scan.
-FRONTIER = [
-    ("must-cite", "Refusal is mediated by a single direction — Arditi et al. (arXiv:2406.11717)",
-     "The method we build on; our soft-refusal construct is defined against its hard-refusal one."),
-    ("must-cite", "There Is More to Refusal than a Single Direction — QCRI (arXiv:2602.02132)",
-     "Eleven refusal flavors collapse onto one behavioral knob. Our separability question is posed directly against this — we must show soft refusal is or isn't that knob."),
-    ("must-cite", "The Geometry of Refusal: Concept Cones — Wollschläger et al., ICML 2025 (arXiv:2502.17420)",
-     "Single-direction claims are out; cone/subspace language and their independence criteria are the standard we report against."),
-    ("must-cite", "Refusal Steering — Multiverse Computing (arXiv:2512.16602)",
-     "Closest competitor: DiM-family political-refusal control at 80B with safety preserved. One paragraph must differentiate: they steer censorship/refusal, we factorize opinionation."),
-    ("must-cite", "AxBench — Wu et al., ICML 2025 (arXiv:2501.17148)",
-     "Prompting is the mandatory baseline; naive DiM usually loses. Every steering result needs the system-prompt comparison."),
-    ("must-cite", "Abliteration Is Not a Scalpel — Fafuła (arXiv:2607.17427)",
-     "Refusal-direction removal shifts opinionation as a side effect; explicitly requests our dissociation experiment. Cite as motivation."),
-    ("must-cite", "Steering Towards Fairness — Nadeem et al. (arXiv:2508.08846)",
-     "Steers WHICH side (ideology axes). We steer WHETHER a side is taken; the factorization must be stated against this line."),
-    ("nice", "Persona Vectors — Anthropic (arXiv:2507.21509) · Assistant Axis (arXiv:2601.10387)",
-     "Industrialized trait-vector pipeline + deployed activation capping; capping > constant coefficients."),
-    ("nice", "CAST conditional steering — IBM, ICLR 2025 (arXiv:2409.05907) · ACE affine editing (arXiv:2411.09003)",
-     "The two cheap recipe upgrades over add-everywhere DiM."),
-    ("nice", "IssueBench — Röttger et al., TACL 2026 (arXiv:2502.08395)",
-     "The 2026-standard political-bias eval; reviewers will ask why BBQ/CrowS alone."),
-    ("watch", "Manifold steering — Wurgaft et al. (arXiv:2605.05115)",
-     "If the geometry track opens up: on-manifold steering beats linear; the license for geometry-aware interventions."),
-]
-
-BULLETPROOFING = [
-    ("done", "2025 ablation control: zero-coefficient steering → 99% nonsense; the vector does the work."),
-    ("done", "Transfer failure documented honestly (CrowS: several models show literally no effect)."),
-    ("todo", "Judge v2: current construct conflates decisiveness with bias — every downstream claim inherits this until fixed."),
-    ("todo", "Prompting baseline: no steering result is reportable without the system-prompt comparison (AxBench bar)."),
-    ("todo", "Per-example distributions: aggregate judge percentages hide bimodal steering effects."),
-    ("todo", "Side-effect audits: capability (MMLU slice) + safety (XSTest/JailbreakBench) on any final intervention."),
-    ("todo", "<b>Shape assertions before ANY intervention</b> — the retracted refusal arm passed a 1-D tensor where a (n_layers, d_model) direction was expected; indexing gave a scalar broadcast across the residual width. This class of bug is silent. Assert expected vs observed shape/dtype at every hook site."),
-    ("todo", "<b>Dose matching</b> — the +soft and harm-ablation arms must be calibrated to equal on-target effect on a frozen dev split BEFORE any off-target number is read. Otherwise 'opinion steering doesn't move safety' is indistinguishable from 'we steered opinion weakly'. One-sentence reviewer kill; non-cuttable."),
-    ("todo", "<b>Construct circularity</b> — the judge defines the construct AND scores the outcome; κ vs our own rubric measures rubric teachability, not construct validity. Mitigated by a second extraction route from 200 hand-written contrast pairs with no LLM judge anywhere in it."),
-    ("todo", "<b>Mediation controls</b> — nulling ALONG d must be compared against nulling along d_OOD and along a covariance-matched random direction. If nulling anything abolishes the flip, the result is a hook artifact."),
-    ("todo", "Scoop watch: arXiv:2606.07696 landed Jun 2026 on the adjacent question and the obvious follow-up is ours. Daily alert; pre-committed response = re-lead with mediation, cite the scoop in paragraph one."),
-    ("done", "Deadline verified 2026-08-01: Interp4Discovery @ NeurIPS 2026, Aug 29 AoE (5pp, non-archival, double-blind); backup AI4GOOD same day."),
-    ("todo", "Extraction-convention confound: 2025 vectors are mean-pooled over all tokens — headline figures must use the unified Arditi-convention re-extraction only."),
-    ("idea", "Judge-v2 on archived outputs may RE-DATE the 2025 headline numbers — treat old percentages as provisional until re-judged."),
-]
-# ------------------------------------------------------------------------------
+ROOT = Path(__file__).resolve().parents[1]
 
 
-NORMS_JSON = "dashboard/data/vector_norm_profiles.json"
-
-
-
-# Distinct hues per family; gemma deliberately green because it is the flat one
-# and the contrast IS the finding.
-_FAMILY_COLOR = {"Qwen": "#4a7cf5", "Yi": "#8b74d4", "gemma": "#2ea86a",
-                 "Meta": "#c4972a", "Llama": "#c4972a"}
-
-
-def _family(model):
-    for k, v in _FAMILY_COLOR.items():
-        if model.startswith(k):
-            return v
-    return "#a8b8cc"
-
-
-def norm_profile_svg():
-    """Per-layer L2 norm vs fractional depth, log-y. This chart IS the argument
-    for unit-normalizing before any cross-model depth comparison."""
-    import json as _json
-    import math
+def sh(cmd: str, default: str = "") -> str:
     try:
-        data = _json.load(open(NORMS_JSON))
+        r = subprocess.run(cmd, shell=True, cwd=ROOT, capture_output=True,
+                           text=True, timeout=90)
+        return r.stdout.strip() or default
     except Exception:
-        return ("<div class='card'><p class='muted'>"
-                f"{NORMS_JSON} not found — run the norm-profile extractor.</p></div>")
-    vecs, seen = [], set()
-    for v in data["vectors"]:
-        if v["model"] in seen:      # log_113/log_114 are byte-identical copies
+        return default
+
+
+def read(rel: str) -> str:
+    p = ROOT / rel
+    return p.read_text(encoding="utf-8") if p.is_file() else ""
+
+
+def section(md: str, heading: str) -> str:
+    m = re.search(rf"^##\s+{re.escape(heading)}\s*$(.*?)(?=^##\s|\Z)", md, re.M | re.S)
+    return m.group(1).strip() if m else ""
+
+
+def strip_md(s: str) -> str:
+    s = re.sub(r"`([^`]*)`", r"\1", s)
+    s = re.sub(r"\*\*([^*]*)\*\*", r"\1", s)
+    s = re.sub(r"\*([^*]*)\*", r"\1", s)
+    s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)
+    return " ".join(s.split()).strip()
+
+
+def md_inline(s: str) -> str:
+    s = html.escape(s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    s = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", s)
+    return s
+
+
+def git_state() -> dict:
+    tag = sh("git describe --tags --abbrev=0 --match 'freeze-*'", "(untagged)")
+    return {"tag": tag, "sha": sh("git rev-parse --short HEAD", "?"),
+            "branch": sh("git rev-parse --abbrev-ref HEAD", "?"),
+            "dirty": bool(sh("git status --porcelain")),
+            "commits": sh("git rev-list --count HEAD", "?")}
+
+
+def test_state() -> dict:
+    files, passed, total, failing = [], 0, 0, []
+    for f in sorted((ROOT / "tests").glob("test_*.py")):
+        out = sh(f"python3 {f} 2>&1 | grep -E '^[0-9]+/[0-9]+ passed' | tail -1")
+        m = re.match(r"(\d+)/(\d+) passed", out)
+        if not m:
             continue
-        seen.add(v["model"])
-        vecs.append(v)
-    W, H = 760, 320
-    ML, MR, MT, MB = 56, 168, 18, 42
-    pw, ph = W - ML - MR, H - MT - MB
-    lo, hi = -1.7, 1.7                      # log10 norm bounds
-
-    def X(f):
-        return ML + f * pw
-
-    def Y(n):
-        t = (math.log10(max(n, 1e-3)) - lo) / (hi - lo)
-        return MT + (1 - min(max(t, 0), 1)) * ph
-
-    parts = [f"<svg viewBox='0 0 {W} {H}' width='100%' role='img' "
-             "aria-label='Per-layer steering-vector norm versus fractional depth, log scale'>"]
-    for e in range(-1, 2):                  # y gridlines at 0.1, 1, 10
-        y = Y(10 ** e)
-        parts.append(f"<line x1='{ML}' y1='{y:.1f}' x2='{ML+pw}' y2='{y:.1f}' "
-                     "stroke='var(--border)' stroke-width='1'/>")
-        parts.append(f"<text x='{ML-9}' y='{y+4:.1f}' text-anchor='end' "
-                     f"font-size='11' fill='var(--ink3)'>{10**e:g}</text>")
-    for f in (0, .25, .5, .75, 1.0):
-        parts.append(f"<text x='{X(f):.1f}' y='{MT+ph+18:.1f}' text-anchor='middle' "
-                     f"font-size='11' fill='var(--ink3)'>{f:g}</text>")
-    parts.append(f"<text x='{ML+pw/2:.1f}' y='{H-6}' text-anchor='middle' font-size='11.5' "
-                 "fill='var(--ink2)'>fractional depth  f = layer / (n_layers − 1)</text>")
-    parts.append(f"<text x='14' y='{MT+ph/2:.1f}' font-size='11.5' fill='var(--ink2)' "
-                 f"transform='rotate(-90 14 {MT+ph/2:.1f})' text-anchor='middle'>‖vec[layer]‖₂ (log)</text>")
-    for i, v in enumerate(vecs):
-        n = v["layer_norms"]
-        L = len(n)
-        pts = " ".join(f"{X(j/(L-1)):.1f},{Y(x):.1f}" for j, x in enumerate(n))
-        c = _family(v["model"])
-        parts.append(f"<polyline points='{pts}' fill='none' stroke='{c}' stroke-width='2' "
-                     "stroke-linejoin='round' opacity='.92'/>")
-        ly = MT + 12 + i * 19
-        parts.append(f"<line x1='{ML+pw+14}' y1='{ly}' x2='{ML+pw+32}' y2='{ly}' stroke='{c}' stroke-width='2.5'/>")
-        ratio = max(n) / min(n)
-        parts.append(f"<text x='{ML+pw+38}' y='{ly+4}' font-size='10.5' fill='var(--ink2)'>"
-                     f"{html.escape(v['model'])}  <tspan fill='var(--ink3)'>{ratio:.0f}×</tspan></text>")
-    parts.append("</svg>")
-    return f"""
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <div style="padding:14px 20px 4px;font-size:13.5px;font-weight:600;color:var(--ink)">
-    Why one steering coefficient does different things on different models</div>
-  <div style="padding:0 20px 4px;font-size:12.5px;color:var(--ink3);line-height:1.6">
-    Per-layer L2 norm of each committed 2025 steering vector, against fractional depth.
-    Log scale. Trailing number is max/min within that vector.</div>
-  <div style="padding:8px 12px 4px">{''.join(parts)}</div>
-  <div style="padding:4px 20px 16px;font-size:12.5px;color:var(--ink3);line-height:1.7;border-top:1px solid var(--border)">
-    The 2025 method adds <code>(coeff / n_layers) · vec[layer]</code> at every layer with a
-    <b>single scalar coefficient</b>. The vector inherits the residual stream's norm growth, so on
-    <b style="color:#4a7cf5">Qwen</b>, <b style="color:#8b74d4">Yi</b> and <b style="color:#c4972a">Llama</b>
-    the last quarter of layers carries 54–70% of the injected norm and the first quarter carries ~1%:
-    &ldquo;all-layer&rdquo; steering is in practice <b>late-layer</b> steering.
-    <b style="color:#2ea86a">gemma</b> is nearly flat (2–3×) and genuinely is all-layer.
-    This is why per-model coefficients never stabilised — the coefficient was silently compensating for
-    an architectural norm profile — and it is why <b>any cross-model depth comparison must unit-normalize
-    directions first</b>, or it will mostly recover this plot.
-  </div>
-</div>"""
+        p, t = int(m.group(1)), int(m.group(2))
+        passed += p; total += t
+        files.append(f.name)
+        if p < t:
+            failing.append({"name": f.name,
+                            "why": strip_md(sh(f"python3 {f} 2>&1 | grep -E '^FAIL' | head -1"))[:160]})
+    return {"files": files, "passed": passed, "total": total, "failing": failing}
 
 
-def _read_rows(path):
-    try:
-        with open(path) as f:
-            return list(csv.DictReader(f))
-    except Exception:
-        return []
-
-
-def _short(name):
-    return name.split("/", 1)[-1]
-
-
-def _b(v):
-    cls = "b-pos" if v >= 10 else ("b-neg" if v <= -10 else "b-zero")
-    return f"<span class='b {cls}'>{v:+d}</span>"
-
-
-def steering_table(path, note, empty_note):
-    rows = _read_rows(path)
-    if not rows:
-        return f"<div class='card'><p class='muted'>{empty_note}</p></div>"
-    body = ""
-    for r in rows:
-        try:
-            io, inu = int(r["Init->Opin"]), int(r["Init->Neut"])
-            oo = int(r["Opin->Opin"])
-            nn = int(r["Neut->Neut"])
-            nons = int(r["Init->Nons"]) + int(r["Opin->Nons"]) + int(r["Neut->Nons"])
-        except (KeyError, ValueError):
+def run_evidence() -> list[dict]:
+    out = []
+    for d in sorted((ROOT / "runs").glob("*/")):
+        if not d.is_dir():
             continue
-        d_op, d_nu = oo - io, nn - inu
-        body += (f"<tr><td>{html.escape(_short(r['Model name']))}</td>"
-                 f"<td class='mono'>{io} / {inu}</td>"
-                 f"<td class='mono'>{oo} {_b(d_op)}</td>"
-                 f"<td class='mono'>{nn} {_b(d_nu)}</td>"
-                 f"<td class='mono'>{nons}</td></tr>")
-    return f"""
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="data-table">
-    <tr><th>Model</th><th>baseline Opin/Neut</th><th>steered → opinion (Δ)</th><th>steered → neutral (Δ)</th><th>nonsense</th></tr>
-    {body}
-  </table>
-  <div style="padding:10px 16px 14px;font-size:12px;color:var(--ink3);border-top:1px solid var(--border)">{note}</div>
-</div>"""
+        need = ("results.csv", "summary.md", "manifest.json", "steering_vector.safetensors")
+        arts = {n: (d / n).is_file() and (d / n).stat().st_size > 0 for n in need}
+        rc = d / "results.csv"
+        rows = max(0, sum(1 for _ in rc.open())) - 1 if rc.is_file() else 0
+        out.append({"name": d.name, "rows": max(rows, 0), "complete": all(arts.values())})
+    return out
 
 
-def main():
-    ap = argparse.ArgumentParser()
+def positive_control() -> dict | None:
+    for d in sorted((ROOT / "runs").glob("*refusal-repro*")):
+        log = d / "logs" / "run.log"
+        if not log.is_file():
+            continue
+        txt = log.read_text(errors="ignore")
+        arms = [(m[0], f"{m[1]}/{m[2]}") for m in
+                re.findall(r"(harm\w+/\w+):\s+(\d+)/(\d+) refused", txt)]
+        return {"run": d.name, "arms": arms, "log": str(log.relative_to(ROOT))}
+    return None
+
+
+def work_packages() -> list[dict]:
+    pkgs = []
+    for line in read("WORK_LEDGER.md").splitlines():
+        if not line.startswith("| **WP-"):
+            continue
+        c = [x.strip() for x in line.strip("|").split("|")]
+        if len(c) < 6:
+            continue
+        st = next((strip_md(x).lower() for x in c
+                   if re.search(r"\*\*(done|not started|prepared|running)", x, re.I)), "not started")
+        owner = next((x.strip() for x in c if x.strip() in
+                      ("Farhan", "Jeremiah", "Edward", "Aryaman", "Claude", "unowned")), "—")
+        pkgs.append({"id": strip_md(c[0]), "objective": strip_md(c[1]), "status": st,
+                     "owner": owner, "blocking": "Y" in c[-1].upper(),
+                     "evidence": strip_md(c[6]) if len(c) > 6 else ""})
+    return pkgs
+
+
+def decisions() -> list[dict]:
+    out = []
+    for m in re.finditer(r"^##\s+(D-\d+)\s+·\s+([^·]+)·\s+(.+?)$(.*?)(?=^##\s|\Z)",
+                         read("DECISION_LOG.md"), re.M | re.S):
+        b = m.group(4)
+        g = lambda k: (re.search(rf"\*\*{k}\.\*\*(.*?)(?=\*\*[A-Z]|\Z)", b, re.S) or [None, ""])[1]
+        out.append({"id": m.group(1), "date": m.group(2).strip(), "title": m.group(3).strip(),
+                    "decision": strip_md(g("Decision"))[:340],
+                    "evidence": strip_md(g("Evidence"))[:400]})
+    return out
+
+
+def scope_cuts() -> list[str]:
+    body = section(read("RESEARCH_CONTRACT.md"), "11. Scope")
+    cuts = []
+    for label in ("Future work:", "Abandoned:"):
+        m = re.search(rf"\*\*{re.escape(label)}\*\*(.*?)(?=\*\*|\Z)", body, re.S)
+        if m:
+            for part in re.split(r"[·;]", m.group(1)):
+                part = strip_md(part).strip(" .")
+                if 3 < len(part) < 90:
+                    cuts.append(part)
+    return cuts[:14]
+
+
+CSS = """
+:root{--bg:#0b0d10;--panel:#12161b;--line:#222a33;--ink:#e6edf3;--dim:#8b98a5;
+--acc:#5bc8af;--warn:#e3b341;--bad:#f0776c;--good:#3fb950;
+--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif}
+a{color:var(--acc)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1418,#0b0d10)}
+.status{display:flex;flex-wrap:wrap;gap:9px;padding:14px 0;font:12px/1 var(--mono)}
+.chip{border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--dim);white-space:nowrap}
+.chip b{color:var(--ink);font-weight:600}
+.chip.ok{border-color:#1d3d2a;color:var(--good)}
+.chip.warn{border-color:#4a3c14;color:var(--warn)}
+.chip.bad{border-color:#4a2320;color:var(--bad)}
+h1{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+margin:26px 0 10px;font-weight:600}
+.paper{font-size:25px;line-height:1.4;margin:0 0 10px;max-width:62ch;font-weight:600}
+.sub{color:var(--dim);max-width:74ch;margin:0 0 22px;font-size:14px}
+section{padding:32px 0;border-bottom:1px solid var(--line)}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.card h3{margin:0 0 8px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.card p{margin:0 0 8px;font-size:14px}
+.big{font:600 22px/1.2 var(--mono)}
+.mono{font-family:var(--mono);font-size:12.5px}
+.dim{color:var(--dim)}
+.gate{border-left:3px solid var(--bad);background:#181111}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;letter-spacing:.08em;
+text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid #191f26;vertical-align:top}
+.pill{display:inline-block;font:11px/1 var(--mono);padding:4px 7px;border-radius:5px;
+border:1px solid var(--line);color:var(--dim)}
+.pill.done{color:var(--good);border-color:#1d3d2a}
+.pill.run{color:var(--warn);border-color:#4a3c14}
+.tl{position:relative;padding-left:22px}
+.tl:before{content:'';position:absolute;left:6px;top:4px;bottom:4px;width:1px;background:var(--line)}
+.ev{position:relative;margin-bottom:15px}
+.ev:before{content:'';position:absolute;left:-19px;top:7px;width:7px;height:7px;border-radius:50%;
+background:var(--dim);box-shadow:0 0 0 3px var(--bg)}
+.ev.key:before{background:var(--acc)}
+.ev h4{margin:0 0 3px;font-size:14px}
+.ev .meta{font:11px var(--mono);color:var(--dim);margin-bottom:3px}
+.ev p{margin:0 0 3px;font-size:13.5px;color:#c5cfd9}
+.cut{display:inline-block;margin:0 7px 7px 0;padding:6px 11px;border-radius:6px;
+border:1px dashed #3a2a2a;color:#b98b86;font-size:13px;text-decoration:line-through}
+.foot{padding:26px 0 50px;color:var(--dim);font-size:12.5px}
+code{font-family:var(--mono);font-size:.92em;background:#171d24;padding:1px 5px;border-radius:4px}
+.hint{font-size:12.5px;color:var(--dim);margin-top:8px}
+.arch{background:#0e1216;border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:10px}
+details summary{cursor:pointer;color:var(--dim);font-size:13px;padding:6px 0}
+"""
+
+SVG = """
+<svg viewBox="0 0 620 250" width="100%" style="max-width:640px" role="img"
+     aria-label="Two ablation trajectories in logit space and the angle between them">
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+    <path d="M0,0 L7,3.2 L0,6.4 z" fill="#5bc8af"/></marker>
+  <marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+    <path d="M0,0 L7,3.2 L0,6.4 z" fill="#e3b341"/></marker></defs>
+  <line x1="70" y1="205" x2="290" y2="205" stroke="#2a333d"/>
+  <line x1="70" y1="205" x2="70" y2="30" stroke="#2a333d"/>
+  <line x1="360" y1="205" x2="580" y2="205" stroke="#2a333d"/>
+  <line x1="360" y1="205" x2="360" y2="30" stroke="#2a333d"/>
+  <text x="300" y="240" fill="#8b98a5" font-size="11.5" font-family="monospace"
+        text-anchor="middle">x: Δlogit P(named a side) on S2 · y: Δlogit P(refused) on harm</text>
+  <text x="70" y="22" fill="#5bc8af" font-size="12.5" font-weight="600">one shared control</text>
+  <line x1="70" y1="205" x2="250" y2="70" stroke="#5bc8af" stroke-width="2.5" marker-end="url(#a)"/>
+  <circle cx="130" cy="160" r="3.4" fill="#5bc8af"/><circle cx="190" cy="115" r="3.4" fill="#5bc8af"/>
+  <text x="255" y="66" fill="#5bc8af" font-size="12" font-family="monospace">r̂_harm</text>
+  <line x1="70" y1="205" x2="226" y2="88" stroke="#8fd9c8" stroke-width="2.5"
+        stroke-dasharray="5 3" marker-end="url(#a)"/>
+  <text x="196" y="112" fill="#8fd9c8" font-size="12" font-family="monospace">r̂_stance</text>
+  <path d="M128,168 A62,62 0 0,1 140,154" fill="none" stroke="#5bc8af" stroke-width="1.4"/>
+  <text x="146" y="168" fill="#5bc8af" font-size="12" font-family="monospace">θ &lt; 25°</text>
+  <text x="360" y="22" fill="#e3b341" font-size="12.5" font-weight="600">distinct controls</text>
+  <line x1="360" y1="205" x2="360" y2="65" stroke="#e3b341" stroke-width="2.5" marker-end="url(#b)"/>
+  <text x="368" y="62" fill="#e3b341" font-size="12" font-family="monospace">r̂_harm</text>
+  <line x1="360" y1="205" x2="545" y2="205" stroke="#c678dd" stroke-width="2.5"/>
+  <text x="452" y="196" fill="#c678dd" font-size="12" font-family="monospace">r̂_stance</text>
+  <path d="M360,175 A30,30 0 0,0 390,205" fill="none" stroke="#e3b341" stroke-width="1.4"/>
+  <text x="378" y="170" fill="#e3b341" font-size="12" font-family="monospace">θ large</text>
+  <text x="360" y="38" fill="#8b98a5" font-size="10.5">not claimable — every nuisance biases θ this way</text>
+</svg>
+"""
+
+
+def build() -> str:
+    ps = read("PROJECT_STATE.md")
+    g, t = git_state(), test_state()
+    runs, pc, pkgs, decs = run_evidence(), positive_control(), work_packages(), decisions()
+    E = html.escape
+
+    paper = strip_md(section(ps, "The paper, in one sentence"))
+    gate = section(ps, "Current gate")
+    blocks = strip_md(section(ps, "Blocks the paper"))
+    notblocks = strip_md(section(ps, "Does *not* block the paper"))
+    venue = re.search(r"\*\*Venue\*\*\s*\|\s*(.+?)\s*\|", ps)
+    deadline = re.search(r"\*\*Deadline\*\*\s*\|\s*(.+?)\s*\|", ps)
+    complete = sum(1 for r in runs if r["complete"])
+    blocking = [p for p in pkgs if p["blocking"]]
+    done = sum(1 for p in blocking if "done" in p["status"])
+
+    def pill(st):
+        if "done" in st:
+            return '<span class="pill done">done</span>'
+        if "running" in st or "prepared" in st:
+            return '<span class="pill run">in flight</span>'
+        return '<span class="pill">not started</span>'
+
+    o = [f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fvoa · research control surface</title><style>{CSS}</style></head><body>
+<header><div class="wrap"><div class="status">
+<span class="chip"><b>{E(g['tag'])}</b> · {E(g['sha'])}</span>
+<span class="chip {'bad' if g['dirty'] else 'ok'}">{'uncommitted changes' if g['dirty'] else 'clean tree'}</span>
+<span class="chip {'ok' if not t['failing'] else 'warn'}">tests <b>{t['passed']}/{t['total']}</b></span>
+<span class="chip">runs complete <b>{complete}/{len(runs)}</b></span>
+<span class="chip bad">positive control <b>not satisfied</b></span>
+<span class="chip"><b>{E(strip_md(deadline.group(1)) if deadline else '')}</b></span>
+</div></div></header><div class="wrap">
+
+<section><h1>The paper</h1>
+<p class="paper">{md_inline(paper)}</p>
+<p class="sub">{E(strip_md(venue.group(1)) if venue else '')}</p>
+<h1>The experiment</h1>
+<div class="arch">{SVG}
+<p class="hint">Partial directional ablation <code>x − λ(x·r̂)r̂</code> at λ ∈ {{0, 0.5, 1}}, for
+<code>r̂_stance</code>, <code>r̂_harm</code> and a covariance-matched <code>r̂_random</code>, on both
+batteries. <strong>θ</strong> is the angle between the two trajectories <strong>in logit space</strong>
+— under a shared knob the ratio of logit changes is constant across λ and across directions, and that
+invariant is what probability space destroys.</p></div>
+<div class="grid g2" style="margin-top:14px">
+<div class="card"><h3>What a small θ can establish</h3>
+<p>“Consistent with a shared-control model, within the resolution of this experiment.” Conditional on
+all four gates passing.</p></div>
+<div class="card"><h3>What it cannot</h3>
+<p>It does <strong>not</strong> establish a unique shared mechanism. And a <strong>large θ licenses
+nothing on its own</strong> — every identified nuisance biases θ toward “distinct”, none toward
+“shared”. Inference is deliberately asymmetric.</p></div></div></section>
+
+<section><h1>Current gate</h1><div class="card gate">
+{''.join(f'<p>{md_inline(strip_md(b))}</p>' for b in gate.split(chr(10) + chr(10))[:4] if b.strip())}
+</div></section>
+
+<section><h1>Evidence</h1><div class="grid g3">
+<div class="card"><h3>Test suite</h3><div class="big">{t['passed']}/{t['total']}</div>
+<p class="dim mono">{len(t['files'])} files, executed at build time</p>
+{''.join(f"<p class='dim mono'>{E(f['why'])}</p>" for f in t['failing'])}</div>
+<div class="card"><h3>Run artifacts</h3><div class="big">{complete}/{len(runs)}</div>
+<p class="dim mono">complete = results + summary + manifest + vector</p></div>
+<div class="card"><h3>Blocking packages</h3><div class="big">{done}/{len(blocking)}</div>
+<p class="dim mono">done by evidence, not by report</p></div></div>"""]
+
+    if pc:
+        rows = "".join(f"<tr><td class='mono'>{E(k)}</td><td class='mono'>{E(v)} refused</td></tr>"
+                       for k, v in pc["arms"])
+        o.append(f"""<div class="card" style="margin-top:14px">
+<h3>Positive control — mechanism yes, replication no</h3><table>{rows}</table>
+<p class="hint">Ablation collapses harmful refusal, so the operator works. But the run's own findings
+doc records <strong>“Not reproduced”</strong>: baseline 0.380 against the paper's 0.700, extraction
+cosine 0.90 against a 0.999 target — and on Qwen1.5-1.8B, not a submission model.
+<strong>G1 is not satisfied.</strong> Source: <code>{E(pc['log'])}</code></p></div>""")
+
+    o.append(f"""<div class="card" style="margin-top:14px">
+<h3>The simulation that killed the selectivity statistic</h3>
+<p>Holding the world <strong>fixed at “one shared control”</strong> and varying only direction-estimate
+quality — which is unmeasurable — the previous <code>SEL ≥ 2</code> rule fired between
+<strong>1.8% and 64%</strong> of the time with no second mechanism present, and inverted sign at one
+setting. That is why the headline statistic changed.</p>
+<p class="hint">Reproduce: <code>python3 analysis/sim_lambda_identifiability.py</code></p></div>
+<details style="margin-top:14px"><summary>All committed runs ({len(runs)})</summary>
+<table><tr><th>run</th><th>rows</th><th>artifacts</th></tr>
+{''.join("<tr><td class='mono'>%s</td><td class='mono'>%s</td><td>%s</td></tr>" % (
+    E(r['name']), r['rows'] or '&mdash;',
+    "<span class='pill done'>complete</span>" if r['complete'] else "<span class='pill'>partial</span>")
+    for r in runs)}</table></details></section>
+
+<section><h1>Why the paper changed</h1>
+<p class="sub">Each entry is an epistemic update with the evidence that forced it. Full text in
+<code>DECISION_LOG.md</code> — append-only, history rather than doctrine.</p><div class="tl">""")
+
+    key = {"D-004", "D-009", "D-011", "D-012", "D-013", "D-015"}
+    for d in decs:
+        o.append(f"""<div class="ev{' key' if d['id'] in key else ''}">
+<div class="meta">{E(d['id'])} · {E(d['date'])}</div><h4>{E(d['title'])}</h4>
+<p>{E(d['decision'])}</p><p class="dim">{E(d['evidence'])}</p></div>""")
+
+    o.append("""</div></section><section><h1>Execution</h1>
+<p class="sub">Work packages, not personal agendas. Owner is metadata — a package keeps its meaning
+when it changes hands. A package is done when its <strong>evidence exists and validates</strong>.</p>
+<table><tr><th>ID</th><th>Objective</th><th>Status</th><th>Owner</th><th>Evidence required</th></tr>""")
+    for p in blocking:
+        o.append(f"""<tr><td class="mono">{E(p['id'])}</td><td>{E(p['objective'])}</td>
+<td>{pill(p['status'])}</td><td class="mono dim">{E(p['owner'])}</td>
+<td class="dim mono">{E(p['evidence'][:70])}</td></tr>""")
+    o.append(f"""</table><div class="grid g2" style="margin-top:16px">
+<div class="card"><h3>Blocks submission</h3><p>{md_inline(blocks)}</p></div>
+<div class="card"><h3>Does not block</h3><p class="dim">{md_inline(notblocks)}</p></div>
+</div></section>
+
+<section><h1>Not this paper</h1>
+<p class="sub">Deliberately cut. Resurrecting any of these needs a dated amendment to
+<code>RESEARCH_CONTRACT.md</code> §12 — “this would be more interesting” is not a reopen condition.</p>
+{''.join(f'<span class="cut">{E(c)}</span>' for c in scope_cuts())}</section>
+
+<section><h1>Archive</h1>
+<p class="sub">Superseded framings are kept for provenance in <code>docs/superseded/</code>, each
+carrying a banner. 2025 results are <strong>not</strong> current evidence — the archived refusal arms
+were invalidated by a one-dimensional tensor broadcast, documented in
+<code>docs/REVIVAL_AUDIT.md</code>. Nothing there is a paper claim.</p></section>
+
+<div class="foot">Projection of <code>{E(g['branch'])}</code> @ <code>{E(g['sha'])}</code> · tag
+<code>{E(g['tag'])}</code> · {E(g['commits'])} commits · built
+{datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC.<br>
+Generated from <code>PROJECT_STATE.md</code>, <code>RESEARCH_CONTRACT.md</code>,
+<code>WORK_LEDGER.md</code>, <code>DECISION_LOG.md</code>, <code>runs/</code>, git and the live test
+suite. A projection, never a source of truth — if this page disagrees with the repo, the repo wins.
+</div></div></body></html>""")
+    return "".join(o)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", default="dashboard/index.html")
-    ap.add_argument("--stamp", default=None)
-    args = ap.parse_args()
-
-    stamp = args.stamp or datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-
-    def _gpill(state):
-        cls = {"done": "p-done", "running": "p-running", "active": "p-active",
-               "blocked": "p-blocked", "todo": "p-todo", "queued": "p-todo",
-               "now": "p-running", "next": "p-next", "then": "p-then",
-               "idea": "p-idea"}.get(state, "p-todo")
-        return f"<span class='pill {cls}'>{state}</span>"
-
-    # Deadline countdown (Interp4Discovery @ NeurIPS 2026, Aug 29 AoE)
-    try:
-        _today = datetime.date.fromisoformat(stamp[:10])
-    except ValueError:
-        _today = datetime.date.today()
-    _deadline = datetime.date(2026, 8, 29)
-    _days_left = (_deadline - _today).days
-    if _days_left > 1:
-        deadline_chip = f"<span class='chip chip-red' title='Interpretability for Discovery @ NeurIPS 2026 — verified on the CFP.'>⏳ {_days_left} days to submission — Aug 29 AoE</span>"
-    elif _days_left >= 0:
-        deadline_chip = "<span class='chip chip-red'>🔥 SUBMISSION WINDOW — Aug 29 AoE</span>"
-    else:
-        deadline_chip = "<span class='chip chip-gray'>Aug 29 passed — slip path: ICLR 2027 (Sept 25)</span>"
-
-    # Which sprint week are we in? (sprint: Aug 3 → Aug 29, 2026)
-    _wk_starts = [datetime.date(2026, 8, 3), datetime.date(2026, 8, 10),
-                  datetime.date(2026, 8, 17), datetime.date(2026, 8, 24)]
-    def _wk_state(i):
-        if _today < _wk_starts[i]:
-            return "next"
-        if i == 3:
-            return "now" if _today <= _deadline else "done"
-        return "now" if _today < _wk_starts[i + 1] else "done"
-
-    _weeks = [
-        ("Week 1", "Aug 3–9", "HARNESS productionization (critical path) · six-way rubric + 150 gold labels · perturbation library", "GATE 1: κ ≥ 0.7 · stance-shift ≥ 10pp · harness runs a cell unattended"),
-        ("Week 2", "Aug 10–16", "Unified extraction (2 routes) · E(f) depth sweep · forward-pass displacement grid + null battery", "GATE 1.5 (Aug 13): flip ≥8%, exotic beats null while retok doesn't · GATE 2: ≥20pp / ≥30pp, l* locked"),
-        ("Week 3", "Aug 17–23", "Designed grid (~16k gens, dose-matched) → queued: perturbation subset → MEDIATION", "HARD Aug 20: cut to 3 models if Wave 1 unjudged · GATE 3: mediation in hand"),
-        ("Week 4", "Aug 24–28", "Freeze Aug 24 · figures · 5pp draft · anonymization sweep", "red-team Aug 26 · SUBMIT Aug 28 (1 day slack)"),
-    ]
-    timeline_html = "".join(
-        f"<div class='wk {_wk_state(i)}'>"
-        f"<div class='wk-head'>{_gpill(_wk_state(i))}<span class='wk-name'>{w}</span><span class='wk-dates'>{d}</span></div>"
-        f"<div class='wk-body'>{html.escape(t)}</div>"
-        f"<div class='wk-gate'>{html.escape(g)}</div></div>"
-        for i, (w, d, t, g) in enumerate(_weeks))
-
-    experiment_html = """
-<div class="x22-wrap">
-  <div class="x22-title">The experiment at a glance — two routes to one boundary</div>
-  <table class="x22">
-    <tr><th class="x22-corner">route ↓ &nbsp;·&nbsp; what it establishes →</th>
-        <th>On the opinion battery<br><span class="x22-sub">IssueBench · Paired Prompts · comparisons</span></th>
-        <th>On the safety battery<br><span class="x22-sub">XSTest · JailbreakBench — never perturbed</span></th></tr>
-    <tr><td class="x22-row"><b>Route 1 — designed.</b> Steer d_soft ± (capped, dose-matched)</td>
-        <td class="x22-diag">large Δ<br><span class="x22-sub">the direction works (C1)</span></td>
-        <td class="x22-off">bounded ±5pp by TOST<br><span class="x22-sub">not the harm knob</span></td></tr>
-    <tr><td class="x22-row">Ablate d_harm (dose-matched)</td>
-        <td class="x22-off">bounded ±5pp by TOST</td>
-        <td class="x22-diag">large Δ<br><span class="x22-sub">Arditi replication</span></td></tr>
-    <tr><td class="x22-row"><b>Route 2 — undesigned.</b> One character → byte-fallback tokenization</td>
-        <td class="x22-diag">displaces <i>along</i> d_soft<br><span class="x22-sub">signed projection predicts the flip (C2·C3)</span></td>
-        <td class="x22-off" style="color:var(--ink3)">not run<br><span class="x22-sub">benign prompts only — dual-use rule</span></td></tr>
-    <tr><td class="x22-row"><b>Mediation.</b> Null the along-d component / inject it</td>
-        <td class="x22-diag">flip abolished ≥50% / reproduced ≥40%<br><span class="x22-sub">the headline (C4)</span></td>
-        <td class="x22-off" style="color:var(--ink3)">—</td></tr>
-  </table>
-  <div class="x22-legend"><b>The point:</b> a vector that moves when <i>you</i> push it proves little (non-identifiability, arXiv:2602.06801). A vector that also moves when a perturbation <i>nobody designed</i> flips the model — and whose removal abolishes that flip — is a property of the model. Controls that are never cut: byte-identical retokenization, covariance-matched random-direction null, ASCII-typo, an OOD-direction competitor, and a length/verbosity direction. Nearest prior work (arXiv:2606.07696) asks whether steering <i>survives</i> perturbation; we ask where the perturbation <i>goes</i>.</div>
-</div>"""
-
-    overview_html = "".join(
-        f"<div class='ov-card'><h3>{t}</h3><p>{b}</p></div>" for t, b in OVERVIEW)
-    runs_html = "".join(f"<li>{_gpill(s)} {html.escape(l)}</li>" for l, s in RUNS)
-    dec_html = "".join(
-        f"<tr><td>{k}</td><td>{v}</td><td class='dim'>{html.escape(w)}</td></tr>"
-        for k, v, w in DECISIONS)
-    tasks_html = "".join(
-        f"<tr><td><div class='task-who'>{who}</div><div class='task-track'>{track}</div></td>"
-        f"<td>{_gpill(st)}</td><td class='task-action'>{nx}</td></tr>"
-        for who, track, st, nx in TASKS)
-    how_html = "".join(f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in HOW_WE_WORK)
-    bullets_html = "".join(f"<li>{_gpill(s)} {html.escape(t)}</li>" for s, t in BULLETPROOFING)
-    miles_html = "".join(
-        f"<div class='mile {'done' if s == 'done' else ('now' if s in ('now', 'running') else '')}'>"
-        f"{_gpill(s)}<div class='mile-text'>{html.escape(t)}</div></div>"
-        for s, t in MILESTONES)
-    path_html = "".join(
-        f"<li>{_gpill(s)}<div class='ptext'><span class='pwho'>{who}:</span> {t}</div></li>"
-        for s, who, t in PATH_TO_SUBMISSION)
-    links_html = "".join(f"<a href='{u}' target='_blank'>{html.escape(n)} ↗</a>" for n, u in LINKS)
-    _CLAIM_HEAD = {
-        "certified": ("Certified", "reproduced by independent routes — safe to build on"),
-        "retracted": ("Retracted", "no valid experiment behind it — never cite in either direction"),
-        "review": ("Under review", "do not cite until the flagged check is done"),
-        "open": ("Open", "genuinely unanswered — this is what the sprint is for"),
-    }
-    claims_html = ""
-    for status in ("certified", "retracted", "review", "open"):
-        rows = [c for c in CLAIMS if c[0] == status]
-        if not rows:
-            continue
-        label, gloss = _CLAIM_HEAD[status]
-        items = "".join(
-            f"<div class='citem'><div class='citem-t'>{t}</div>"
-            f"<div class='citem-w'>{w}</div>"
-            f"<div class='citem-s'>{html.escape(src)}</div></div>"
-            for _, t, w, src in rows)
-        claims_html += (
-            f"<div class='cgroup g-{status}'><div class='cgroup-h'>{label}"
-            f"<span style='font-weight:400;text-transform:none;letter-spacing:0;opacity:.75'>"
-            f"&nbsp;— {gloss}</span><span class='cgroup-n'>{len(rows)}</span></div>{items}</div>")
-    audits_html = "".join(
-        f"<tr><td class='mono' style='white-space:nowrap'>{d}</td><td><b>{html.escape(n)}</b></td>"
-        f"<td class=small style='font-size:12.5px;color:var(--ink3)'>{html.escape(m)}</td>"
-        f"<td class=small style='font-size:12.5px;color:var(--green)'>{html.escape(r)}</td></tr>"
-        for d, n, m, r in AUDITS)
-    norms_html = norm_profile_svg()
-
-    _n = {k: sum(1 for c in CLAIMS if c[0] == k)
-          for k in ("certified", "retracted", "review", "open")}
-    stats = [
-        (f"{_days_left}", "days to submission", "Aug 29 AoE · Interp4Discovery",
-         "warn" if _days_left <= 14 else ""),
-        ("7 / 7", "headline rows reproduce", "two independent recounts, two artifact families", "good"),
-        (f"{_n['retracted']}", "claims retracted", "invalid experiments, not negative results", "bad"),
-        ("96", "responses per arm", "the real denominator — not ~100", ""),
-    ]
-    stats_html = "".join(
-        f"<div class='stat'><div class='stat-v {c}'>{v}</div>"
-        f"<div class='stat-k'>{k}</div><div class='stat-s'>{html.escape(sub)}</div></div>"
-        for v, k, sub, c in stats)
-
-    frontier_html = "".join(
-        f"<tr><td><span class='pill {'p-done' if a == 'must-cite' else ('p-running' if a == 'nice' else 'p-todo')}'>{a}</span></td>"
-        f"<td><b>{html.escape(t)}</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>{html.escape(r)}</td></tr>"
-        for a, t, r in FRONTIER)
-
-    batched_html = steering_table(
-        BATCHED_CSV,
-        "Counts out of ~100 held-out synthetic comparison prompts per condition, GPT-4o-mini judge (2025 binary rubric — provisional until judge v2 re-judges). "
-        "Steering works bidirectionally in-distribution with near-zero nonsense. Artifact: <code>" + BATCHED_CSV + "</code>",
-        "Batched_Gen.csv not found — run from repo root.")
-    crows_html = steering_table(
-        CROWS_CSV,
-        "Same vectors applied to CrowS-Pairs prompts: deltas near zero for most models — the 2025 'neutrality direction' does NOT transfer to real "
-        "social-bias benchmarks. This honest negative is a core motivation for the revival. Artifact: <code>" + CROWS_CSV + "</code>",
-        "Crows_Opin.csv not found — run from repo root.")
-
-    head = """<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bias Steering — project dashboard</title>
-<style>
-:root{--bg:#0a0c10;--bg2:#0d1117;--surface:#111620;--surface2:#161c28;--surface3:#1c2436;--border:#1f2a3e;--border2:#2a374f;--ink:#e8edf5;--ink2:#a8b8cc;--ink3:#5e7490;--accent:#4a7cf5;--accent-dim:rgba(74,124,245,.10);--accent-glow:rgba(74,124,245,.04);--green:#2ea86a;--green-dim:rgba(46,168,106,.10);--red:#d95f5f;--red-dim:rgba(217,95,95,.10);--yellow:#c4972a;--yellow-dim:rgba(196,151,42,.10);--purple:#8b74d4;--purple-dim:rgba(139,116,212,.10);--r:8px;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:'JetBrains Mono','SF Mono','Cascadia Code',Consolas,monospace}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-@media (prefers-reduced-motion: no-preference){html:focus-within{scroll-behavior:smooth}}
-[id]{scroll-margin-top:72px}
-.section-label{scroll-margin-top:72px}
-body{font-family:var(--font);font-size:14px;line-height:1.65;color:var(--ink2);background:var(--bg);-webkit-font-smoothing:antialiased}
-::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-nav{position:sticky;top:0;z-index:100;height:52px;display:flex;align-items:center;gap:4px;padding:0 28px;background:rgba(10,12,16,.85);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--border)}
-.nav-brand{font-weight:700;font-size:15px;color:var(--ink);letter-spacing:-.3px;margin-right:20px;white-space:nowrap;display:flex;align-items:center;gap:8px}
-.nav-dot{width:7px;height:7px;border-radius:50%;background:var(--green);opacity:.85}
-.nav-links{display:flex;gap:2px}
-.nav-links a{color:var(--ink3);font-size:13px;text-decoration:none;padding:5px 10px;border-radius:6px;transition:color .15s,background .15s}
-.nav-links a:hover{color:var(--ink);background:var(--surface2)}
-.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
-.nav-meta{font-size:12px;color:var(--ink3)}
-.nav-gh{font-size:12.5px;color:var(--ink3);text-decoration:none;border:1px solid var(--border2);padding:4px 12px;border-radius:6px;transition:all .15s;font-weight:500}
-.nav-gh:hover{color:var(--ink);border-color:var(--accent)}
-.hero{position:relative;overflow:hidden;padding:44px 36px 36px;border-bottom:1px solid var(--border);background:var(--bg2)}
-.hero-inner{max-width:1120px;margin:0 auto}
-.hero-eyebrow{font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px}
-.hero h1{font-size:26px;font-weight:700;color:var(--ink);letter-spacing:-.3px;line-height:1.25;margin-bottom:10px}
-.hero-sub{font-size:15px;color:var(--ink2);max-width:640px;line-height:1.7;margin-bottom:24px}
-.hero-chips{display:flex;flex-wrap:wrap;gap:8px}
-[title]{cursor:help}
-.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;letter-spacing:.2px;border:1px solid transparent}
-.chip-green{background:var(--green-dim);color:var(--green);border-color:rgba(46,168,106,.25)}
-.chip-blue{background:var(--accent-dim);color:var(--accent);border-color:rgba(74,124,245,.25)}
-.chip-yellow{background:var(--yellow-dim);color:var(--yellow);border-color:rgba(196,151,42,.25)}
-.chip-gray{background:var(--surface2);color:var(--ink3);border-color:var(--border2)}
-.wrap{max-width:1120px;margin:0 auto;padding:0 28px 80px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
-.section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);display:flex;align-items:center;gap:12px;margin:44px 0 18px}
-.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px 22px}
-.card-title{font-size:13.5px;font-weight:600;color:var(--ink);margin-bottom:6px}
-.ov-card{background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:var(--r);padding:20px 22px}
-.ov-card h3{font-size:13.5px;font-weight:600;color:var(--ink);margin-bottom:10px}
-.ov-card p{font-size:13px;color:var(--ink2);line-height:1.65}
-.callout{background:var(--accent-glow);border:1px solid rgba(74,124,245,.2);border-left:3px solid var(--accent);border-radius:var(--r);padding:18px 22px}
-.callout h3{font-size:13px;font-weight:600;color:var(--accent);margin-bottom:8px}
-.callout p{font-size:13.5px;color:var(--ink2);line-height:1.7}
-.callout b{color:var(--ink)}
-.insight{background:rgba(46,168,106,.05);border:1px solid rgba(46,168,106,.15);border-left:3px solid var(--green);border-radius:var(--r);padding:16px 20px;font-size:13px;color:var(--ink2);line-height:1.7}
-.insight strong{color:var(--green)}
-.warn{background:var(--red-dim);border:1px solid rgba(217,95,95,.2);border-left:3px solid var(--red);border-radius:8px;padding:12px 16px;font-size:12.5px;color:#f4a0a0;line-height:1.6;margin-top:14px}
-.warn strong{color:var(--red)}
-.b{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;font-family:var(--mono)}
-.b-pos{background:var(--green-dim);color:var(--green)}
-.b-neg{background:var(--red-dim);color:var(--red)}
-.b-zero{background:var(--surface2);color:var(--ink3)}
-.data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table th{text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);border-bottom:1px solid var(--border);background:var(--surface2)}
-.data-table td{padding:11px 16px;color:var(--ink2);border-bottom:1px solid var(--border);vertical-align:middle}
-.data-table tr:last-child td{border-bottom:none}
-.data-table tr:hover td{background:rgba(255,255,255,.025)}
-.data-table td.mono{font-family:var(--mono);font-size:13px}
-.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;border:1px solid transparent}
-.p-done{background:var(--green-dim);color:var(--green);border-color:rgba(46,168,106,.25)}
-.p-running{background:var(--yellow-dim);color:var(--yellow);border-color:rgba(196,151,42,.25)}
-.p-todo,.p-next,.p-then{background:var(--surface2);color:var(--ink3);border-color:var(--border2)}
-.p-idea{background:var(--purple-dim);color:var(--purple);border-color:rgba(139,116,212,.25)}
-.p-active{background:var(--accent-dim);color:var(--accent);border-color:rgba(74,124,245,.25)}
-.p-blocked{background:var(--red-dim);color:var(--red);border-color:rgba(217,95,95,.25)}
-.task-table{width:100%;border-collapse:collapse}
-.task-table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);text-align:left;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--surface2)}
-.task-table td{padding:14px 18px;border-bottom:1px solid var(--border);vertical-align:top}
-.task-table tr:last-child td{border-bottom:none}
-.task-table tr:hover td{background:rgba(255,255,255,.018)}
-.task-who{font-weight:600;color:var(--ink);white-space:nowrap;font-size:13.5px}
-.task-track{font-size:12.5px;color:var(--ink3)}
-.task-action{font-size:13px;color:var(--ink2);line-height:1.6}
-.milestones{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
-.mile{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
-.mile.done{border-color:rgba(46,168,106,.25)}
-.mile.now{border-color:rgba(196,151,42,.25);background:rgba(196,151,42,.04)}
-.mile-text{font-size:12.5px;color:var(--ink2);line-height:1.5}
-.path{list-style:none;padding:0;margin:0}
-.path li{display:flex;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
-.path li:last-child{border-bottom:none}
-.path .ptext{font-size:13.5px;color:var(--ink2);line-height:1.5}
-.path .pwho{font-weight:600;color:var(--ink)}
-.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
-.links a{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--border2);padding:8px 14px;border-radius:8px;color:var(--ink);background:var(--surface2)}
-.links a:hover{border-color:var(--accent);text-decoration:none}
-.status-list{list-style:none}
-.status-list li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:13.5px;color:var(--ink2)}
-.status-list li:not(:last-child){border-bottom:1px solid var(--border)}
-.kv-table{width:100%;border-collapse:collapse}
-.kv-table td{padding:12px 0;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:top}
-.kv-table tr:last-child td{border-bottom:none}
-.kv-table td:first-child{color:var(--ink);font-weight:600;width:110px;white-space:nowrap;padding-right:24px}
-code{font-family:var(--mono);font-size:12.5px;background:var(--surface3);padding:2px 6px;border-radius:4px;color:var(--accent)}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
-.dec-table{width:100%;border-collapse:collapse}
-.dec-table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);text-align:left;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
-.dec-table td{padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--ink2);vertical-align:middle}
-.dec-table tr:last-child td{border-bottom:none}
-.dec-table td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
-.dec-table td.dim{color:var(--ink3);font-size:12.5px;line-height:1.55}
-.muted{color:var(--ink3)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-top:-8px}
-.stat{background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:3px}
-.stat-v{font-family:var(--mono);font-size:23px;font-weight:500;color:var(--ink);line-height:1.05}
-.stat-v.good{color:var(--green)} .stat-v.bad{color:var(--red)} .stat-v.warn{color:var(--yellow)}
-.stat-k{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);font-weight:600}
-.stat-s{font-size:11.5px;color:var(--ink3);line-height:1.45}
-.cgroup{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:var(--surface)}
-.cgroup-h{display:flex;align-items:center;gap:10px;padding:11px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;border-bottom:1px solid var(--border)}
-.cgroup-n{margin-left:auto;font-family:var(--mono);font-size:12px;opacity:.8;text-transform:none;letter-spacing:0}
-.cgroup.g-certified .cgroup-h{background:rgba(46,168,106,.09);color:var(--green)}
-.cgroup.g-retracted .cgroup-h{background:rgba(217,95,95,.09);color:var(--red)}
-.cgroup.g-review .cgroup-h{background:rgba(196,151,42,.09);color:var(--yellow)}
-.cgroup.g-open .cgroup-h{background:rgba(139,116,212,.09);color:var(--purple)}
-.citem{padding:14px 18px;border-bottom:1px solid var(--border)}
-.citem:last-child{border-bottom:none}
-.citem-t{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.5;margin-bottom:5px}
-.cgroup.g-retracted .citem-t{color:#f4a0a0;text-decoration:line-through;text-decoration-color:rgba(217,95,95,.45)}
-.citem-w{font-size:12.5px;color:var(--ink3);line-height:1.65}
-.citem-s{margin-top:7px;font-family:var(--mono);font-size:10.5px;color:var(--ink3);opacity:.85}
-@media(max-width:760px){.stats{grid-template-columns:1fr 1fr}}
-
-.claims td{vertical-align:top;padding:13px 16px}
-.claims .claim-txt{color:var(--ink);font-weight:600;font-size:13px;line-height:1.5}
-.claims .claim-why{font-size:12.5px;color:var(--ink3);line-height:1.6}
-.claims .claim-src code{font-size:11px;background:transparent;color:var(--ink3);padding:0}
-.claims tr.claim-retracted .claim-txt{color:#f4a0a0;text-decoration:line-through;text-decoration-color:rgba(217,95,95,.5)}
-.claims tr.claim-retracted td{background:rgba(217,95,95,.05)}
-.claims tr.claim-certified td{background:rgba(46,168,106,.035)}
-.claims tr.claim-review td{background:rgba(196,151,42,.04)}
-
-.chip-red{background:var(--red-dim);color:#f4a0a0;border-color:rgba(217,95,95,.3);font-family:var(--mono)}
-.timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.wk{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px;position:relative}
-.wk.now{border-color:rgba(196,151,42,.45);background:linear-gradient(180deg,rgba(196,151,42,.06),var(--surface))}
-.wk.done{border-color:rgba(46,168,106,.3)}
-.wk-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.wk-name{font-weight:700;color:var(--ink);font-size:13.5px}
-.wk-dates{font-family:var(--mono);font-size:11.5px;color:var(--ink3);margin-left:auto}
-.wk-body{font-size:12.5px;color:var(--ink2);line-height:1.55}
-.wk-gate{font-family:var(--mono);font-size:11px;color:var(--yellow);border-top:1px dashed var(--border);padding-top:8px;letter-spacing:.2px}
-.wk.done .wk-gate{color:var(--green)}
-.x22-wrap{background:var(--surface);border:1px solid rgba(74,124,245,.35);border-radius:var(--r);overflow:hidden;box-shadow:0 0 0 1px rgba(74,124,245,.08),0 8px 32px rgba(74,124,245,.05);margin-top:16px}
-.x22-title{padding:14px 20px;font-size:13.5px;font-weight:600;color:var(--ink);background:linear-gradient(135deg,rgba(74,124,245,.08),var(--surface2));border-bottom:1px solid var(--border)}
-.x22{width:100%;border-collapse:collapse}
-.x22 th{padding:12px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink2);background:var(--surface2);border-bottom:1px solid var(--border);text-align:center;line-height:1.5}
-.x22 th.x22-corner{text-align:left;color:var(--ink3);text-transform:none;letter-spacing:0;font-family:var(--mono);font-weight:500;width:30%}
-.x22 td{padding:16px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-size:13px;line-height:1.5}
-.x22 td:last-child{border-right:none}
-.x22 tr:last-child td{border-bottom:none}
-.x22 td.x22-row{text-align:left;color:var(--ink);font-size:13px;background:var(--surface2)}
-.x22 td.x22-diag{color:var(--green);font-weight:600;background:rgba(46,168,106,.05)}
-.x22 td.x22-off{color:var(--yellow);font-weight:600;background:rgba(196,151,42,.04)}
-.x22-sub{display:block;font-size:11px;font-weight:400;color:var(--ink3);text-transform:none;letter-spacing:0;margin-top:2px}
-.x22-legend{padding:12px 20px 14px;font-size:12px;color:var(--ink3);line-height:1.7;border-top:1px solid var(--border)}
-.x22-legend b{color:var(--ink2)}
-@media(max-width:960px){.g3{grid-template-columns:1fr 1fr}.timeline{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.g2,.g3,.timeline{grid-template-columns:1fr}}
-</style>
-</head>"""
-
-    htmldoc = head + f"""
-<body>
-<nav>
-  <span class="nav-brand"><span class="nav-dot"></span>Bias Steering</span>
-  <div class="nav-links">
-    <a href="#overview">Overview</a>
-    <a href="#timeline">Timeline</a>
-    <a href="#claims">Claims</a>
-    <a href="#verification">Verification</a>
-    <a href="#results">Results</a>
-    <a href="#decisions">Decisions</a>
-    <a href="#tasks">Tasks</a>
-    <a href="#path">Path</a>
-    <a href="#frontier">Frontier</a>
-  </div>
-  <div class="nav-right">
-    <span class="nav-meta">updated {stamp}</span>
-    <a class="nav-gh" href="https://github.com/Darksharkthe1st/Algoverse-Bias-Steering" target="_blank">GitHub ↗</a>
-  </div>
-</nav>
-
-<div class="hero">
-  <div class="hero-inner">
-    <div class="hero-eyebrow">Algoverse · Revival Sprint · Aug 2026</div>
-    <h1>Soft Refusal — the geometry of taking a side</h1>
-    <p class="hero-sub">{html.escape(TAGLINE)}</p>
-    <div class="hero-chips">
-      {deadline_chip}
-      <span class="chip chip-green" title="Bidirectional steering on 9 models, ablation-controlled, coherence preserved (2025).">In-distribution steering verified</span>
-      <span class="chip chip-yellow" title="Vectors trained on synthetic prompts do not transfer to CrowS-Pairs; semi-fail on BBQ. Kept honest.">Honest negative: no OOD transfer</span>
-      <span class="chip chip-blue" title="No published paper names a soft-refusal direction as of Aug 2026; nearest neighbors differentiated in PAPER_FRAMING.md.">'Soft refusal' still unclaimed</span>
-      <span class="chip chip-gray">Darksharkthe1st/Algoverse-Bias-Steering</span>
-    </div>
-  </div>
-</div>
-
-<div class="wrap">
-
-<div class="stats">{stats_html}</div>
-
-<div class="section-label" id="overview">Project overview</div>
-<div class="g3">{overview_html}</div>
-
-<div class="callout" style="margin-top:16px">
-  <h3>{RESEARCH_Q[0]}</h3>
-  <p>{RESEARCH_Q[1]}</p>
-</div>
-
-{experiment_html}
-
-<div class="section-label" id="timeline">Sprint timeline — Aug 3 → Aug 29</div>
-<div class="timeline">{timeline_html}</div>
-
-<div class="section-label" id="results">2025 results — what we inherit</div>
-<p style="font-size:13px;color:var(--ink3);margin-bottom:16px">Both tables render live from committed CSVs. Δ = steered minus baseline count (≈percentage points).</p>
-<div class="card-title" style="margin-bottom:8px">Headline: in-distribution bidirectional control (synthetic comparison prompts)</div>
-{batched_html}
-<div class="card-title" style="margin:20px 0 8px">Honest negative: the same vectors on CrowS-Pairs</div>
-{crows_html}
-<div class="warn"><strong>Provisional numbers.</strong> All 2025 percentages were produced by the retired binary judge, whose rubric scored factual decisiveness as opinionation. Judge v2 re-judging of the archived outputs may move every number above. Do not quote them in new text without the caveat.</div>
-
-<div class="section-label" id="claims">Claim ledger — what we are allowed to say</div>
-<p style="font-size:13px;color:var(--ink3);margin-bottom:14px">The working artifact. Every claim carries its evidence and its source. <b>Update this in the same PR as any doc that repeats the claim.</b> A retracted row is not a negative result — it is a claim with no experiment behind it.</p>
-{claims_html}
-
-<div class="section-label" id="verification">Independent verification — two audits, two artifact families</div>
-<p style="font-size:13px;color:var(--ink3);margin-bottom:14px">The 2025 headline was recounted twice by <b>different code over different artifacts</b> with no shared assumptions. Agreement across independent routes is the reason we treat the effect as real while still treating the historical CSVs as untrusted.</p>
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="data-table">
-    <tr><th style="width:104px">date</th><th style="width:24%">audit</th><th>method</th><th style="width:30%">result</th></tr>
-    {audits_html}
-  </table>
-</div>
-
-<div style="margin-top:16px">{norms_html}</div>
-
-<div class="section-label" id="decisions">Decisions (locked + under review)</div>
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="dec-table">
-    <tr><th>Item</th><th>Choice</th><th>Why</th></tr>
-    {dec_html}
-  </table>
-</div>
-
-<div class="section-label">Status &amp; roadmap</div>
-<div class="g2">
-  <div class="card">
-    <div class="card-title" style="margin-bottom:14px">Experiment status</div>
-    <ul class="status-list">{runs_html}</ul>
-  </div>
-  <div class="card">
-    <div class="card-title" style="margin-bottom:14px">Milestones</div>
-    <div class="milestones">{miles_html}</div>
-  </div>
-</div>
-
-<div class="section-label" id="tasks">Task board</div>
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="task-table">
-    <tr><th>Who</th><th>Status</th><th>Next action</th></tr>
-    {tasks_html}
-  </table>
-</div>
-
-<div class="section-label">How we work</div>
-<div class="card">
-  <table class="kv-table">{how_html}</table>
-</div>
-
-<div class="section-label" id="path">Path to submission</div>
-<div class="card"><ul class="path">{path_html}</ul></div>
-
-<div class="section-label">Docs &amp; links</div>
-<div class="card"><div class="links">{links_html}</div></div>
-
-<div class="section-label" id="frontier">Frontier — related papers &amp; positioning (mirrors PAPER_FRAMING.md)</div>
-<div class="card"><table class="data-table"><tr><th>action</th><th>paper</th><th>why it matters to US</th></tr>{frontier_html}</table></div>
-
-<div class="section-label">Bulletproofing &amp; open items</div>
-<div class="card"><ul class="status-list">{bullets_html}</ul></div>
-
-</div>
-</body>
-</html>"""
-
-    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    with open(args.out, "w") as f:
-        f.write(htmldoc)
-    print(f"wrote {args.out} ({len(htmldoc)} bytes)")
+    a = ap.parse_args()
+    p = ROOT / a.out
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(build(), encoding="utf-8")
+    print(f"wrote {p} ({p.stat().st_size:,} bytes)")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

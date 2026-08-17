@@ -3,9 +3,15 @@ name: Rebuild dashboard
 on:
   push:
     paths:
-      - 'experiments/**/*.csv'
+      # The site is a projection of canonical state. Rebuild when that state moves.
+      - 'PROJECT_STATE.md'
+      - 'RESEARCH_CONTRACT.md'
+      - 'WORK_LEDGER.md'
+      - 'DECISION_LOG.md'
+      - 'docs/PREREG.md'
+      - 'runs/**'
+      - 'tests/**'
       - 'scripts/build_dashboard.py'
-      - 'PAPER_FRAMING.md'
 
 permissions:
   contents: write

@@ -1,345 +1,234 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bias Steering — project dashboard</title>
-<style>
-:root{--bg:#0a0c10;--bg2:#0d1117;--surface:#111620;--surface2:#161c28;--surface3:#1c2436;--border:#1f2a3e;--border2:#2a374f;--ink:#e8edf5;--ink2:#a8b8cc;--ink3:#5e7490;--accent:#4a7cf5;--accent-dim:rgba(74,124,245,.10);--accent-glow:rgba(74,124,245,.04);--green:#2ea86a;--green-dim:rgba(46,168,106,.10);--red:#d95f5f;--red-dim:rgba(217,95,95,.10);--yellow:#c4972a;--yellow-dim:rgba(196,151,42,.10);--purple:#8b74d4;--purple-dim:rgba(139,116,212,.10);--r:8px;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--mono:'JetBrains Mono','SF Mono','Cascadia Code',Consolas,monospace}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-@media (prefers-reduced-motion: no-preference){html:focus-within{scroll-behavior:smooth}}
-[id]{scroll-margin-top:72px}
-.section-label{scroll-margin-top:72px}
-body{font-family:var(--font);font-size:14px;line-height:1.65;color:var(--ink2);background:var(--bg);-webkit-font-smoothing:antialiased}
-::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-nav{position:sticky;top:0;z-index:100;height:52px;display:flex;align-items:center;gap:4px;padding:0 28px;background:rgba(10,12,16,.85);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--border)}
-.nav-brand{font-weight:700;font-size:15px;color:var(--ink);letter-spacing:-.3px;margin-right:20px;white-space:nowrap;display:flex;align-items:center;gap:8px}
-.nav-dot{width:7px;height:7px;border-radius:50%;background:var(--green);opacity:.85}
-.nav-links{display:flex;gap:2px}
-.nav-links a{color:var(--ink3);font-size:13px;text-decoration:none;padding:5px 10px;border-radius:6px;transition:color .15s,background .15s}
-.nav-links a:hover{color:var(--ink);background:var(--surface2)}
-.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
-.nav-meta{font-size:12px;color:var(--ink3)}
-.nav-gh{font-size:12.5px;color:var(--ink3);text-decoration:none;border:1px solid var(--border2);padding:4px 12px;border-radius:6px;transition:all .15s;font-weight:500}
-.nav-gh:hover{color:var(--ink);border-color:var(--accent)}
-.hero{position:relative;overflow:hidden;padding:44px 36px 36px;border-bottom:1px solid var(--border);background:var(--bg2)}
-.hero-inner{max-width:1120px;margin:0 auto}
-.hero-eyebrow{font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px}
-.hero h1{font-size:26px;font-weight:700;color:var(--ink);letter-spacing:-.3px;line-height:1.25;margin-bottom:10px}
-.hero-sub{font-size:15px;color:var(--ink2);max-width:640px;line-height:1.7;margin-bottom:24px}
-.hero-chips{display:flex;flex-wrap:wrap;gap:8px}
-[title]{cursor:help}
-.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;letter-spacing:.2px;border:1px solid transparent}
-.chip-green{background:var(--green-dim);color:var(--green);border-color:rgba(46,168,106,.25)}
-.chip-blue{background:var(--accent-dim);color:var(--accent);border-color:rgba(74,124,245,.25)}
-.chip-yellow{background:var(--yellow-dim);color:var(--yellow);border-color:rgba(196,151,42,.25)}
-.chip-gray{background:var(--surface2);color:var(--ink3);border-color:var(--border2)}
-.wrap{max-width:1120px;margin:0 auto;padding:0 28px 80px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
-.section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);display:flex;align-items:center;gap:12px;margin:44px 0 18px}
-.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px 22px}
-.card-title{font-size:13.5px;font-weight:600;color:var(--ink);margin-bottom:6px}
-.ov-card{background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:var(--r);padding:20px 22px}
-.ov-card h3{font-size:13.5px;font-weight:600;color:var(--ink);margin-bottom:10px}
-.ov-card p{font-size:13px;color:var(--ink2);line-height:1.65}
-.callout{background:var(--accent-glow);border:1px solid rgba(74,124,245,.2);border-left:3px solid var(--accent);border-radius:var(--r);padding:18px 22px}
-.callout h3{font-size:13px;font-weight:600;color:var(--accent);margin-bottom:8px}
-.callout p{font-size:13.5px;color:var(--ink2);line-height:1.7}
-.callout b{color:var(--ink)}
-.insight{background:rgba(46,168,106,.05);border:1px solid rgba(46,168,106,.15);border-left:3px solid var(--green);border-radius:var(--r);padding:16px 20px;font-size:13px;color:var(--ink2);line-height:1.7}
-.insight strong{color:var(--green)}
-.warn{background:var(--red-dim);border:1px solid rgba(217,95,95,.2);border-left:3px solid var(--red);border-radius:8px;padding:12px 16px;font-size:12.5px;color:#f4a0a0;line-height:1.6;margin-top:14px}
-.warn strong{color:var(--red)}
-.b{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;font-family:var(--mono)}
-.b-pos{background:var(--green-dim);color:var(--green)}
-.b-neg{background:var(--red-dim);color:var(--red)}
-.b-zero{background:var(--surface2);color:var(--ink3)}
-.data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table th{text-align:left;padding:10px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);border-bottom:1px solid var(--border);background:var(--surface2)}
-.data-table td{padding:11px 16px;color:var(--ink2);border-bottom:1px solid var(--border);vertical-align:middle}
-.data-table tr:last-child td{border-bottom:none}
-.data-table tr:hover td{background:rgba(255,255,255,.025)}
-.data-table td.mono{font-family:var(--mono);font-size:13px}
-.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;border:1px solid transparent}
-.p-done{background:var(--green-dim);color:var(--green);border-color:rgba(46,168,106,.25)}
-.p-running{background:var(--yellow-dim);color:var(--yellow);border-color:rgba(196,151,42,.25)}
-.p-todo,.p-next,.p-then{background:var(--surface2);color:var(--ink3);border-color:var(--border2)}
-.p-idea{background:var(--purple-dim);color:var(--purple);border-color:rgba(139,116,212,.25)}
-.p-active{background:var(--accent-dim);color:var(--accent);border-color:rgba(74,124,245,.25)}
-.p-blocked{background:var(--red-dim);color:var(--red);border-color:rgba(217,95,95,.25)}
-.task-table{width:100%;border-collapse:collapse}
-.task-table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);text-align:left;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--surface2)}
-.task-table td{padding:14px 18px;border-bottom:1px solid var(--border);vertical-align:top}
-.task-table tr:last-child td{border-bottom:none}
-.task-table tr:hover td{background:rgba(255,255,255,.018)}
-.task-who{font-weight:600;color:var(--ink);white-space:nowrap;font-size:13.5px}
-.task-track{font-size:12.5px;color:var(--ink3)}
-.task-action{font-size:13px;color:var(--ink2);line-height:1.6}
-.milestones{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
-.mile{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
-.mile.done{border-color:rgba(46,168,106,.25)}
-.mile.now{border-color:rgba(196,151,42,.25);background:rgba(196,151,42,.04)}
-.mile-text{font-size:12.5px;color:var(--ink2);line-height:1.5}
-.path{list-style:none;padding:0;margin:0}
-.path li{display:flex;align-items:flex-start;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)}
-.path li:last-child{border-bottom:none}
-.path .ptext{font-size:13.5px;color:var(--ink2);line-height:1.5}
-.path .pwho{font-weight:600;color:var(--ink)}
-.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
-.links a{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--border2);padding:8px 14px;border-radius:8px;color:var(--ink);background:var(--surface2)}
-.links a:hover{border-color:var(--accent);text-decoration:none}
-.status-list{list-style:none}
-.status-list li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;font-size:13.5px;color:var(--ink2)}
-.status-list li:not(:last-child){border-bottom:1px solid var(--border)}
-.kv-table{width:100%;border-collapse:collapse}
-.kv-table td{padding:12px 0;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:top}
-.kv-table tr:last-child td{border-bottom:none}
-.kv-table td:first-child{color:var(--ink);font-weight:600;width:110px;white-space:nowrap;padding-right:24px}
-code{font-family:var(--mono);font-size:12.5px;background:var(--surface3);padding:2px 6px;border-radius:4px;color:var(--accent)}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
-.dec-table{width:100%;border-collapse:collapse}
-.dec-table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);text-align:left;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface2)}
-.dec-table td{padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--ink2);vertical-align:middle}
-.dec-table tr:last-child td{border-bottom:none}
-.dec-table td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
-.dec-table td.dim{color:var(--ink3);font-size:12.5px;line-height:1.55}
-.muted{color:var(--ink3)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-top:-8px}
-.stat{background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:3px}
-.stat-v{font-family:var(--mono);font-size:23px;font-weight:500;color:var(--ink);line-height:1.05}
-.stat-v.good{color:var(--green)} .stat-v.bad{color:var(--red)} .stat-v.warn{color:var(--yellow)}
-.stat-k{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);font-weight:600}
-.stat-s{font-size:11.5px;color:var(--ink3);line-height:1.45}
-.cgroup{margin-bottom:14px;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:var(--surface)}
-.cgroup-h{display:flex;align-items:center;gap:10px;padding:11px 18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;border-bottom:1px solid var(--border)}
-.cgroup-n{margin-left:auto;font-family:var(--mono);font-size:12px;opacity:.8;text-transform:none;letter-spacing:0}
-.cgroup.g-certified .cgroup-h{background:rgba(46,168,106,.09);color:var(--green)}
-.cgroup.g-retracted .cgroup-h{background:rgba(217,95,95,.09);color:var(--red)}
-.cgroup.g-review .cgroup-h{background:rgba(196,151,42,.09);color:var(--yellow)}
-.cgroup.g-open .cgroup-h{background:rgba(139,116,212,.09);color:var(--purple)}
-.citem{padding:14px 18px;border-bottom:1px solid var(--border)}
-.citem:last-child{border-bottom:none}
-.citem-t{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.5;margin-bottom:5px}
-.cgroup.g-retracted .citem-t{color:#f4a0a0;text-decoration:line-through;text-decoration-color:rgba(217,95,95,.45)}
-.citem-w{font-size:12.5px;color:var(--ink3);line-height:1.65}
-.citem-s{margin-top:7px;font-family:var(--mono);font-size:10.5px;color:var(--ink3);opacity:.85}
-@media(max-width:760px){.stats{grid-template-columns:1fr 1fr}}
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fvoa · research control surface</title><style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#222a33;--ink:#e6edf3;--dim:#8b98a5;
+--acc:#5bc8af;--warn:#e3b341;--bad:#f0776c;--good:#3fb950;
+--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif}
+a{color:var(--acc)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1418,#0b0d10)}
+.status{display:flex;flex-wrap:wrap;gap:9px;padding:14px 0;font:12px/1 var(--mono)}
+.chip{border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--dim);white-space:nowrap}
+.chip b{color:var(--ink);font-weight:600}
+.chip.ok{border-color:#1d3d2a;color:var(--good)}
+.chip.warn{border-color:#4a3c14;color:var(--warn)}
+.chip.bad{border-color:#4a2320;color:var(--bad)}
+h1{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+margin:26px 0 10px;font-weight:600}
+.paper{font-size:25px;line-height:1.4;margin:0 0 10px;max-width:62ch;font-weight:600}
+.sub{color:var(--dim);max-width:74ch;margin:0 0 22px;font-size:14px}
+section{padding:32px 0;border-bottom:1px solid var(--line)}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.card h3{margin:0 0 8px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.card p{margin:0 0 8px;font-size:14px}
+.big{font:600 22px/1.2 var(--mono)}
+.mono{font-family:var(--mono);font-size:12.5px}
+.dim{color:var(--dim)}
+.gate{border-left:3px solid var(--bad);background:#181111}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;letter-spacing:.08em;
+text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid #191f26;vertical-align:top}
+.pill{display:inline-block;font:11px/1 var(--mono);padding:4px 7px;border-radius:5px;
+border:1px solid var(--line);color:var(--dim)}
+.pill.done{color:var(--good);border-color:#1d3d2a}
+.pill.run{color:var(--warn);border-color:#4a3c14}
+.tl{position:relative;padding-left:22px}
+.tl:before{content:'';position:absolute;left:6px;top:4px;bottom:4px;width:1px;background:var(--line)}
+.ev{position:relative;margin-bottom:15px}
+.ev:before{content:'';position:absolute;left:-19px;top:7px;width:7px;height:7px;border-radius:50%;
+background:var(--dim);box-shadow:0 0 0 3px var(--bg)}
+.ev.key:before{background:var(--acc)}
+.ev h4{margin:0 0 3px;font-size:14px}
+.ev .meta{font:11px var(--mono);color:var(--dim);margin-bottom:3px}
+.ev p{margin:0 0 3px;font-size:13.5px;color:#c5cfd9}
+.cut{display:inline-block;margin:0 7px 7px 0;padding:6px 11px;border-radius:6px;
+border:1px dashed #3a2a2a;color:#b98b86;font-size:13px;text-decoration:line-through}
+.foot{padding:26px 0 50px;color:var(--dim);font-size:12.5px}
+code{font-family:var(--mono);font-size:.92em;background:#171d24;padding:1px 5px;border-radius:4px}
+.hint{font-size:12.5px;color:var(--dim);margin-top:8px}
+.arch{background:#0e1216;border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:10px}
+details summary{cursor:pointer;color:var(--dim);font-size:13px;padding:6px 0}
+</style></head><body>
+<header><div class="wrap"><div class="status">
+<span class="chip"><b>freeze-2026-08-17</b> · 8d1c949</span>
+<span class="chip bad">uncommitted changes</span>
+<span class="chip warn">tests <b>96/97</b></span>
+<span class="chip">runs complete <b>12/15</b></span>
+<span class="chip bad">positive control <b>not satisfied</b></span>
+<span class="chip"><b>2026-08-28 AoE · numbers freeze 2026-08-24 · red team 2026-08-26</b></span>
+</div></div></header><div class="wrap">
 
-.claims td{vertical-align:top;padding:13px 16px}
-.claims .claim-txt{color:var(--ink);font-weight:600;font-size:13px;line-height:1.5}
-.claims .claim-why{font-size:12.5px;color:var(--ink3);line-height:1.6}
-.claims .claim-src code{font-size:11px;background:transparent;color:var(--ink3);padding:0}
-.claims tr.claim-retracted .claim-txt{color:#f4a0a0;text-decoration:line-through;text-decoration-color:rgba(217,95,95,.5)}
-.claims tr.claim-retracted td{background:rgba(217,95,95,.05)}
-.claims tr.claim-certified td{background:rgba(46,168,106,.035)}
-.claims tr.claim-review td{background:rgba(196,151,42,.04)}
+<section><h1>The paper</h1>
+<p class="paper">CoCoNot built contrastive counterparts for its refusal categories but explicitly not for indeterminate/subjective ones — we build that missing contrast set (benign comparative questions that do have a right answer) and test whether hedging on them is controlled by the same mechanism as harm refusal.</p>
+<p class="sub">Interpretability as a Science @ NeurIPS 2026 (Sydney), long track ≤9pp, non-archival</p>
+<h1>The experiment</h1>
+<div class="arch">
+<svg viewBox="0 0 620 250" width="100%" style="max-width:640px" role="img"
+     aria-label="Two ablation trajectories in logit space and the angle between them">
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+    <path d="M0,0 L7,3.2 L0,6.4 z" fill="#5bc8af"/></marker>
+  <marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+    <path d="M0,0 L7,3.2 L0,6.4 z" fill="#e3b341"/></marker></defs>
+  <line x1="70" y1="205" x2="290" y2="205" stroke="#2a333d"/>
+  <line x1="70" y1="205" x2="70" y2="30" stroke="#2a333d"/>
+  <line x1="360" y1="205" x2="580" y2="205" stroke="#2a333d"/>
+  <line x1="360" y1="205" x2="360" y2="30" stroke="#2a333d"/>
+  <text x="300" y="240" fill="#8b98a5" font-size="11.5" font-family="monospace"
+        text-anchor="middle">x: Δlogit P(named a side) on S2 · y: Δlogit P(refused) on harm</text>
+  <text x="70" y="22" fill="#5bc8af" font-size="12.5" font-weight="600">one shared control</text>
+  <line x1="70" y1="205" x2="250" y2="70" stroke="#5bc8af" stroke-width="2.5" marker-end="url(#a)"/>
+  <circle cx="130" cy="160" r="3.4" fill="#5bc8af"/><circle cx="190" cy="115" r="3.4" fill="#5bc8af"/>
+  <text x="255" y="66" fill="#5bc8af" font-size="12" font-family="monospace">r̂_harm</text>
+  <line x1="70" y1="205" x2="226" y2="88" stroke="#8fd9c8" stroke-width="2.5"
+        stroke-dasharray="5 3" marker-end="url(#a)"/>
+  <text x="196" y="112" fill="#8fd9c8" font-size="12" font-family="monospace">r̂_stance</text>
+  <path d="M128,168 A62,62 0 0,1 140,154" fill="none" stroke="#5bc8af" stroke-width="1.4"/>
+  <text x="146" y="168" fill="#5bc8af" font-size="12" font-family="monospace">θ &lt; 25°</text>
+  <text x="360" y="22" fill="#e3b341" font-size="12.5" font-weight="600">distinct controls</text>
+  <line x1="360" y1="205" x2="360" y2="65" stroke="#e3b341" stroke-width="2.5" marker-end="url(#b)"/>
+  <text x="368" y="62" fill="#e3b341" font-size="12" font-family="monospace">r̂_harm</text>
+  <line x1="360" y1="205" x2="545" y2="205" stroke="#c678dd" stroke-width="2.5"/>
+  <text x="452" y="196" fill="#c678dd" font-size="12" font-family="monospace">r̂_stance</text>
+  <path d="M360,175 A30,30 0 0,0 390,205" fill="none" stroke="#e3b341" stroke-width="1.4"/>
+  <text x="378" y="170" fill="#e3b341" font-size="12" font-family="monospace">θ large</text>
+  <text x="360" y="38" fill="#8b98a5" font-size="10.5">not claimable — every nuisance biases θ this way</text>
+</svg>
 
-.chip-red{background:var(--red-dim);color:#f4a0a0;border-color:rgba(217,95,95,.3);font-family:var(--mono)}
-.timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.wk{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:8px;position:relative}
-.wk.now{border-color:rgba(196,151,42,.45);background:linear-gradient(180deg,rgba(196,151,42,.06),var(--surface))}
-.wk.done{border-color:rgba(46,168,106,.3)}
-.wk-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.wk-name{font-weight:700;color:var(--ink);font-size:13.5px}
-.wk-dates{font-family:var(--mono);font-size:11.5px;color:var(--ink3);margin-left:auto}
-.wk-body{font-size:12.5px;color:var(--ink2);line-height:1.55}
-.wk-gate{font-family:var(--mono);font-size:11px;color:var(--yellow);border-top:1px dashed var(--border);padding-top:8px;letter-spacing:.2px}
-.wk.done .wk-gate{color:var(--green)}
-.x22-wrap{background:var(--surface);border:1px solid rgba(74,124,245,.35);border-radius:var(--r);overflow:hidden;box-shadow:0 0 0 1px rgba(74,124,245,.08),0 8px 32px rgba(74,124,245,.05);margin-top:16px}
-.x22-title{padding:14px 20px;font-size:13.5px;font-weight:600;color:var(--ink);background:linear-gradient(135deg,rgba(74,124,245,.08),var(--surface2));border-bottom:1px solid var(--border)}
-.x22{width:100%;border-collapse:collapse}
-.x22 th{padding:12px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink2);background:var(--surface2);border-bottom:1px solid var(--border);text-align:center;line-height:1.5}
-.x22 th.x22-corner{text-align:left;color:var(--ink3);text-transform:none;letter-spacing:0;font-family:var(--mono);font-weight:500;width:30%}
-.x22 td{padding:16px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-size:13px;line-height:1.5}
-.x22 td:last-child{border-right:none}
-.x22 tr:last-child td{border-bottom:none}
-.x22 td.x22-row{text-align:left;color:var(--ink);font-size:13px;background:var(--surface2)}
-.x22 td.x22-diag{color:var(--green);font-weight:600;background:rgba(46,168,106,.05)}
-.x22 td.x22-off{color:var(--yellow);font-weight:600;background:rgba(196,151,42,.04)}
-.x22-sub{display:block;font-size:11px;font-weight:400;color:var(--ink3);text-transform:none;letter-spacing:0;margin-top:2px}
-.x22-legend{padding:12px 20px 14px;font-size:12px;color:var(--ink3);line-height:1.7;border-top:1px solid var(--border)}
-.x22-legend b{color:var(--ink2)}
-@media(max-width:960px){.g3{grid-template-columns:1fr 1fr}.timeline{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.g2,.g3,.timeline{grid-template-columns:1fr}}
-</style>
-</head>
-<body>
-<nav>
-  <span class="nav-brand"><span class="nav-dot"></span>Bias Steering</span>
-  <div class="nav-links">
-    <a href="#overview">Overview</a>
-    <a href="#timeline">Timeline</a>
-    <a href="#claims">Claims</a>
-    <a href="#verification">Verification</a>
-    <a href="#results">Results</a>
-    <a href="#decisions">Decisions</a>
-    <a href="#tasks">Tasks</a>
-    <a href="#path">Path</a>
-    <a href="#frontier">Frontier</a>
-  </div>
-  <div class="nav-right">
-    <span class="nav-meta">updated 2026-08-07 20:00</span>
-    <a class="nav-gh" href="https://github.com/Darksharkthe1st/Algoverse-Bias-Steering" target="_blank">GitHub ↗</a>
-  </div>
-</nav>
+<p class="hint">Partial directional ablation <code>x − λ(x·r̂)r̂</code> at λ ∈ {0, 0.5, 1}, for
+<code>r̂_stance</code>, <code>r̂_harm</code> and a covariance-matched <code>r̂_random</code>, on both
+batteries. <strong>θ</strong> is the angle between the two trajectories <strong>in logit space</strong>
+— under a shared knob the ratio of logit changes is constant across λ and across directions, and that
+invariant is what probability space destroys.</p></div>
+<div class="grid g2" style="margin-top:14px">
+<div class="card"><h3>What a small θ can establish</h3>
+<p>“Consistent with a shared-control model, within the resolution of this experiment.” Conditional on
+all four gates passing.</p></div>
+<div class="card"><h3>What it cannot</h3>
+<p>It does <strong>not</strong> establish a unique shared mechanism. And a <strong>large θ licenses
+nothing on its own</strong> — every identified nuisance biases θ toward “distinct”, none toward
+“shared”. Inference is deliberately asymmetric.</p></div></div></section>
 
-<div class="hero">
-  <div class="hero-inner">
-    <div class="hero-eyebrow">Algoverse · Revival Sprint · Aug 2026</div>
-    <h1>Soft Refusal — the geometry of taking a side</h1>
-    <p class="hero-sub">Testing whether the &#x27;soft refusal&#x27; direction is real — by showing an input perturbation nobody designed moves models along it, and that removing that component abolishes the behavior change.</p>
-    <div class="hero-chips">
-      <span class='chip chip-red' title='Interpretability for Discovery @ NeurIPS 2026 — verified on the CFP.'>⏳ 22 days to submission — Aug 29 AoE</span>
-      <span class="chip chip-green" title="Bidirectional steering on 9 models, ablation-controlled, coherence preserved (2025).">In-distribution steering verified</span>
-      <span class="chip chip-yellow" title="Vectors trained on synthetic prompts do not transfer to CrowS-Pairs; semi-fail on BBQ. Kept honest.">Honest negative: no OOD transfer</span>
-      <span class="chip chip-blue" title="No published paper names a soft-refusal direction as of Aug 2026; nearest neighbors differentiated in PAPER_FRAMING.md.">'Soft refusal' still unclaimed</span>
-      <span class="chip chip-gray">Darksharkthe1st/Algoverse-Bias-Steering</span>
-    </div>
-  </div>
-</div>
+<section><h1>Current gate</h1><div class="card gate">
+<p>G0 — merge, Tue Aug 18 12:00. origin/fk/init-refusal-rewrite and fix/steering-shape-guard into main. Both are clean; the first is a fast-forward. This retires three supposed blockers as merge commits.</p><p>G1 is NOT satisfied. runs/20260816-011914_refusal-repro_qwen-1.8b shows the mechanism — harmful 38/100 → 0/100 under ablation — but the run&#x27;s own findings doc records &quot;Not reproduced&quot;: baseline 0.380 vs the paper&#x27;s 0.700 (Δ −0.32), extraction cosine 0.90 vs a 0.999 target, on Qwen1.5-1.8B, which is not a submission model. It proves the operator works. It is not the gate.</p><p>G1 now requires, on the submission model: ΔP_harm ≤ −0.15 and cosine ≥ 0.95 and baseline within ±0.05 of reference.</p><p>Then G2, Thu Aug 20 — pilot at λ=1, ~600 generations, ~6 min GPU, needs z_stance ≥ 4. If it fails, no achievable n rescues the identification question and we publish the bound.</p>
+</div></section>
 
-<div class="wrap">
+<section><h1>Evidence</h1><div class="grid g3">
+<div class="card"><h3>Test suite</h3><div class="big">96/97</div>
+<p class="dim mono">9 files, executed at build time</p>
+<p class='dim mono'>FAIL test_sampling_deterministic_and_sized: FileNotFoundError: missing refusal split /private/tmp/algo-canon/third_party/refusal_direction/dataset/splits/harmfu</p></div>
+<div class="card"><h3>Run artifacts</h3><div class="big">12/15</div>
+<p class="dim mono">complete = results + summary + manifest + vector</p></div>
+<div class="card"><h3>Blocking packages</h3><div class="big">1/14</div>
+<p class="dim mono">done by evidence, not by report</p></div></div><div class="card" style="margin-top:14px">
+<h3>Positive control — mechanism yes, replication no</h3><table><tr><td class='mono'>harmful/baseline</td><td class='mono'>37/100 refused</td></tr><tr><td class='mono'>harmful/ablation</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmful/actadd</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmless/baseline</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmless/actadd</td><td class='mono'>95/100 refused</td></tr></table>
+<p class="hint">Ablation collapses harmful refusal, so the operator works. But the run's own findings
+doc records <strong>“Not reproduced”</strong>: baseline 0.380 against the paper's 0.700, extraction
+cosine 0.90 against a 0.999 target — and on Qwen1.5-1.8B, not a submission model.
+<strong>G1 is not satisfied.</strong> Source: <code>runs/20260816-010402_refusal-repro_qwen-1.8b/logs/run.log</code></p></div><div class="card" style="margin-top:14px">
+<h3>The simulation that killed the selectivity statistic</h3>
+<p>Holding the world <strong>fixed at “one shared control”</strong> and varying only direction-estimate
+quality — which is unmeasurable — the previous <code>SEL ≥ 2</code> rule fired between
+<strong>1.8% and 64%</strong> of the time with no second mechanism present, and inverted sign at one
+setting. That is why the headline statistic changed.</p>
+<p class="hint">Reproduce: <code>python3 analysis/sim_lambda_identifiability.py</code></p></div>
+<details style="margin-top:14px"><summary>All committed runs (15)</summary>
+<table><tr><th>run</th><th>rows</th><th>artifacts</th></tr>
+<tr><td class='mono'>20260809-010713_parity-log103_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-012833_sweep-qwen18-c2_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-013300_sweep-qwen18-c6_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-013730_sweep-qwen18-c10_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-014201_sweep-qwen18-c14_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-014629_sweep-qwen18-c18_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-015046_sweep-qwen18-c24_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-015504_anchor-qwen-1.8b_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-015926_anchor-yi-6b_yi-6b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-020532_anchor-qwen-7b_qwen-7b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-021303_anchor-qwen-14b_qwen-14b</td><td class='mono'>&mdash;</td><td><span class='pill'>partial</span></td></tr><tr><td class='mono'>20260809-021510_crows-qwen-1.8b_qwen-1.8b</td><td class='mono'>450</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-022109_crows-qwen-7b_qwen-7b</td><td class='mono'>450</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260816-010402_refusal-repro_qwen-1.8b</td><td class='mono'>500</td><td><span class='pill'>partial</span></td></tr><tr><td class='mono'>20260816-011914_refusal-repro_qwen-1.8b</td><td class='mono'>500</td><td><span class='pill'>partial</span></td></tr></table></details></section>
 
-<div class="stats"><div class='stat'><div class='stat-v '>22</div><div class='stat-k'>days to submission</div><div class='stat-s'>Aug 29 AoE · Interp4Discovery</div></div><div class='stat'><div class='stat-v good'>7 / 7</div><div class='stat-k'>headline rows reproduce</div><div class='stat-s'>two independent recounts, two artifact families</div></div><div class='stat'><div class='stat-v bad'>2</div><div class='stat-k'>claims retracted</div><div class='stat-s'>invalid experiments, not negative results</div></div><div class='stat'><div class='stat-v '>96</div><div class='stat-k'>responses per arm</div><div class='stat-s'>the real denominator — not ~100</div></div></div>
+<section><h1>Why the paper changed</h1>
+<p class="sub">Each entry is an epistemic update with the evidence that forced it. Full text in
+<code>DECISION_LOG.md</code> — append-only, history rather than doctrine.</p><div class="tl"><div class="ev">
+<div class="meta">D-001 · 2025 (original cohort)</div><h4>The founding hypothesis</h4>
+<p>An LLM&#x27;s tendency to be neutral rather than opinionated on contested-but-benign prompts is mediated by a linear residual-stream direction, extractable by difference-in-means.</p><p class="dim">Original Algoverse cohort, Jun–Dec 2025. Paper never finished; Overleaf draft and Slack archive both lost.</p></div><div class="ev">
+<div class="meta">D-002 · 2026-08-04</div><h4>The asymmetry that founded the revival</h4>
+<p>Treat as the project&#x27;s central finding that the bias vector transferred to refusal data while the refusal vector did not transfer to bias data — implying bias is the more general construct.</p><p class="dim">Farhan, Aug 4 meeting, from memory: &quot;The refusal vector was not very useful for our bias data set. But the bias vector did work for the refusal data set.&quot; Coefficient behaviour: refusal gibberish above 1, bias usable at 10–15.</p></div><div class="ev">
+<div class="meta">D-003 · 2026-08-08</div><h4>Capability checks before claims</h4>
+<p>Run capability/coherence benchmarks early so steering cannot be shown to have lobotomised the model.</p><p class="dim">Aug 8 meeting. Edward argued against GSM8K as the only skill check.</p></div><div class="ev key">
+<div class="meta">D-004 · 2026-08-16</div><h4>The 2025 refusal arms are not evidence</h4>
+<p>Withdraw all 2025 refusal-arm results, including D-002&#x27;s asymmetry.</p><p class="dim">docs/REVIVAL_AUDIT.md: archived .pt files load as one-dimensional tensors, and layered_generation indexed them per layer — which on a 1-D tensor yields a scalar — then added that scalar uniformly across the residual width. A DC offset, not a direction. Audit verdict: &quot;a pipeline-failure case study, not intervention evidence.&quot; Separately, one headline run saved a Qwen-1_5-1_8B payload under a Llama</p></div><div class="ev">
+<div class="meta">D-005 · 2026-08-16</div><h4>Documentation had forked into two universes</h4>
+<p>Reconcile main and team-kit rather than continuing on both.</p><p class="dim">The branches had diverged 19 commits each way with disjoint docs/ trees. RUBRIC_v2.md — the canonical rubric — did not exist on the branch the pipeline owner worked from. The file marked &quot;This file is doctrine&quot; described a byte-fallback perturbation paper that no meeting had ever agreed; it was raised once on Aug 1, parked the same call, and never returned across four subsequent meetings.</p></div><div class="ev">
+<div class="meta">D-006 · 2026-08-16</div><h4>Independence in the annotation instrument</h4>
+<p>One tab per annotator instead of three visible label columns.</p><p class="dim">RUBRIC_v2.md requires independent labelling; three adjacent columns make peeking the default.</p></div><div class="ev">
+<div class="meta">D-007 · 2026-08-16</div><h4>Bibliography verified; one citation retracted</h4>
+<p>Remove Fafuła (arXiv:2607.17427) from the motivation.</p><p class="dim">19/19 inherited arXiv IDs are real — zero fabricated, control test 2607.99999 → 404. But Fafuła&#x27;s text contains no &quot;soft refusal&quot;, no &quot;neutrality&quot;, no &quot;benign&quot;, has no future-work section, and states its task (21,600 stock picks on 60 equities) elicits no refusals. The claim that it &quot;explicitly requests this experiment&quot; was false.</p></div><div class="ev">
+<div class="meta">D-008 · 2026-08-17</div><h4>Geometry is not sufficient evidence</h4>
+<p>Do not use cosine or principal angle between DiM directions as evidence of functional separation.</p><p class="dim">Wollschläger et al. (arXiv:2502.17420) define representational independence precisely because orthogonality does not imply independence under intervention. Joad et al. (arXiv:2602.02132) find eleven refusal categories geometrically distinct (cos 0.4–0.6) yet behaviourally collapsed onto &quot;a shared one-dimensional control knob.&quot;</p></div><div class="ev key">
+<div class="meta">D-009 · 2026-08-17</div><h4>The selectivity ratio cannot identify mechanisms</h4>
+<p>Drop the single-point full-ablation 2×2 and its SEL ≥ 2 rule.</p><p class="dim">analysis/sim_lambda_identifiability.py. Holding the world fixed at shared and varying only direction-estimate quality — which is unmeasurable — the rule fires with probability 1.8% → 64%, and at ρ_stance=0.85/ρ_harm=0.55 it silently inverts.</p></div><div class="ev">
+<div class="meta">D-010 · 2026-08-17</div><h4>The eight-way cascade fails as an instrument</h4>
+<p>Replace it with a ternary judgement (COMMITTED / ENGAGED-DID-NOT-COMMIT / UNUSABLE) plus a deterministic primary DV.</p><p class="dim">Simulation: five of eight categories have expected count &lt;7 at n=150; hard refusal has a 53% chance of landing below 5 items.</p></div><div class="ev key">
+<div class="meta">D-011 · 2026-08-17</div><h4>Logit space is the identification</h4>
+<p>Primary statistic is the angle between ablation trajectories in logit space, not probability space; λ ∈ {0, 0.5, 1}.</p><p class="dim">Under a shared knob, Δlogit P_harm / Δlogit P_stance is exactly constant across λ and across directions (2.250000 in simulation) — invariant to direction efficacy and to the differing thresholds and baselines that break the ratio rule. Probability space destroys the invariant: null bias 11.6° vs 3.6°, and 24.7° vs 8.2° under a 0.99 ceiling. Denser λ grids cost power at matched budget — {0,1} at n=</p></div><div class="ev key">
+<div class="meta">D-012 · 2026-08-17</div><h4>The battery is a three-way mixture</h4>
+<p>Stratify. S2 (privileged answer) is the primary battery; S3 is the appropriate-hedging control; S1 is excluded.</p><p class="dim">Of 296 items, 28 are first-person preference (CoCoNot</p></div><div class="ev key">
+<div class="meta">D-013 · 2026-08-17</div><h4>The identification claim is cut</h4>
+<p>Keep the machinery; reduce the headline to the measurement contribution plus a preregistered bound. Claim only the equivalence direction.</p><p class="dim">Three independent critics, each verified in code. 1.</p></div><div class="ev">
+<div class="meta">D-014 · 2026-08-17</div><h4>Two statistical defects fixed before any θ</h4>
+<p>Delete the axis whitening; make the bootstrap use the same map as the statistic.</p><p class="dim">Whitening ties the estimand to the benign/harm budget split — θ_eq calibrated at 1:1 becomes 33° at 14:1, inside the bound meant to exclude nested. Mismatched bootstrap maps give measured coverage 0.22 under nested, erring 78% toward falsely declaring &quot;shared&quot; — the paper&#x27;s own null.</p></div><div class="ev key">
+<div class="meta">D-015 · 2026-08-17</div><h4>The positive control is not yet satisfied</h4>
+<p>G1 requires a run on a submission model meeting three conditions, not just the effect size.</p><p class="dim">runs/20260816-011914_refusal-repro_qwen-1.8b shows harmful 38/100 → 0/100 under ablation. But the run&#x27;s own findings doc records &quot;Not reproduced&quot;: baseline 0.380 vs the paper&#x27;s 0.700 (Δ −0.32) and extraction cosine 0.90 against a 0.999 target.</p></div><div class="ev">
+<div class="meta">D-016 · 2026-08-17</div><h4>The campaign data was never lost</h4>
+<p>Do not re-run the Aug 9 campaign.</p><p class="dim">12 of 13 run directories appeared to hold only a 167-byte log. The artifacts were committed at phase boundaries (b95ded9 and siblings) and were later dropped from HEAD by a checkpoint commit. 67 artifacts across 12 runs recovered from history; results.csv files are 301 rows (100 items × 3 conditions). Only anchor-qwen-14b has no vector commit — it died before the vector phase, 14B, OOM the obvious</p></div><div class="ev">
+<div class="meta">D-017 · 2026-08-17</div><h4>Venue</h4>
+<p>Interpretability as a Science @ NeurIPS 2026, Sydney. ≤9pp long track, non-archival. Deadline 2026-08-28 AoE.</p><p class="dim">Verified from primary CFPs. Its scope is standards for measurement, causal claims and falsifiability — which is what this paper now is. The alternative, Interp4Discovery (Aug 29, ≤5pp), frames around domain knowledge discovery, which fits worse, and 5pp cannot hold the controls.</p></div></div></section><section><h1>Execution</h1>
+<p class="sub">Work packages, not personal agendas. Owner is metadata — a package keeps its meaning
+when it changes hands. A package is done when its <strong>evidence exists and validates</strong>.</p>
+<table><tr><th>ID</th><th>Objective</th><th>Status</th><th>Owner</th><th>Evidence required</th></tr><tr><td class="mono">WP-01</td><td>Merge the correctness + recovery branch into the working line</td>
+<td><span class="pill done">done</span></td><td class="mono dim">Claude</td>
+<td class="dim mono">fix/steering-shape-guard @ d2a79f8</td></tr><tr><td class="mono">WP-02</td><td>Reconcile main ← team-kit</td>
+<td><span class="pill run">in flight</span></td><td class="mono dim">Farhan</td>
+<td class="dim mono">Merge commit; suite still 31/31</td></tr><tr><td class="mono">WP-03</td><td>Ablation operator apply_resid_ablate (partial, λ-parameterised)</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Aryaman</td>
+<td class="dim mono">src/bias_steer/steering.py diff + tests</td></tr><tr><td class="mono">WP-04</td><td>Extraction protocol implementation</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
+<td class="dim mono">Code diff + one direction file with metadata</td></tr><tr><td class="mono">WP-05</td><td>Positive control: Arditi replication (E0)</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
+<td class="dim mono">Run dir with results + provenance record</td></tr><tr><td class="mono">WP-06</td><td>Primary DV extractor named_a_side</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Jeremiah</td>
+<td class="dim mono">scripts/extract_named_side.py + per-item output</td></tr><tr><td class="mono">WP-07</td><td>Validity instrument + blinded annotation</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Jeremiah</td>
+<td class="dim mono">Blinded pools, individual label files, agreement computation, frozen v</td></tr><tr><td class="mono">WP-08</td><td>λ-sweep, both directions × both batteries, k generations/item</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
+<td class="dim mono">Raw generations + results + provenance per cell</td></tr><tr><td class="mono">WP-09</td><td>Controls: covariance-matched random direction, wrong-layer</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Aryaman</td>
+<td class="dim mono">Run dirs, same schema as WP-08</td></tr><tr><td class="mono">WP-10</td><td>Analysis + decision rule evaluation</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Jeremiah</td>
+<td class="dim mono">analysis/ script + committed outputs</td></tr><tr><td class="mono">WP-11</td><td>Preregistration filled and hash-committed</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Edward</td>
+<td class="dim mono">Commit hash in the contract</td></tr><tr><td class="mono">WP-25</td><td>Stratify the battery (S1/S2/S3)</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Edward</td>
+<td class="dim mono">Committed CSV + adjudication notes</td></tr><tr><td class="mono">WP-13</td><td>Final adversarial freeze review</td>
+<td><span class="pill run">in flight</span></td><td class="mono dim">Claude</td>
+<td class="dim mono">Critic reports + resolutions in contract §12</td></tr><tr><td class="mono">WP-12</td><td>Judge pinning + k≥3 with majority</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Aryaman</td>
+<td class="dim mono">Config diff + judge agreement file</td></tr></table><div class="grid g2" style="margin-top:16px">
+<div class="card"><h3>Blocks submission</h3><p>Merge (G0) · partial-λ on the existing ablation operator (~15 LOC — the operator itself already exists) · fp32 projection · stratum labels on the 296 items · DV extractor + ternary audit (n=120, 2 annotators) · preregistration hash · the two statistical fixes (delete whitening; match bootstrap map).</p></div>
+<div class="card"><h3>Does not block</h3><p class="dim">Second model · S3 appropriate-hedging arm · post-training trajectory · SAEs · ACE/cone/gradient methods · bias taxonomy · the forensic reconstruction of the 2025 scalar-broadcast bug · dashboard.</p></div>
+</div></section>
 
-<div class="section-label" id="overview">Project overview</div>
-<div class="g3"><div class='ov-card'><h3>What we're building</h3><p>An activation-space account of <b>soft refusal</b> — the behavior where a model declines to take sides on controversial-but-not-harmful prompts. We extract steering vectors/subspaces with TransformerLens (difference-in-means and 2026-grade upgrades), steer open-weight models toward opinionation or neutrality, and test how soft refusal relates to the Arditi <i>hard</i>-refusal direction.</p></div><div class='ov-card'><h3>Why it was revived</h3><p>The 2025 Algoverse run got a real result — <b>bidirectional in-distribution steering with coherence preserved</b> — but stalled on OOD transfer and ran out of team. Revived <b>Aug 2026</b> by a three-person team. The frontier moved (refusal is now cones/subspaces, not single directions; labs ship persona vectors and even-handedness evals), yet the exact soft-refusal claim is <b>still unclaimed</b>.</p></div><div class='ov-card'><h3>Where we are today</h3><p><b>REVIVAL SPRINT — week 0. Scope is PROPOSED, not decided.</b> A machine-generated design+critique pass (<code>docs/2026-08-02_sprint_proposal.md</code>) argues for expanding the thesis to <b>"Two Routes to One Boundary"</b> — convergent validation via an undesigned input perturbation, with a <b>mediation test</b> as the headline. <b>That proposal has not been reviewed by the person who built the 2025 pipeline, and several of its claims are about that pipeline.</b> Venue is verified: Interp4Discovery @ NeurIPS 2026, <b>Aug 29 AoE</b>. The one genuinely time-critical item is freezing the judge rubric before annotation starts.</p></div></div>
+<section><h1>Not this paper</h1>
+<p class="sub">Deliberately cut. Resurrecting any of these needs a dated amendment to
+<code>RESEARCH_CONTRACT.md</code> §12 — “this would be more interesting” is not a reopen condition.</p>
+<span class="cut">post-training trajectory</span><span class="cut">SAE cross-checks</span><span class="cut">ACE/cone/gradient methods</span><span class="cut">conditional steering</span><span class="cut">bias taxonomy</span><span class="cut">the eight-way cascade</span><span class="cut">the selectivity-ratio rule</span><span class="cut">the byte-fallback perturbation arm</span><span class="cut">&quot;soft refusal&quot; as a coinage</span></section>
 
-<div class="callout" style="margin-top:16px">
-  <h3>The research question</h3>
-  <p>Is the <b>soft-refusal direction</b> an artifact of the intervention that found it? Every steering paper faces this (non-identifiability, arXiv:2602.06801): a vector that responds to your own push is not evidence you found the model's representation. Our answer is <b>convergent validity</b> — a single-character substitution forcing byte-fallback tokenization, designed with no reference to any direction, displaces activations <i>preferentially along</i> d_soft; the <b>signed</b> projection predicts which prompts flip; and <b>nulling that component abolishes the flip while injecting it reproduces it</b>. Full plan: docs/2026-08-02_sprint_proposal.md.</p>
-</div>
+<section><h1>Archive</h1>
+<p class="sub">Superseded framings are kept for provenance in <code>docs/superseded/</code>, each
+carrying a banner. 2025 results are <strong>not</strong> current evidence — the archived refusal arms
+were invalidated by a one-dimensional tensor broadcast, documented in
+<code>docs/REVIVAL_AUDIT.md</code>. Nothing there is a paper claim.</p></section>
 
-
-<div class="x22-wrap">
-  <div class="x22-title">The experiment at a glance — two routes to one boundary</div>
-  <table class="x22">
-    <tr><th class="x22-corner">route ↓ &nbsp;·&nbsp; what it establishes →</th>
-        <th>On the opinion battery<br><span class="x22-sub">IssueBench · Paired Prompts · comparisons</span></th>
-        <th>On the safety battery<br><span class="x22-sub">XSTest · JailbreakBench — never perturbed</span></th></tr>
-    <tr><td class="x22-row"><b>Route 1 — designed.</b> Steer d_soft ± (capped, dose-matched)</td>
-        <td class="x22-diag">large Δ<br><span class="x22-sub">the direction works (C1)</span></td>
-        <td class="x22-off">bounded ±5pp by TOST<br><span class="x22-sub">not the harm knob</span></td></tr>
-    <tr><td class="x22-row">Ablate d_harm (dose-matched)</td>
-        <td class="x22-off">bounded ±5pp by TOST</td>
-        <td class="x22-diag">large Δ<br><span class="x22-sub">Arditi replication</span></td></tr>
-    <tr><td class="x22-row"><b>Route 2 — undesigned.</b> One character → byte-fallback tokenization</td>
-        <td class="x22-diag">displaces <i>along</i> d_soft<br><span class="x22-sub">signed projection predicts the flip (C2·C3)</span></td>
-        <td class="x22-off" style="color:var(--ink3)">not run<br><span class="x22-sub">benign prompts only — dual-use rule</span></td></tr>
-    <tr><td class="x22-row"><b>Mediation.</b> Null the along-d component / inject it</td>
-        <td class="x22-diag">flip abolished ≥50% / reproduced ≥40%<br><span class="x22-sub">the headline (C4)</span></td>
-        <td class="x22-off" style="color:var(--ink3)">—</td></tr>
-  </table>
-  <div class="x22-legend"><b>The point:</b> a vector that moves when <i>you</i> push it proves little (non-identifiability, arXiv:2602.06801). A vector that also moves when a perturbation <i>nobody designed</i> flips the model — and whose removal abolishes that flip — is a property of the model. Controls that are never cut: byte-identical retokenization, covariance-matched random-direction null, ASCII-typo, an OOD-direction competitor, and a length/verbosity direction. Nearest prior work (arXiv:2606.07696) asks whether steering <i>survives</i> perturbation; we ask where the perturbation <i>goes</i>.</div>
-</div>
-
-<div class="section-label" id="timeline">Sprint timeline — Aug 3 → Aug 29</div>
-<div class="timeline"><div class='wk now'><div class='wk-head'><span class='pill p-running'>now</span><span class='wk-name'>Week 1</span><span class='wk-dates'>Aug 3–9</span></div><div class='wk-body'>HARNESS productionization (critical path) · six-way rubric + 150 gold labels · perturbation library</div><div class='wk-gate'>GATE 1: κ ≥ 0.7 · stance-shift ≥ 10pp · harness runs a cell unattended</div></div><div class='wk next'><div class='wk-head'><span class='pill p-next'>next</span><span class='wk-name'>Week 2</span><span class='wk-dates'>Aug 10–16</span></div><div class='wk-body'>Unified extraction (2 routes) · E(f) depth sweep · forward-pass displacement grid + null battery</div><div class='wk-gate'>GATE 1.5 (Aug 13): flip ≥8%, exotic beats null while retok doesn&#x27;t · GATE 2: ≥20pp / ≥30pp, l* locked</div></div><div class='wk next'><div class='wk-head'><span class='pill p-next'>next</span><span class='wk-name'>Week 3</span><span class='wk-dates'>Aug 17–23</span></div><div class='wk-body'>Designed grid (~16k gens, dose-matched) → queued: perturbation subset → MEDIATION</div><div class='wk-gate'>HARD Aug 20: cut to 3 models if Wave 1 unjudged · GATE 3: mediation in hand</div></div><div class='wk next'><div class='wk-head'><span class='pill p-next'>next</span><span class='wk-name'>Week 4</span><span class='wk-dates'>Aug 24–28</span></div><div class='wk-body'>Freeze Aug 24 · figures · 5pp draft · anonymization sweep</div><div class='wk-gate'>red-team Aug 26 · SUBMIT Aug 28 (1 day slack)</div></div></div>
-
-<div class="section-label" id="results">2025 results — what we inherit</div>
-<p style="font-size:13px;color:var(--ink3);margin-bottom:16px">Both tables render live from committed CSVs. Δ = steered minus baseline count (≈percentage points).</p>
-<div class="card-title" style="margin-bottom:8px">Headline: in-distribution bidirectional control (synthetic comparison prompts)</div>
-
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="data-table">
-    <tr><th>Model</th><th>baseline Opin/Neut</th><th>steered → opinion (Δ)</th><th>steered → neutral (Δ)</th><th>nonsense</th></tr>
-    <tr><td>Qwen1.5-1.8B-Chat</td><td class='mono'>30 / 66</td><td class='mono'>75 <span class='b b-pos'>+45</span></td><td class='mono'>94 <span class='b b-pos'>+28</span></td><td class='mono'>0</td></tr><tr><td>Qwen1.5-7B-Chat</td><td class='mono'>48 / 48</td><td class='mono'>78 <span class='b b-pos'>+30</span></td><td class='mono'>93 <span class='b b-pos'>+45</span></td><td class='mono'>0</td></tr><tr><td>Qwen1.5-14B-Chat</td><td class='mono'>62 / 34</td><td class='mono'>86 <span class='b b-pos'>+24</span></td><td class='mono'>79 <span class='b b-pos'>+45</span></td><td class='mono'>0</td></tr><tr><td>Yi-6B-Chat</td><td class='mono'>55 / 41</td><td class='mono'>88 <span class='b b-pos'>+33</span></td><td class='mono'>46 <span class='b b-zero'>+5</span></td><td class='mono'>4</td></tr><tr><td>gemma-2b-it</td><td class='mono'>82 / 14</td><td class='mono'>96 <span class='b b-pos'>+14</span></td><td class='mono'>75 <span class='b b-pos'>+61</span></td><td class='mono'>0</td></tr><tr><td>gemma-7b-it</td><td class='mono'>75 / 21</td><td class='mono'>89 <span class='b b-pos'>+14</span></td><td class='mono'>58 <span class='b b-pos'>+37</span></td><td class='mono'>1</td></tr><tr><td>Meta-Llama-3-8B-Instruct</td><td class='mono'>6 / 90</td><td class='mono'>24 <span class='b b-pos'>+18</span></td><td class='mono'>84 <span class='b b-zero'>-6</span></td><td class='mono'>0</td></tr>
-  </table>
-  <div style="padding:10px 16px 14px;font-size:12px;color:var(--ink3);border-top:1px solid var(--border)">Counts out of ~100 held-out synthetic comparison prompts per condition, GPT-4o-mini judge (2025 binary rubric — provisional until judge v2 re-judges). Steering works bidirectionally in-distribution with near-zero nonsense. Artifact: <code>experiments/past_logs/methodology_experiments/batched_tests/Batched_Gen.csv</code></div>
-</div>
-<div class="card-title" style="margin:20px 0 8px">Honest negative: the same vectors on CrowS-Pairs</div>
-
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="data-table">
-    <tr><th>Model</th><th>baseline Opin/Neut</th><th>steered → opinion (Δ)</th><th>steered → neutral (Δ)</th><th>nonsense</th></tr>
-    <tr><td>Qwen1.5-1.8B-Chat</td><td class='mono'>32 / 64</td><td class='mono'>59 <span class='b b-pos'>+27</span></td><td class='mono'>83 <span class='b b-pos'>+19</span></td><td class='mono'>0</td></tr><tr><td>Qwen1.5-7B-Chat</td><td class='mono'>48 / 48</td><td class='mono'>41 <span class='b b-zero'>-7</span></td><td class='mono'>50 <span class='b b-zero'>+2</span></td><td class='mono'>0</td></tr><tr><td>Qwen1.5-14B-Chat</td><td class='mono'>62 / 34</td><td class='mono'>59 <span class='b b-zero'>-3</span></td><td class='mono'>30 <span class='b b-zero'>-4</span></td><td class='mono'>0</td></tr><tr><td>Yi-6B-Chat</td><td class='mono'>58 / 38</td><td class='mono'>75 <span class='b b-pos'>+17</span></td><td class='mono'>25 <span class='b b-neg'>-13</span></td><td class='mono'>0</td></tr><tr><td>gemma-2b-it</td><td class='mono'>82 / 14</td><td class='mono'>80 <span class='b b-zero'>-2</span></td><td class='mono'>24 <span class='b b-pos'>+10</span></td><td class='mono'>0</td></tr><tr><td>gemma-7b-it</td><td class='mono'>78 / 18</td><td class='mono'>78 <span class='b b-zero'>+0</span></td><td class='mono'>19 <span class='b b-zero'>+1</span></td><td class='mono'>0</td></tr><tr><td>Llama-2-7b-chat-hf</td><td class='mono'>94 / 2</td><td class='mono'>96 <span class='b b-zero'>+2</span></td><td class='mono'>3 <span class='b b-zero'>+1</span></td><td class='mono'>0</td></tr><tr><td>Llama-2-13b-chat-hf</td><td class='mono'>75 / 21</td><td class='mono'>2 <span class='b b-neg'>-73</span></td><td class='mono'>94 <span class='b b-pos'>+73</span></td><td class='mono'>0</td></tr><tr><td>Meta-Llama-3-8B-Instruct</td><td class='mono'>8 / 88</td><td class='mono'>4 <span class='b b-zero'>-4</span></td><td class='mono'>60 <span class='b b-neg'>-28</span></td><td class='mono'>0</td></tr>
-  </table>
-  <div style="padding:10px 16px 14px;font-size:12px;color:var(--ink3);border-top:1px solid var(--border)">Same vectors applied to CrowS-Pairs prompts: deltas near zero for most models — the 2025 'neutrality direction' does NOT transfer to real social-bias benchmarks. This honest negative is a core motivation for the revival. Artifact: <code>experiments/past_logs/crows_experiments/Crows_Opin_Tests/Crows_Opin.csv</code></div>
-</div>
-<div class="warn"><strong>Provisional numbers.</strong> All 2025 percentages were produced by the retired binary judge, whose rubric scored factual decisiveness as opinionation. Judge v2 re-judging of the archived outputs may move every number above. Do not quote them in new text without the caveat.</div>
-
-<div class="section-label" id="claims">Claim ledger — what we are allowed to say</div>
-<p style="font-size:13px;color:var(--ink3);margin-bottom:14px">The working artifact. Every claim carries its evidence and its source. <b>Update this in the same PR as any doc that repeats the claim.</b> A retracted row is not a negative result — it is a claim with no experiment behind it.</p>
-<div class='cgroup g-certified'><div class='cgroup-h'>Certified<span style='font-weight:400;text-transform:none;letter-spacing:0;opacity:.75'>&nbsp;— reproduced by independent routes — safe to build on</span><span class='cgroup-n'>3</span></div><div class='citem'><div class='citem-t'>2025 in-distribution steering moves judged opinionation, 7 models</div><div class='citem-w'>Two independent CPU recounts agree: text-log recount (harness, Aug 6) and per-record pickle recount (Aug 7). 7/7 rows of Batched_Gen.csv reproduce exactly. n=96 per arm.</div><div class='citem-s'>scripts/verify_2025_results.py · src/recount.py</div></div><div class='citem'><div class='citem-t'>Archived count tables reproduce for 12 further rows</div><div class='citem-w'>Refusal_To_Opinion.csv 5/5 and BBQ_On_Normal.csv 7/7 match the text-log recount. Historical CSVs remain UNTRUSTED comparators regardless.</div><div class='citem-s'>src/recount.py · docs/REVIVAL_AUDIT.md</div></div><div class='citem'><div class='citem-t'>Arrow-named CSV columns are per-arm MARGINALS, not transitions</div><div class='citem-w'>GeneralResults.update_results increments one bucket from each arm's single judgement. 'Init-&gt;Opin' = 'the initial arm was judged opinionated'. Transitions require prompt-level pairing.</div><div class='citem-s'>docs/REVIVAL_AUDIT.md</div></div></div><div class='cgroup g-retracted'><div class='cgroup-h'>Retracted<span style='font-weight:400;text-transform:none;letter-spacing:0;opacity:.75'>&nbsp;— no valid experiment behind it — never cite in either direction</span><span class='cgroup-n'>2</span></div><div class='citem'><div class='citem-t'>&ldquo;Refusal↔opinion cross-application failed both ways&rdquo;</div><div class='citem-w'>INVALID, not null. The archived refusal .pt files are 1-D hidden-width tensors; steering_vector[layer] on a 1-D tensor returns a SCALAR broadcast across the residual width — a DC offset, not a direction. Compounded by a model/vector_files ordering mismatch recovered via payload SHA-256. The soft-vs-hard refusal relation is UNTESTED.</div><div class='citem-s'>docs/REVIVAL_AUDIT.md · docs/VERIFICATION_2026-08-07.md</div></div><div class='citem'><div class='citem-t'>&ldquo;1% → 27% unsafe under the opinion vector on Llama-2-7B&rdquo;</div><div class='citem-w'>The marginals are real text-log counts; the causal label is false. Log 213 saved the payload of Qwen-1_5-1_8B.pt, not a Llama opinion vector.</div><div class='citem-s'>docs/REVIVAL_AUDIT.md</div></div></div><div class='cgroup g-review'><div class='cgroup-h'>Under review<span style='font-weight:400;text-transform:none;letter-spacing:0;opacity:.75'>&nbsp;— do not cite until the flagged check is done</span><span class='cgroup-n'>3</span></div><div class='citem'><div class='citem-t'>Zero-vector ablation &ldquo;collapses to 99% nonsense&rdquo;</div><div class='citem-w'>2,032 case-insensitive 'none' markers across 107 archived files are judge-EXTRACTION failures, not degeneration. Until that run's markers are separated, this is not a usable control.</div><div class='citem-s'>src/judging.py</div></div><div class='citem'><div class='citem-t'>&ldquo;All-layer&rdquo; steering is all-layer</div><div class='citem-w'>Per-layer vector norms span 2–3× on gemma but 600–1391× on Qwen/Yi/Llama. With one scalar coefficient the intervention concentrates where the norm is largest, so on most families this is effectively LATE-layer steering. Any cross-model depth claim must unit-normalize first.</div><div class='citem-s'>dashboard/data/vector_norm_profiles.json</div></div><div class='citem'><div class='citem-t'>Is the &ldquo;silent failure&rdquo; framing ours to make?</div><div class='citem-w'>PARTIALLY TAKEN. arXiv:2607.02586 (Jul 2026) already defines silent as invisible-in-reported-numbers and ships a disclosure protocol. Genuinely open: silent BROADCAST (legal shapes, wrong semantics — never measured), tensor-payload hashing as a validity control, and the claim that published nulls are bug artifacts (unmade anywhere, and we have zero evidence for it). Instantiate their protocol; do not reintroduce their concept.</div><div class='citem-s'>docs/PRIOR_ART_2026-08-07.md</div></div></div><div class='cgroup g-open'><div class='cgroup-h'>Open<span style='font-weight:400;text-transform:none;letter-spacing:0;opacity:.75'>&nbsp;— genuinely unanswered — this is what the sprint is for</span><span class='cgroup-n'>2</span></div><div class='citem'><div class='citem-t'>Do the 2025 labels measure stance-taking, or style?</div><div class='citem-w'>The construct is unvalidated: the v1 rubric scored factual decisiveness as opinionation. Reproducing a label is not validating it. This is exactly what the Week-1 rubric gate exists to settle.</div><div class='citem-s'>docs/THE_CORRECT_PROBLEM.md</div></div><div class='citem'><div class='citem-t'>Is soft refusal separable from hard refusal?</div><div class='citem-w'>Genuinely untested — the only archived experiment that bore on it was invalid. Not a null to build on.</div><div class='citem-s'>—</div></div></div>
-
-<div class="section-label" id="verification">Independent verification — two audits, two artifact families</div>
-<p style="font-size:13px;color:var(--ink3);margin-bottom:14px">The 2025 headline was recounted twice by <b>different code over different artifacts</b> with no shared assumptions. Agreement across independent routes is the reason we treat the effect as real while still treating the historical CSVs as untrusted.</p>
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="data-table">
-    <tr><th style="width:104px">date</th><th style="width:24%">audit</th><th>method</th><th style="width:30%">result</th></tr>
-    <tr><td class='mono' style='white-space:nowrap'>2026-08-06</td><td><b>Text-log recount (fusion harness)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>Parses archived .txt logs with strict full-line delimiters; never deserializes the adjacent pickles. Derives the label mapping from observed pairs, refuses ambiguous label spaces, hashes source logs, tracks unparsed markers separately.</td><td class=small style='font-size:12.5px;color:var(--green)'>5/5 + 7/7 rows · 13 tests OK · found the 1-D-vector and ordering defects</td></tr><tr><td class='mono' style='white-space:nowrap'>2026-08-07</td><td><b>Per-record pickle recount (independent)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>Loads the response pickles with the project&#x27;s own classes and recounts judgements per arm. Different artifact family, different code path, no shared assumptions with the text-log route.</td><td class=small style='font-size:12.5px;color:var(--green)'>7/7 rows · found n=96, cumulative pickles, norm profiles, scaffold pollution</td></tr>
-  </table>
-</div>
-
-<div style="margin-top:16px">
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <div style="padding:14px 20px 4px;font-size:13.5px;font-weight:600;color:var(--ink)">
-    Why one steering coefficient does different things on different models</div>
-  <div style="padding:0 20px 4px;font-size:12.5px;color:var(--ink3);line-height:1.6">
-    Per-layer L2 norm of each committed 2025 steering vector, against fractional depth.
-    Log scale. Trailing number is max/min within that vector.</div>
-  <div style="padding:8px 12px 4px"><svg viewBox='0 0 760 320' width='100%' role='img' aria-label='Per-layer steering-vector norm versus fractional depth, log scale'><line x1='56' y1='224.5' x2='592' y2='224.5' stroke='var(--border)' stroke-width='1'/><text x='47' y='228.5' text-anchor='end' font-size='11' fill='var(--ink3)'>0.1</text><line x1='56' y1='148.0' x2='592' y2='148.0' stroke='var(--border)' stroke-width='1'/><text x='47' y='152.0' text-anchor='end' font-size='11' fill='var(--ink3)'>1</text><line x1='56' y1='71.5' x2='592' y2='71.5' stroke='var(--border)' stroke-width='1'/><text x='47' y='75.5' text-anchor='end' font-size='11' fill='var(--ink3)'>10</text><text x='56.0' y='296.0' text-anchor='middle' font-size='11' fill='var(--ink3)'>0</text><text x='190.0' y='296.0' text-anchor='middle' font-size='11' fill='var(--ink3)'>0.25</text><text x='324.0' y='296.0' text-anchor='middle' font-size='11' fill='var(--ink3)'>0.5</text><text x='458.0' y='296.0' text-anchor='middle' font-size='11' fill='var(--ink3)'>0.75</text><text x='592.0' y='296.0' text-anchor='middle' font-size='11' fill='var(--ink3)'>1</text><text x='324.0' y='314' text-anchor='middle' font-size='11.5' fill='var(--ink2)'>fractional depth  f = layer / (n_layers − 1)</text><text x='14' y='148.0' font-size='11.5' fill='var(--ink2)' transform='rotate(-90 14 148.0)' text-anchor='middle'>‖vec[layer]‖₂ (log)</text><polyline points='56.0,274.8 79.3,224.1 102.6,203.8 125.9,191.1 149.2,186.9 172.5,180.5 195.8,169.9 219.1,158.7 242.4,153.4 265.7,142.4 289.0,138.6 312.3,130.6 335.7,125.7 359.0,117.5 382.3,111.2 405.6,103.0 428.9,95.4 452.2,89.7 475.5,82.6 498.8,73.2 522.1,67.9 545.4,63.9 568.7,59.8 592.0,57.0' fill='none' stroke='#4a7cf5' stroke-width='2' stroke-linejoin='round' opacity='.92'/><line x1='606' y1='30' x2='624' y2='30' stroke='#4a7cf5' stroke-width='2.5'/><text x='630' y='34' font-size='10.5' fill='var(--ink2)'>Qwen1.5-1.8B-Chat  <tspan fill='var(--ink3)'>703×</tspan></text><polyline points='56.0,259.6 73.3,210.8 90.6,196.0 107.9,185.7 125.2,178.3 142.5,168.7 159.7,158.7 177.0,148.8 194.3,138.7 211.6,127.5 228.9,121.8 246.2,119.1 263.5,113.9 280.8,111.1 298.1,104.4 315.4,99.6 332.6,91.2 349.9,83.5 367.2,77.9 384.5,73.7 401.8,67.2 419.1,64.7 436.4,57.5 453.7,55.1 471.0,49.9 488.3,47.6 505.5,43.2 522.8,41.2 540.1,39.4 557.4,38.1 574.7,35.3 592.0,31.6' fill='none' stroke='#4a7cf5' stroke-width='2' stroke-linejoin='round' opacity='.92'/><line x1='606' y1='49' x2='624' y2='49' stroke='#4a7cf5' stroke-width='2.5'/><text x='630' y='53' font-size='10.5' fill='var(--ink2)'>Qwen1.5-7B-Chat  <tspan fill='var(--ink3)'>960×</tspan></text><polyline points='56.0,241.9 69.7,195.1 83.5,184.7 97.2,170.8 111.0,159.6 124.7,151.6 138.5,142.5 152.2,135.0 165.9,127.9 179.7,119.9 193.4,95.4 207.2,93.4 220.9,90.0 234.7,88.0 248.4,84.3 262.2,80.4 275.9,77.4 289.6,68.0 303.4,65.5 317.1,61.7 330.9,58.7 344.6,54.1 358.4,48.2 372.1,43.1 385.8,38.8 399.6,34.6 413.3,31.1 427.1,27.2 440.8,23.4 454.6,19.9 468.3,18.0 482.1,18.0 495.8,18.0 509.5,18.0 523.3,18.0 537.0,18.0 550.8,18.0 564.5,18.0 578.3,18.0 592.0,18.0' fill='none' stroke='#4a7cf5' stroke-width='2' stroke-linejoin='round' opacity='.92'/><line x1='606' y1='68' x2='624' y2='68' stroke='#4a7cf5' stroke-width='2.5'/><text x='630' y='72' font-size='10.5' fill='var(--ink2)'>Qwen1.5-14B-Chat  <tspan fill='var(--ink3)'>1390×</tspan></text><polyline points='56.0,257.4 73.3,244.0 90.6,228.2 107.9,215.7 125.2,201.5 142.5,191.5 159.7,179.4 177.0,172.3 194.3,162.7 211.6,157.3 228.9,151.2 246.2,145.1 263.5,137.5 280.8,128.8 298.1,121.7 315.4,115.9 332.6,109.6 349.9,104.9 367.2,100.0 384.5,91.1 401.8,86.0 419.1,80.6 436.4,76.3 453.7,70.0 471.0,65.1 488.3,61.4 505.5,57.2 522.8,52.2 540.1,49.9 557.4,48.6 574.7,47.0 592.0,44.8' fill='none' stroke='#8b74d4' stroke-width='2' stroke-linejoin='round' opacity='.92'/><line x1='606' y1='87' x2='624' y2='87' stroke='#8b74d4' stroke-width='2.5'/><text x='630' y='91' font-size='10.5' fill='var(--ink2)'>Yi-6B-Chat  <tspan fill='var(--ink3)'>603×</tspan></text><polyline points='56.0,84.4 87.5,112.3 119.1,120.4 150.6,123.6 182.1,123.6 213.6,123.8 245.2,122.5 276.7,120.2 308.2,118.3 339.8,116.6 371.3,114.6 402.8,113.3 434.4,110.7 465.9,106.8 497.4,100.3 528.9,96.3 560.5,93.1 592.0,89.6' fill='none' stroke='#2ea86a' stroke-width='2' stroke-linejoin='round' opacity='.92'/><line x1='606' y1='106' x2='624' y2='106' stroke='#2ea86a' stroke-width='2.5'/><text x='630' y='110' font-size='10.5' fill='var(--ink2)'>gemma-2b-it  <tspan fill='var(--ink3)'>3×</tspan></text><polyline points='56.0,87.6 75.9,100.2 95.7,99.9 115.6,100.2 135.4,100.2 155.3,100.4 175.1,100.1 195.0,99.4 214.8,99.1 234.7,99.1 254.5,98.7 274.4,98.6 294.2,98.4 314.1,97.4 333.9,97.0 353.8,96.8 373.6,96.7 393.5,96.2 413.3,95.1 433.2,94.1 453.0,93.3 472.9,92.0 492.7,89.9 512.6,88.5 532.4,87.1 552.3,85.4 572.1,83.2 592.0,81.4' fill='none' stroke='#2ea86a' stroke-width='2' stroke-linejoin='round' opacity='.92'/><line x1='606' y1='125' x2='624' y2='125' stroke='#2ea86a' stroke-width='2.5'/><text x='630' y='129' font-size='10.5' fill='var(--ink2)'>gemma-7b-it  <tspan fill='var(--ink3)'>2×</tspan></text><polyline points='56.0,278.0 73.3,266.5 90.6,249.0 107.9,232.5 125.2,212.7 142.5,199.2 159.7,192.3 177.0,185.4 194.3,179.3 211.6,175.3 228.9,171.8 246.2,169.3 263.5,168.4 280.8,164.7 298.1,159.9 315.4,157.6 332.6,151.9 349.9,148.5 367.2,144.0 384.5,141.8 401.8,140.1 419.1,137.8 436.4,133.5 453.7,131.1 471.0,128.9 488.3,127.5 505.5,125.2 522.8,123.4 540.1,121.1 557.4,118.8 574.7,115.7 592.0,111.4' fill='none' stroke='#c4972a' stroke-width='2' stroke-linejoin='round' opacity='.92'/><line x1='606' y1='144' x2='624' y2='144' stroke='#c4972a' stroke-width='2.5'/><text x='630' y='148' font-size='10.5' fill='var(--ink2)'>Meta-Llama-3-8B-Instruct  <tspan fill='var(--ink3)'>233×</tspan></text></svg></div>
-  <div style="padding:4px 20px 16px;font-size:12.5px;color:var(--ink3);line-height:1.7;border-top:1px solid var(--border)">
-    The 2025 method adds <code>(coeff / n_layers) · vec[layer]</code> at every layer with a
-    <b>single scalar coefficient</b>. The vector inherits the residual stream's norm growth, so on
-    <b style="color:#4a7cf5">Qwen</b>, <b style="color:#8b74d4">Yi</b> and <b style="color:#c4972a">Llama</b>
-    the last quarter of layers carries 54–70% of the injected norm and the first quarter carries ~1%:
-    &ldquo;all-layer&rdquo; steering is in practice <b>late-layer</b> steering.
-    <b style="color:#2ea86a">gemma</b> is nearly flat (2–3×) and genuinely is all-layer.
-    This is why per-model coefficients never stabilised — the coefficient was silently compensating for
-    an architectural norm profile — and it is why <b>any cross-model depth comparison must unit-normalize
-    directions first</b>, or it will mostly recover this plot.
-  </div>
-</div></div>
-
-<div class="section-label" id="decisions">Decisions (locked + under review)</div>
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="dec-table">
-    <tr><th>Item</th><th>Choice</th><th>Why</th></tr>
-    <tr><td>Core method (baseline)</td><td>Difference-in-means steering at all layers/positions</td><td class='dim'>The 2025 recipe. Now the BASELINE, not the method — upgrades (affine/ACE, capping, conditional) are sprint work, per the frontier scan.</td></tr><tr><td>Judge</td><td>RETIRED — no v1 label may appear in any new analysis, figure, or sentence</td><td class='dim'>Not a caveat — a hard rule. The v1 rubric scored any clear stance &#x27;opinionated&#x27; even when factual, so every archived vector was built from a contrast set mixing &#x27;took a side&#x27; with &#x27;stated a fact&#x27;. Reproducing those labels validates the bookkeeping, not the construct. v1 counts may be cited only as &#x27;what the 2025 pipeline recorded&#x27;. No table may ever mix v1 and v2.</td></tr><tr><td>Models</td><td>REFRESHED — Qwen3.5 {2B,9B,27B} ladder · Qwen3.6-27B · gemma-4-31B-it · gemma-4-26B-A4B (MoE)</td><td class='dim'>Verified 2026-08-07 against HF configs + the TransformerLens registry. Not just a vintage fix: Qwen3.5-27B and Qwen3.6-27B have BYTE-IDENTICAL configs and differ only in post-training, giving a free controlled test of whether the refusal direction moves under re-alignment — and a positive control for our whole apparatus. gemma-4 dense-vs-MoE is a second free contrast. No Llama arm: there is no Llama 5, and Llama 4 is gated with an unverified TL adapter. docs/MODEL_SET_2026-08-07.md.</td></tr><tr><td>Reasoning mode</td><td>Fit ALL directions in non-thinking mode; report thinking mode as secondary</td><td class='dim'>Static steering degrades badly on reasoning models (arXiv:2605.26772: 39% compliance with CoT fixed vs 94% with CoT regenerated) — but that paper tests ONE model with no non-reasoning control, and Qwen3.5/3.6 have a within-checkpoint toggle that supplies exactly the missing control. Never mix modes when fitting a direction: the think block shifts token positions and contaminates the contrast set.</td></tr><tr><td>Evals</td><td>Opinion: held-out comparisons + IssueBench subset + Paired Prompts · Safety: XSTest + JailbreakBench · Capability: MMLU slice</td><td class='dim'>The 2×2 grid needs BOTH batteries per condition; BBQ/CrowS-Pairs retired to historical context (CrowS widely criticized).</td></tr><tr><td>Venue</td><td>Interpretability as a Science — Aug 28, LONG paper (9pp). Interp4Discovery is the Gate-1-failure fallback.</td><td class='dim'>Decided on fit, not taste. Three of Interp-as-Science&#x27;s seven topics describe this paper verbatim — &#x27;experimental designs that distinguish mechanisms from artifacts&#x27;, &#x27;measurement validity, identifiability, and evaluation design&#x27;, &#x27;pathways to replicable science&#x27;. Interp4Discovery&#x27;s remit is discovery, which we are not. Deciding practical factor: 9pp vs 5pp — the susceptibility table, its controls, detector hit/FP rates and the archive existence proof do not fit in 5. Mutually exclusive (their rule blocks the pair either way). FLIP CONDITION: if Gate 1 fails and we pivot to the short construct-validity note, that IS a negative result and Interp4Discovery becomes correct. Both non-archival; archival path unaffected. docs/PRIOR_ART_2026-08-07.md.</td></tr><tr><td>Dual-use</td><td>Only contested-but-benign prompts are ever perturbed</td><td class='dim'>A construction constraint, not a policy: no harmful battery is perturbed in any arm, so no attack-efficacy number can exist in the paper. Released artifact is the projection monitor + evaluation harness, never a perturbation generator. Lead with accidental typographic drift, never adversarial framing.</td></tr><tr><td>Scope</td><td>Open-weight models only; no cone-fitting; no ideology direction; no twin-break headline</td><td class='dim'>Twin-break demoted to appendix — two critics independently derived that it is algebraically self-defeating (an orthogonal twin inherits the prediction). Scope cuts are doctrine — decision doc §2.</td></tr>
-  </table>
-</div>
-
-<div class="section-label">Status &amp; roadmap</div>
-<div class="g2">
-  <div class="card">
-    <div class="card-title" style="margin-bottom:14px">Experiment status</div>
-    <ul class="status-list"><li><span class='pill p-done'>done</span> 2025 · In-distribution bidirectional steering, 9 models — VERIFIED: reproduces 7/7 from per-record artifacts (n=96/arm)</li><li><span class='pill p-todo'>queued</span> 2025 · Zero-vector ablation control — UNDER REVIEW: &#x27;nonsense&#x27; may be judge-extraction failure, not degeneration</li><li><span class='pill p-done'>done</span> 2025 · Per-model coefficient sweeps (0–20) — explained: per-layer norm profile varies 2× (gemma) to 1391× (Qwen-14B)</li><li><span class='pill p-done'>done</span> 2025 · BBQ transfer — semi-failed; provenance recovered by payload SHA-256 (Logs 185–191 are BBQ-trained)</li><li><span class='pill p-done'>done</span> 2025 · CrowS-Pairs transfer — FAILED (honest negative, kept)</li><li><span class='pill p-done'>done</span> 2025 · Refusal↔opinion cross-application — RETRACTED: INVALID, not null (1-D vector indexed as layers → scalar DC offset; + model/vector order mismatch)</li><li><span class='pill p-done'>done</span> 2025 · Synthetic-neutral-output steering — failed (Dec 2025, last commit)</li><li><span class='pill p-done'>done</span> 2026-08-06/07 · Two independent CPU audits: text-log recount (5/5 + 7/7 rows) and pickle recount (7/7 rows)</li><li><span class='pill p-todo'>queued</span> W0 · PREREG.md filed + six-way rubric frozen by commit hash + paper/.tex skeleton</li><li><span class='pill p-todo'>queued</span> W1 · HARNESS: resumable runner + write-once per-layer residual cache (CRITICAL PATH)</li><li><span class='pill p-todo'>queued</span> W1 · Six-way screen: 150 double-annotated gold labels → per-category κ; re-judge archive</li><li><span class='pill p-todo'>queued</span> W1 · Perturbation library: 8 arms / 18 cells, unit-tested (byte-identity, appearance-identity)</li><li><span class='pill p-todo'>queued</span> W2 · Unified extraction: d_soft (2 routes) + d_harm + d_OOD + d_length, all layers, 5 redraws</li><li><span class='pill p-todo'>queued</span> W2 · E(f) steering-efficacy sweep at 9 fractional depths → l* locked by commit hash</li><li><span class='pill p-todo'>queued</span> W2 · Forward-pass displacement grid + covariance-matched null battery → C2 figure</li><li><span class='pill p-todo'>queued</span> W3 · Designed grid: 4 models × 5 conditions × 2 batteries, dose-matched (~16k gens)</li><li><span class='pill p-todo'>queued</span> W3 · Perturbation generation subset with sampling-noise floor (~14k gens, queued unattended)</li><li><span class='pill p-todo'>queued</span> W3 · MEDIATION: necessity (null along d) + sufficiency (inject measured π̂·d̂), 2 controls each</li><li><span class='pill p-todo'>queued</span> W4 · Freeze Aug 24 · figures · 5pp draft · anonymization sweep · red-team Aug 26 · submit Aug 28</li></ul>
-  </div>
-  <div class="card">
-    <div class="card-title" style="margin-bottom:14px">Milestones</div>
-    <div class="milestones"><div class='mile done'><span class='pill p-done'>done</span><div class='mile-text'>2025 core result: bidirectional in-distribution steering, 9 models, ablation-controlled</div></div><div class='mile done'><span class='pill p-done'>done</span><div class='mile-text'>Post-mortem + frontier scan + fused sprint plan + venue verified (docs/)</div></div><div class='mile done'><span class='pill p-done'>done</span><div class='mile-text'>Team kit: dashboard · framing doctrine · agent instructions · handoffs</div></div><div class='mile now'><span class='pill p-running'>now</span><div class='mile-text'>Week 1 → Gate 1: thesis sign-off (Tue) · judge v2 (kappa ≥ 0.7) · re-judge archived outputs · unified re-extraction</div></div><div class='mile '><span class='pill p-next'>next</span><div class='mile-text'>Week 2 → Gate 2: reproduce steering + Arditi with re-extracted vectors · geometry package · eval harness</div></div><div class='mile '><span class='pill p-then'>then</span><div class='mile-text'>Week 3: the 2×2 grid (~30k gens) · Week 4: robustness + 5pp draft → SUBMIT Aug 29 AoE</div></div></div>
-  </div>
-</div>
-
-<div class="section-label" id="tasks">Task board</div>
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
-  <table class="task-table">
-    <tr><th>Who</th><th>Status</th><th>Next action</th></tr>
-    <tr><td><div class='task-who'>Farhan</div><div class='task-track'>Pipeline · generation</div></td><td><span class='pill p-active'>active</span></td><td class='task-action'><b>Week 1 = CRITICAL PATH: productionize the notebook.</b> Config-driven resumable runner + write-once per-layer residual cache readable with zero GPU; integrate the refreshed model set (docs/MODEL_SET_2026-08-07.md); verify one cell unattended. (<b>Corrected 2026-08-07:</b> the earlier &lsquo;no harness exists&rsquo; call was inferred from src/ line count without opening the notebook, and was wrong — ~30 named functions cover the whole pipeline including resumable save/load and compare_vectors. This is <b>packaging, not building</b>, and how long it takes is his call to make.) Then W2 unified extraction + E(f) sweep + dose calibration; W3 the grid, then queued perturbation + mediation.</td></tr><tr><td><div class='task-who'>Edward</div><div class='task-track'>Measurement · geometry · analysis</div></td><td><span class='pill p-active'>active</span></td><td class='task-action'>Week 0: file docs/PREREG.md (rubric hash, 18 perturbation cells, endpoints, l* rule, TOST margins, multiplicity plan). W1: 150 double-annotated gold labels → per-category κ ≥ 0.7, re-judge archive. W2: d_OOD + d_length, forward-pass displacement grid off Farhan's cache, covariance-matched null battery, C2 selectivity figure, Gate 1.5 pilot. W3: rolling judging, mediation analysis. Daily scoop watch.</td></tr><tr><td><div class='task-who'>Jeremiah</div><div class='task-track'>OWNER · fault-susceptibility study + measurement geometry</div></td><td><span class='pill p-active'>active</span></td><td class='task-action'><b>Owns two workstreams, not a task list.</b> (1) The <b>injected-fault susceptibility study</b> — on current evidence the paper's central contribution, and the thing an external prior-art scan said we need or we have 'a blog post with a bibliography'. Design authority and veto over its own results are his. (2) <b>Measurement geometry</b>, including the <b>extraction-variance floor that does not exist yet</b> and which gates every cosine we would report — the two archived Qwen1.5-7B vectors are byte-identical copies, so we have no estimate at all. Shared: gold-set annotation with Edward; writing lead; paper/.tex skeleton in W0. RUNBOOK_JEREMIAH.md.</td></tr>
-  </table>
-</div>
-
-<div class="section-label">How we work</div>
-<div class="card">
-  <table class="kv-table"><tr><td>Cadence</td><td>Tue / Thu / Sat <b>9pm ET</b> syncs · Slack/Discord between meetings</td></tr><tr><td>Compute</td><td>Lambda Cloud (~$377 credits, Farhan) · possibly a small GPU cluster (Edward) · archived 2025 outputs cover judge/eval work with <b>zero GPU</b></td></tr><tr><td>Code</td><td>This repo only — PRs, no direct pushes to main; runs land as raw CSVs + pickles under <code>experiments/</code></td></tr><tr><td>Agents</td><td>Coding agents are first-class: they read <code>CLAUDE.md</code>/<code>AGENTS.md</code> and <code>PAPER_FRAMING.md</code>; doctrine disagreements are PRs to those files, not forked narratives</td></tr></table>
-</div>
-
-<div class="section-label" id="path">Path to submission</div>
-<div class="card"><ul class="path"><li><span class='pill p-done'>done</span><div class='ptext'><span class='pwho'>Edward:</span> Post-mortem, frontier scan, team kit, sprint plan, venue verification committed.</div></li><li><span class='pill p-running'>now</span><div class='ptext'><span class='pwho'>Team:</span> Tue: sign off thesis + sprint plan (PAPER_FRAMING.md, docs/2026-08-01_sprint_plan.md).</div></li><li><span class='pill p-running'>now</span><div class='ptext'><span class='pwho'>Edward:</span> Judge v2 rubric → kappa ≥ 0.7 vs ~150 gold labels (Jeremiah co-annotates) → re-judge archived outputs. GATE 1(a)+(b) end of week 1.</div></li><li><span class='pill p-running'>now</span><div class='ptext'><span class='pwho'>Farhan:</span> Unified Arditi-convention re-extraction of both direction families, 4 models (~20 GPU-hrs).</div></li><li><span class='pill p-next'>next</span><div class='ptext'><span class='pwho'>Farhan:</span> Gate 2: reproduce bidirectional steering (≥20pp, ≥3/4 models) + Arditi bypass/induction (≥30pp) with re-extracted vectors.</div></li><li><span class='pill p-next'>next</span><div class='ptext'><span class='pwho'>Edward:</span> Benchmark harness (agent-assisted): IssueBench subset · Paired Prompts · XSTest · JailbreakBench + geometry package (per-layer cosines, principal angles).</div></li><li><span class='pill p-then'>then</span><div class='ptext'><span class='pwho'>Farhan:</span> Week 3 crunch: 4×5×2 cross-steering grid (~110-130 GPU-hrs); degradation order pre-committed — never shrink the safety battery.</div></li><li><span class='pill p-then'>then</span><div class='ptext'><span class='pwho'>Edward+Jeremiah:</span> Judging/aggregation + MMLU audit as results stream; per-example distribution figures.</div></li><li><span class='pill p-then'>then</span><div class='ptext'><span class='pwho'>Team:</span> Freeze Aug 26 · red-team read Aug 27 · SUBMIT Interp4Discovery @ NeurIPS 2026, Aug 29 AoE.</div></li></ul></div>
-
-<div class="section-label">Docs &amp; links</div>
-<div class="card"><div class="links"><a href='https://bias-steering.exe.xyz' target='_blank'>Live dashboard ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/SOURCES_OF_TRUTH.md' target='_blank'>★ SOURCES OF TRUTH (read before writing any fact) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/RUBRIC_v2.md' target='_blank'>★ RUBRIC v2 — canonical, needs freezing ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/PRIOR_ART_2026-08-07.md' target='_blank'>Prior art + venue conflict ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/RUNBOOK_FARHAN.md' target='_blank'>★ RUNBOOK — Farhan (pipeline) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/RUNBOOK_EDWARD.md' target='_blank'>RUNBOOK — Edward (measurement) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/RUNBOOK_JEREMIAH.md' target='_blank'>★ RUNBOOK — Jeremiah (fault study · geometry) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/RESEARCH_PROGRAM_GEOMETRY.md' target='_blank'>Research program: geometry of refusal (parked) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/MODEL_SET_2026-08-07.md' target='_blank'>Model set + Qwen 3.8 watch ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/VERIFICATION_2026-08-07.md' target='_blank'>Verification pass (2026-08-07) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/REVIVAL_AUDIT.md' target='_blank'>Governed archive audit (2026-08-06) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/THE_CORRECT_PROBLEM.md' target='_blank'>★ The Correct Problem (read first) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/PAPER_FRAMING.md' target='_blank'>Framing doctrine (PAPER_FRAMING.md) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/2026-08-02_sprint_proposal.md' target='_blank'>★ Sprint proposal (needs sign-off) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/2026-08-01_project_analysis.md' target='_blank'>Post-mortem + frontier scan ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering/blob/team-kit/docs/MODEL_SET_2026-08-07.md' target='_blank'>Model set (verified 2026-08-07) ↗</a><a href='https://interpretability4discovery.github.io/cfp.html' target='_blank'>Interp4Discovery CFP (target venue) ↗</a><a href='https://github.com/Darksharkthe1st/Algoverse-Bias-Steering' target='_blank'>Repo ↗</a><a href='https://www.overleaf.com/4514258212zmrztmsxptvy#2adb04' target='_blank'>2025 paper outline (rough) ↗</a><a href='https://arxiv.org/abs/2406.11717' target='_blank'>Arditi refusal-direction paper ↗</a><a href='https://github.com/anthropics/political-neutrality-eval' target='_blank'>Anthropic even-handedness eval (open-source) ↗</a></div></div>
-
-<div class="section-label" id="frontier">Frontier — related papers &amp; positioning (mirrors PAPER_FRAMING.md)</div>
-<div class="card"><table class="data-table"><tr><th>action</th><th>paper</th><th>why it matters to US</th></tr><tr><td><span class='pill p-done'>must-cite</span></td><td><b>Refusal is mediated by a single direction — Arditi et al. (arXiv:2406.11717)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>The method we build on; our soft-refusal construct is defined against its hard-refusal one.</td></tr><tr><td><span class='pill p-done'>must-cite</span></td><td><b>There Is More to Refusal than a Single Direction — QCRI (arXiv:2602.02132)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>Eleven refusal flavors collapse onto one behavioral knob. Our separability question is posed directly against this — we must show soft refusal is or isn&#x27;t that knob.</td></tr><tr><td><span class='pill p-done'>must-cite</span></td><td><b>The Geometry of Refusal: Concept Cones — Wollschläger et al., ICML 2025 (arXiv:2502.17420)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>Single-direction claims are out; cone/subspace language and their independence criteria are the standard we report against.</td></tr><tr><td><span class='pill p-done'>must-cite</span></td><td><b>Refusal Steering — Multiverse Computing (arXiv:2512.16602)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>Closest competitor: DiM-family political-refusal control at 80B with safety preserved. One paragraph must differentiate: they steer censorship/refusal, we factorize opinionation.</td></tr><tr><td><span class='pill p-done'>must-cite</span></td><td><b>AxBench — Wu et al., ICML 2025 (arXiv:2501.17148)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>Prompting is the mandatory baseline; naive DiM usually loses. Every steering result needs the system-prompt comparison.</td></tr><tr><td><span class='pill p-done'>must-cite</span></td><td><b>Abliteration Is Not a Scalpel — Fafuła (arXiv:2607.17427)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>Refusal-direction removal shifts opinionation as a side effect; explicitly requests our dissociation experiment. Cite as motivation.</td></tr><tr><td><span class='pill p-done'>must-cite</span></td><td><b>Steering Towards Fairness — Nadeem et al. (arXiv:2508.08846)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>Steers WHICH side (ideology axes). We steer WHETHER a side is taken; the factorization must be stated against this line.</td></tr><tr><td><span class='pill p-running'>nice</span></td><td><b>Persona Vectors — Anthropic (arXiv:2507.21509) · Assistant Axis (arXiv:2601.10387)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>Industrialized trait-vector pipeline + deployed activation capping; capping &gt; constant coefficients.</td></tr><tr><td><span class='pill p-running'>nice</span></td><td><b>CAST conditional steering — IBM, ICLR 2025 (arXiv:2409.05907) · ACE affine editing (arXiv:2411.09003)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>The two cheap recipe upgrades over add-everywhere DiM.</td></tr><tr><td><span class='pill p-running'>nice</span></td><td><b>IssueBench — Röttger et al., TACL 2026 (arXiv:2502.08395)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>The 2026-standard political-bias eval; reviewers will ask why BBQ/CrowS alone.</td></tr><tr><td><span class='pill p-todo'>watch</span></td><td><b>Manifold steering — Wurgaft et al. (arXiv:2605.05115)</b></td><td class=small style='font-size:12.5px;color:var(--ink3)'>If the geometry track opens up: on-manifold steering beats linear; the license for geometry-aware interventions.</td></tr></table></div>
-
-<div class="section-label">Bulletproofing &amp; open items</div>
-<div class="card"><ul class="status-list"><li><span class='pill p-done'>done</span> 2025 ablation control: zero-coefficient steering → 99% nonsense; the vector does the work.</li><li><span class='pill p-done'>done</span> Transfer failure documented honestly (CrowS: several models show literally no effect).</li><li><span class='pill p-todo'>todo</span> Judge v2: current construct conflates decisiveness with bias — every downstream claim inherits this until fixed.</li><li><span class='pill p-todo'>todo</span> Prompting baseline: no steering result is reportable without the system-prompt comparison (AxBench bar).</li><li><span class='pill p-todo'>todo</span> Per-example distributions: aggregate judge percentages hide bimodal steering effects.</li><li><span class='pill p-todo'>todo</span> Side-effect audits: capability (MMLU slice) + safety (XSTest/JailbreakBench) on any final intervention.</li><li><span class='pill p-todo'>todo</span> &lt;b&gt;Shape assertions before ANY intervention&lt;/b&gt; — the retracted refusal arm passed a 1-D tensor where a (n_layers, d_model) direction was expected; indexing gave a scalar broadcast across the residual width. This class of bug is silent. Assert expected vs observed shape/dtype at every hook site.</li><li><span class='pill p-todo'>todo</span> &lt;b&gt;Dose matching&lt;/b&gt; — the +soft and harm-ablation arms must be calibrated to equal on-target effect on a frozen dev split BEFORE any off-target number is read. Otherwise &#x27;opinion steering doesn&#x27;t move safety&#x27; is indistinguishable from &#x27;we steered opinion weakly&#x27;. One-sentence reviewer kill; non-cuttable.</li><li><span class='pill p-todo'>todo</span> &lt;b&gt;Construct circularity&lt;/b&gt; — the judge defines the construct AND scores the outcome; κ vs our own rubric measures rubric teachability, not construct validity. Mitigated by a second extraction route from 200 hand-written contrast pairs with no LLM judge anywhere in it.</li><li><span class='pill p-todo'>todo</span> &lt;b&gt;Mediation controls&lt;/b&gt; — nulling ALONG d must be compared against nulling along d_OOD and along a covariance-matched random direction. If nulling anything abolishes the flip, the result is a hook artifact.</li><li><span class='pill p-todo'>todo</span> Scoop watch: arXiv:2606.07696 landed Jun 2026 on the adjacent question and the obvious follow-up is ours. Daily alert; pre-committed response = re-lead with mediation, cite the scoop in paragraph one.</li><li><span class='pill p-done'>done</span> Deadline verified 2026-08-01: Interp4Discovery @ NeurIPS 2026, Aug 29 AoE (5pp, non-archival, double-blind); backup AI4GOOD same day.</li><li><span class='pill p-todo'>todo</span> Extraction-convention confound: 2025 vectors are mean-pooled over all tokens — headline figures must use the unified Arditi-convention re-extraction only.</li><li><span class='pill p-idea'>idea</span> Judge-v2 on archived outputs may RE-DATE the 2025 headline numbers — treat old percentages as provisional until re-judged.</li></ul></div>
-
-</div>
-</body>
-</html>
+<div class="foot">Projection of <code>main</code> @ <code>8d1c949</code> · tag
+<code>freeze-2026-08-17</code> · 667 commits · built
+2026-08-17 07:16 UTC.<br>
+Generated from <code>PROJECT_STATE.md</code>, <code>RESEARCH_CONTRACT.md</code>,
+<code>WORK_LEDGER.md</code>, <code>DECISION_LOG.md</code>, <code>runs/</code>, git and the live test
+suite. A projection, never a source of truth — if this page disagrees with the repo, the repo wins.
+</div></div></body></html>
