@@ -371,3 +371,75 @@ result is a real null, not a silent load bug. **Priority: HIGH** (unlocks the re
 | 10 | synthetic steering v2 | med | LOW | 0.1 |
 | 11 | refusal (coherence-gated) | med | LOW | 0.3 |
 | 12 | reproduce refusal in our convention (extract → compare → validate) | low–med | **HIGH** | — (ready) |
+
+---
+
+# 2-Week-Plan additions (2026-08-18)
+
+New cross-cutting experiments from `Algoverse — 2 Wk Plan`, split by owner. **Per-person
+marching orders live in `docs/work-splits/{fk,el,jz,aa}-task-list.md`** — this section is the
+shared spec so the four lists stay on one set of definitions. **Conventions §0 (injection/coeff,
+judge reliability, coherence gate) still block every comparison below.**
+
+> **⚠️ Scope note (read this).** Most items below are in `PROJECT_STATE.md` §"Does not block the
+> paper" (bias taxonomy, ACE/cone/gradient, SAEs, second model). They are **exploratory / a
+> parallel track to the frozen 2026-08-17 core paper** (hedging↔harm shared-mechanism on
+> `Qwen/Qwen3-8B`). None enters the paper without a dated `RESEARCH_CONTRACT.md` §12 amendment.
+> The two items that *do* strengthen the frozen line are **T2 (orthogonality)** and **§12 above
+> (native refusal vector)** — prioritize those.
+
+## T1 — Classify the streams of bias  *(owner: Jeremiah — JZ-1)*
+Data-grounded map of what each dataset measures (stereotype-alignment vs opinionatedness vs
+hedging), citing real files under `datasets/` (BBQ has ground-truth categories; CrowS has
+stereotype categories). **Do not** coin a new construct or a competing rubric (`AGENTS.md`
+rules 1 & 5 — "soft refusal" is retired; behavior is *hedging*, failure is *over-abstention on
+answerable items*). **Conclude:** a dataset→construct→ground-truth table.
+
+## T2 — Confirm orthogonality: bias ⟂ refusal (and bias-type ⟂ bias-type)  *(owners: Farhan FK-3, Jeremiah JZ-2; detection cut w/ Aryaman AA-3)*
+Extract a direction per bias type **and** the native refusal vector (§12) with the *same*
+`mean_diff` pipeline; compute the per-layer cosine matrix vs the null floor (~1/√d ≈ 0.022 for
+qwen). Assert `(n_layers, d_model)` on every tensor before any cosine (Log-213 scalar-broadcast
+bug, `docs/REVIVAL_AUDIT.md`). Say "a direction" (arXiv:2602.06801). **Conclude:** a cosine
+matrix + null floor + per-pair verdict. *This is the paper-relevant one.*
+
+## T3 — Does refusal steer bias, and bias steer refusal?  *(owner: Farhan — FK-4)*
+The valid replacement for the **RETRACTED** 2025 cross-application (do not cite the old one in
+either direction). 2×2 cross-application (refusal→bias, bias→refusal) with per-example 3×3
+distributions, a system-prompt baseline (AxBench), and the coherence gate (§0.3).
+
+## T4 — Technique comparison: affine / cone / gradient (+ ACE)  *(owner: Edward EL-1..EL-3; ACE shared w/ Aryaman AA-6)*
+Implement each behind the existing `src/bias_steer` harness, **after** locking one injection
+convention (§0.1 / §6). Compare to difference-of-means additive and to the refusal vector
+(cosine), then rank by effect **subject to the coherence gate** (not raw label flips). ONE
+shared ACE implementation between Edward and Aryaman. Exploratory (does-not-block scope).
+
+## T5 — Bias detection + conditional steering  *(owner: Aryaman — AA-1..AA-4)*
+Probe/cosine/SAE detector for bias (analog of refusal detection), test whether it also fires on
+refusal (feeds T2), then steer **only when detected** and audit collateral on clean prompts vs
+unconditional steering (`AGENTS.md` §5 side-effect audit). SAEs are exploratory / open-weight-only.
+
+## T6 — Label Edward's contributed data  *(owner: Edward — EL-4)*
+Get Edward's dataset into the pipeline with a documented label schema aligned to T1 + the frozen
+rubric (**not** a new construct), κ if ≥2 labelers (`scripts/kappa_from_csv.py`). Commit under
+`datasets/`. **⚠️ Blocked-conceptually by T7.**
+
+## T7 — "Converge a main definition across the bias streams" / the *Soft Refusal* definition  *(owner: Team)*
+The plan asks to "define a concrete definition for Soft Refusal" and "converge the main
+definition." **⚠️ Doctrine conflict — resolve before T6/T1 depend on it:** *"Soft refusal" is
+RETIRED* (`AGENTS.md` rule 5; `PROJECT_STATE.md` 2026-08-17). The current canonical construct is
+**hedging / over-abstention on answerable items**, and the rubric is owned by
+`docs/SOURCES_OF_TRUTH.md` (one-fact-one-owner). **Options for the team call:** (a) adopt the
+existing hedging construct and drop the "soft refusal" label — no amendment needed; (b) revive
+"soft refusal" as a distinct construct — requires a dated §12 amendment + a `docs/judges/` judge
+version. Do not label data (T6) or map streams (T1) against a term that isn't resolved here first.
+
+### 2-Week-Plan priority summary
+| id | experiment | owner | in frozen paper? | note |
+|---|---|---|---|---|
+| T2 | orthogonality bias ⟂ refusal | FK/JZ/AA | **strengthens it** | do first w/ §12 |
+| T3 | refusal↔bias cross-application | FK | strengthens it | replaces retracted 2025 result |
+| T1 | classify bias streams | JZ | no (exploratory) | data-grounded, no new construct |
+| T4 | affine/cone/gradient/ACE survey | EL (+AA) | no (exploratory) | after §0.1; coherence-gated |
+| T5 | detection + conditional steering | AA | no (exploratory) | applications story |
+| T6 | label Edward's data | EL | no | blocked by T7 |
+| T7 | converge "soft refusal" definition | Team | — | **retired term — needs §12 decision** |
