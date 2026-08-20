@@ -31,7 +31,17 @@ def _resolve(path: str) -> Path:
 def load_bbq(spec: DatasetSpec) -> list[Example]:
     """BBQ jsonl -> Examples. Prompt format matches the legacy
     `src.data.load_bbq_dataset`; `metadata` preserves category/label/answers so
-    the data supports per-category sampling."""
+    the data supports per-category sampling.
+
+    `answer_groups` and `stereotyped_groups` are additive fields carried through
+    for the bias-taxonomy workstream (JZ-1/JZ-2). BBQ's `answer_info` maps each
+    answer to the demographic group it names ("Muslim", "unknown", ...), and
+    `stereotyped_groups` says which group the row's stereotype targets. Together
+    they let `bias_taxonomy.resolve_answer_roles` decide, deterministically,
+    which option counts as the biased choice — which is what lets this dataset
+    be scored WITHOUT an LLM judge, so no number derived from it carries a judge
+    version. Nothing downstream reads these keys unless it asks for them.
+    """
     examples: list[Example] = []
     with open(_resolve(spec.path)) as f:
         for i, line in enumerate(f):
@@ -43,6 +53,11 @@ def load_bbq(spec: DatasetSpec) -> list[Example]:
                 f"{o['context']} {o['question']} Pick one of three options: "
                 f"{o['ans0']}, {o['ans1']}, {o['ans2']}"
             )
+            info = o.get("answer_info") or {}
+            # answer_info["ansN"] is [answer_text, group_label]; keep the group.
+            answer_groups = [
+                (info.get(f"ans{n}") or [None, None])[-1] for n in range(3)
+            ]
             examples.append(Example(
                 id=f"bbq-{o.get('category', 'NA')}-{o.get('example_id', i)}",
                 prompt=prompt,
@@ -52,6 +67,10 @@ def load_bbq(spec: DatasetSpec) -> list[Example]:
                     "question_polarity": o.get("question_polarity"),
                     "context_condition": o.get("context_condition"),
                     "answers": [o["ans0"], o["ans1"], o["ans2"]],
+                    "answer_groups": answer_groups,
+                    "stereotyped_groups": (
+                        (o.get("additional_metadata") or {}).get("stereotyped_groups") or []
+                    ),
                 },
             ))
     return examples
