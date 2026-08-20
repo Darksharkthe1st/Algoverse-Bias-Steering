@@ -400,6 +400,83 @@ def split_half(items: list, seed: int) -> tuple[list, list]:
     return [items[i] for i in idx[:mid]], [items[i] for i in idx[mid:]]
 
 
+def match_position_distribution(buckets: dict, *, seed: int = 0) -> tuple[dict, dict]:
+    """Subsample buckets so every bucket has the SAME chosen-position profile.
+
+    `buckets` maps bucket name -> list of `(item, chosen_position)` pairs.
+    Returns `(matched_buckets, loss_report)`, where `matched_buckets` maps name
+    -> list of items (positions stripped).
+
+    Why this exists. BBQ balances which slot the biased answer occupies, but the
+    buckets are the dataset *filtered by what the model chose*, and that filter
+    is not position-blind: a model with a slot preference fills `biased`
+    preferentially with items whose stereotyped answer sat in its preferred
+    slot, because that is exactly when its lean and the stereotype agree. The
+    prompt lists the options in order, so the layout is in the prompt-token
+    activations and the skew reaches the direction even though we capture before
+    generation.
+
+    Method: for each position, keep `min` over buckets of that position's count.
+    Afterwards every bucket has an identical position profile, so no linear
+    direction between them can encode position.
+
+    **The loss is reported, never silent.** `loss_report[bucket]` carries
+    `before`, `after`, `lost`, and the per-position counts. This matters beyond
+    bookkeeping: matching shrinks the sample, and `extraction_floor` is computed
+    on what survives. A category matched from 200 items down to 60 yields a
+    split-half cosine estimated on 30 vs 30, so a *low* floor there may be a
+    sample-size artifact rather than a property of the direction. Pair every
+    floor with its `n_items` before drawing a conclusion from it.
+    """
+    if not buckets:
+        raise ValueError("no buckets given")
+
+    names = sorted(buckets)
+    by_pos: dict = {n: {} for n in names}
+    for n in names:
+        for item, pos in buckets[n]:
+            by_pos[n].setdefault(pos, []).append(item)
+
+    positions = sorted({p for n in names for p in by_pos[n]})
+    rng = random.Random(seed)
+
+    matched: dict = {n: [] for n in names}
+    kept_by_pos: dict = {n: {} for n in names}
+    for p in positions:
+        take = min(len(by_pos[n].get(p, [])) for n in names)
+        for n in names:
+            pool = by_pos[n].get(p, [])[:]
+            rng.shuffle(pool)
+            matched[n].extend(pool[:take])
+            kept_by_pos[n][p] = take
+
+    report = {
+        n: {
+            "before": len(buckets[n]),
+            "after": len(matched[n]),
+            "lost": len(buckets[n]) - len(matched[n]),
+            "kept_by_position": kept_by_pos[n],
+        }
+        for n in names
+    }
+    return matched, report
+
+
+def format_matching_loss(report: dict) -> str:
+    """One-line-per-bucket summary of what position matching cost.
+
+    Printed next to the extraction floor so the two are read together — a floor
+    is only interpretable alongside the n it was computed on.
+    """
+    lines = []
+    for name in sorted(report):
+        r = report[name]
+        pct = (100.0 * r["lost"] / r["before"]) if r["before"] else 0.0
+        lines.append(f"  {name:<10} {r['before']:>5} -> {r['after']:>5}"
+                     f"   (-{r['lost']}, {pct:.0f}%)")
+    return "\n".join(lines)
+
+
 def extraction_floor(items: list, extract, *, n_splits: int = 10,
                      seed: int = 0, layer: int | None = None) -> dict:
     """How much does a direction move when the topic did NOT change?

@@ -267,6 +267,72 @@ def test_extraction_floor_rejects_too_few_items():
         bt.extraction_floor([1, 2], lambda s: np.zeros((N_LAYERS, D_MODEL)))
 
 
+# --- position matching, and what it costs --------------------------------- #
+
+def test_matching_equalizes_position_profiles_across_buckets():
+    """After matching, no linear direction between the buckets can encode
+    position, because both have an identical position profile."""
+    biased = [(f"b{i}", 0) for i in range(60)] + [(f"b{i}", 1) for i in range(60, 80)]
+    other = [(f"o{i}", 0) for i in range(20)] + [(f"o{i}", 1) for i in range(20, 80)]
+
+    matched, report = bt.match_position_distribution(
+        {"biased": biased, "other": other}, seed=0)
+
+    # min at position 0 is 20, min at position 1 is 20 -> 20 each, both buckets
+    assert report["biased"]["kept_by_position"] == {0: 20, 1: 20}
+    assert report["other"]["kept_by_position"] == {0: 20, 1: 20}
+    assert len(matched["biased"]) == len(matched["other"]) == 40
+
+
+def test_matching_reports_the_loss_rather_than_hiding_it():
+    biased = [(f"b{i}", 0) for i in range(100)]
+    other = [(f"o{i}", 0) for i in range(30)]
+    _, report = bt.match_position_distribution({"biased": biased, "other": other})
+    assert report["biased"] == {"before": 100, "after": 30, "lost": 70,
+                                "kept_by_position": {0: 30}}
+    assert report["other"]["lost"] == 0
+
+
+def test_matching_costs_nothing_when_buckets_already_agree():
+    b = [(f"b{i}", i % 3) for i in range(90)]
+    o = [(f"o{i}", i % 3) for i in range(90)]
+    matched, report = bt.match_position_distribution({"biased": b, "other": o})
+    assert report["biased"]["lost"] == 0 and report["other"]["lost"] == 0
+    assert len(matched["biased"]) == 90
+
+
+def test_matching_drops_a_position_absent_from_one_bucket():
+    """min over buckets is 0 there, so that position disappears from both."""
+    b = [("b1", 0), ("b2", 2)]
+    o = [("o1", 0)]
+    matched, report = bt.match_position_distribution({"biased": b, "other": o})
+    assert report["biased"]["kept_by_position"] == {0: 1, 2: 0}
+    assert matched["biased"] == ["b1"]
+
+
+def test_matching_is_seeded_and_reproducible():
+    b = [(f"b{i}", 0) for i in range(50)]
+    o = [(f"o{i}", 0) for i in range(10)]
+    m1, _ = bt.match_position_distribution({"b": b, "o": o}, seed=3)
+    m2, _ = bt.match_position_distribution({"b": b, "o": o}, seed=3)
+    m3, _ = bt.match_position_distribution({"b": b, "o": o}, seed=4)
+    assert m1["b"] == m2["b"]
+    assert m1["b"] != m3["b"]
+
+
+def test_matching_rejects_empty_input():
+    with pytest.raises(ValueError, match="no buckets"):
+        bt.match_position_distribution({})
+
+
+def test_format_matching_loss_shows_before_after_and_percentage():
+    _, report = bt.match_position_distribution(
+        {"biased": [(f"b{i}", 0) for i in range(100)],
+         "other": [(f"o{i}", 0) for i in range(25)]})
+    text = bt.format_matching_loss(report)
+    assert "100 ->    25" in text and "75%" in text
+
+
 def test_distinguishable_uses_the_floor_not_zero():
     # 0.55 looks "different" against 0, but not against a floor of 0.60.
     assert not bt.distinguishable(0.55, floor=0.60)
