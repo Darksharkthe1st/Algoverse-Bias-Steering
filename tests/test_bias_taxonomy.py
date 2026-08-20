@@ -464,6 +464,70 @@ def test_config_contrast_points_from_unknown_toward_biased():
     assert cfg.sample.filter == {"context_condition": ["ambig"]}
 
 
+# --- position-confound diagnostic ----------------------------------------- #
+
+def _load_base_rates_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("brs", "scripts/bbq_base_rates.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_position_profile_counts_the_index_the_model_emitted():
+    brs = _load_base_rates_module()
+    ex = _bbq_ex()
+    responses = ["The Muslim one", "The Jewish one", "Can't answer"]
+    verdicts = ["biased", "other", "unknown"]
+    prof = brs.position_profile(responses, [ex, ex, ex], verdicts)
+    assert prof["biased"]["share"] == [0.0, 0.0, 1.0]   # "The Muslim one" is idx 2
+    assert prof["other"]["share"] == [1.0, 0.0, 0.0]    # "The Jewish one" is idx 0
+    assert prof["unknown"]["n"] == 1
+
+
+def test_position_profile_skips_unresolved_and_unparseable():
+    brs = _load_base_rates_module()
+    ex = _bbq_ex()
+    prof = brs.position_profile(
+        ["hmm", "The Muslim one"], [ex, ex], ["unresolved", "biased"])
+    assert "unresolved" not in prof
+    assert prof["biased"]["n"] == 1
+
+
+def test_max_position_gap_detects_a_skew_between_buckets():
+    brs = _load_base_rates_module()
+    prof = {
+        "biased": {"n": 100, "share": [0.55, 0.25, 0.20]},
+        "other":  {"n": 100, "share": [0.30, 0.35, 0.35]},
+    }
+    assert brs.max_position_gap(prof, "biased", "other") == pytest.approx(0.25)
+
+
+def test_max_position_gap_is_zero_when_buckets_match():
+    brs = _load_base_rates_module()
+    prof = {
+        "biased": {"n": 90, "share": [0.34, 0.33, 0.33]},
+        "other":  {"n": 90, "share": [0.34, 0.33, 0.33]},
+    }
+    assert brs.max_position_gap(prof, "biased", "other") == pytest.approx(0.0)
+
+
+def test_max_position_gap_is_none_for_a_missing_or_empty_bucket():
+    brs = _load_base_rates_module()
+    prof = {"biased": {"n": 10, "share": [1.0, 0.0, 0.0]},
+            "other": {"n": 0, "share": [0.0, 0.0, 0.0]}}
+    assert brs.max_position_gap(prof, "biased", "other") is None
+    assert brs.max_position_gap(prof, "biased", "absent") is None
+
+
+def test_base_rate_gate_requires_the_other_bucket_too():
+    """`other` is the negative pole of the contrast the paper leans on, so a
+    category with an empty `other` bucket must not pass."""
+    brs = _load_base_rates_module()
+    assert "other" in brs.REQUIRED_BUCKETS
+    assert "biased" in brs.REQUIRED_BUCKETS
+
+
 def test_config_rejects_an_unknown_category():
     import importlib.util
     spec = importlib.util.spec_from_file_location("cfg_bt2", "configs/bias_taxonomy.py")
