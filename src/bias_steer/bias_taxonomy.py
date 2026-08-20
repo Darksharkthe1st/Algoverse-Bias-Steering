@@ -519,6 +519,48 @@ def extraction_floor(items: list, extract, *, n_splits: int = 10,
     }
 
 
+def floor_vs_n(items: list, extract, sizes: list, *, n_splits: int = 10,
+               seed: int = 0, layer: int | None = None) -> dict:
+    """How much of the extraction floor is just sample size?
+
+    Computes `extraction_floor` on the same category at several subsample
+    sizes. Run it on the LARGEST category, with `sizes` including its full n and
+    the n of the smallest category. The result is one empirical point (or a few)
+    on the floor's n-dependence, which is what turns "category X has a low
+    floor" into either "X's direction is unstable" or "X simply had fewer
+    items" — two conclusions that look identical on a plot.
+
+    Cheap: it reuses activations that are already cached, so it costs no extra
+    forward passes. Preempts the obvious reviewer question about comparing
+    floors across categories of very different size.
+
+    Returns `{size: floor_dict}` for each size that `items` can supply.
+    """
+    out: dict = {}
+    for k, size in enumerate(sorted(set(sizes))):
+        if size < 4 or size > len(items):
+            continue
+        pool = items[:]
+        random.Random(seed + 1000 + k).shuffle(pool)
+        out[size] = extraction_floor(pool[:size], extract, n_splits=n_splits,
+                                     seed=seed, layer=layer)
+    if not out:
+        raise ValueError(
+            f"no usable sizes: got {sorted(set(sizes))} against {len(items)} items"
+        )
+    return out
+
+
+def summarize_floor_vs_n(result: dict) -> str:
+    """Human-readable n-sensitivity table, smallest n first."""
+    rows = ["  {:>8}{:>10}{:>10}".format("n", "floor q05", "median")]
+    for size in sorted(result):
+        f = result[size]
+        rows.append("  {:>8}{:>10.3f}{:>10.3f}".format(
+            size, f["q05"], f["median"]))
+    return "\n".join(rows)
+
+
 # --------------------------------------------------------------------------- #
 # 3. Structure, and the null it has to beat
 # --------------------------------------------------------------------------- #
@@ -692,6 +734,37 @@ class TaxonomyReport:
     p_value: float | None = None
     counts: dict = field(default_factory=dict)       # topic -> ChoiceCounts
 
+    #: Ratio of largest to smallest post-matching n across categories beyond
+    #: which a single global floor threshold is not safe to apply. The floor is
+    #: a function of n — fewer items means a noisier split-half cosine — so
+    #: comparing a 30-item category's cosine against a 300-item category's floor
+    #: compares two different measurements.
+    N_SPREAD_WARN = 3.0
+
+    def floor_table(self) -> str:
+        """Per-category floor WITH the n it was computed on.
+
+        The floor is never reported as a bare number. When two categories have
+        very different post-matching n, a low floor in the small one may be a
+        sample-size artifact rather than an unstable direction, and the two look
+        identical on a plot. Printing n beside every floor makes that
+        impossible to misread without having to model the n-dependence.
+        """
+        if not self.floors:
+            return "  (no extraction floors measured)"
+        rows = ["  {:<22}{:>8}{:>10}{:>10}".format("category", "n", "floor q05", "median")]
+        for name in sorted(self.floors, key=lambda k: self.floors[k].get("q05", 0)):
+            f = self.floors[name]
+            rows.append("  {:<22}{:>8}{:>10.3f}{:>10.3f}".format(
+                name, f.get("n_items", "?"), f.get("q05", float("nan")),
+                f.get("median", float("nan"))))
+        return "\n".join(rows)
+
+    def n_spread(self) -> float | None:
+        """Largest / smallest `n_items` across categories, or None."""
+        ns = [f.get("n_items") for f in self.floors.values() if f.get("n_items")]
+        return (max(ns) / min(ns)) if len(ns) >= 2 and min(ns) > 0 else None
+
     def verdict(self) -> str:
         """A one-line, pre-committed read of the result.
 
@@ -705,8 +778,19 @@ class TaxonomyReport:
             return (f"NO STRUCTURE: clustering is within the permutation null "
                     f"(p={self.p_value:.3f}). Bias topics are not separable by "
                     f"this method at this n.")
-        worst = min((f["q05"] for f in self.floors.values()), default=None)
-        if worst is None:
-            return f"structure present (p={self.p_value:.3f}) but no extraction floor measured — not reportable"
-        return (f"STRUCTURE (p={self.p_value:.3f}); extraction floor q05={worst:.3f}. "
-                f"Pairs below that floor are distinguishable topics.")
+        if not self.floors:
+            return (f"structure present (p={self.p_value:.3f}) but no extraction "
+                    f"floor measured — not reportable")
+
+        worst_cat = min(self.floors, key=lambda k: self.floors[k]["q05"])
+        worst = self.floors[worst_cat]
+        msg = (f"STRUCTURE (p={self.p_value:.3f}); worst extraction floor "
+               f"q05={worst['q05']:.3f} ({worst_cat}, n={worst.get('n_items', '?')}). "
+               f"Pairs below their own categories' floors are distinguishable.")
+
+        spread = self.n_spread()
+        if spread is not None and spread > self.N_SPREAD_WARN:
+            msg += (f" [!] n varies {spread:.1f}x across categories — do NOT apply "
+                    f"one global floor; compare each pair against the floors of "
+                    f"the categories in it.")
+        return msg

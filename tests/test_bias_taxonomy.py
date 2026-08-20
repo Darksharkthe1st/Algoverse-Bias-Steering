@@ -431,7 +431,7 @@ def test_cluster_strength_is_zero_for_a_single_merge():
 # --------------------------------------------------------------------------- #
 
 def test_report_says_no_structure_when_the_null_is_not_beaten():
-    r = bt.TaxonomyReport(p_value=0.42, floors={"a": {"q05": 0.9}})
+    r = bt.TaxonomyReport(p_value=0.42, floors={"a": {"q05": 0.9, "n_items": 100}})
     assert "NO STRUCTURE" in r.verdict()
 
 
@@ -440,10 +440,85 @@ def test_report_refuses_to_claim_structure_without_an_extraction_floor():
     assert "not reportable" in r.verdict()
 
 
-def test_report_quotes_the_floor_when_it_claims_structure():
-    r = bt.TaxonomyReport(p_value=0.001, floors={"a": {"q05": 0.88}, "b": {"q05": 0.91}})
+def test_report_quotes_the_worst_floor_with_its_n():
+    """A floor is never a bare number — the n it was computed on rides along."""
+    r = bt.TaxonomyReport(p_value=0.001, floors={
+        "race": {"q05": 0.88, "median": 0.92, "n_items": 200},
+        "religion": {"q05": 0.91, "median": 0.94, "n_items": 180},
+    })
     v = r.verdict()
-    assert "STRUCTURE" in v and "0.880" in v      # reports the WORST floor
+    assert "STRUCTURE" in v and "0.880" in v and "race" in v and "n=200" in v
+
+
+def test_report_warns_when_n_varies_widely_across_categories():
+    """One global floor threshold is not applicable when the categories were
+    measured on very different sample sizes."""
+    r = bt.TaxonomyReport(p_value=0.001, floors={
+        "big": {"q05": 0.95, "median": 0.96, "n_items": 400},
+        "small": {"q05": 0.62, "median": 0.70, "n_items": 40},
+    })
+    v = r.verdict()
+    assert "10.0x" in v and "do NOT apply" in v
+
+
+def test_report_does_not_warn_when_n_is_comparable():
+    r = bt.TaxonomyReport(p_value=0.001, floors={
+        "a": {"q05": 0.90, "median": 0.93, "n_items": 200},
+        "b": {"q05": 0.92, "median": 0.94, "n_items": 180},
+    })
+    assert "do NOT apply" not in r.verdict()
+
+
+def test_n_spread_is_none_with_fewer_than_two_floors():
+    assert bt.TaxonomyReport(floors={"a": {"n_items": 10}}).n_spread() is None
+
+
+def test_floor_table_shows_n_beside_every_floor():
+    r = bt.TaxonomyReport(floors={
+        "race": {"q05": 0.88, "median": 0.92, "n_items": 200},
+        "age": {"q05": 0.60, "median": 0.71, "n_items": 45},
+    })
+    t = r.floor_table()
+    assert "age" in t and "45" in t and "0.600" in t
+    assert t.index("age") < t.index("race")      # worst floor first
+
+
+# --- how much of the floor is just sample size? ---------------------------- #
+
+def test_floor_vs_n_shows_the_floor_degrading_as_n_shrinks():
+    """The insurance against reading 'small category has a low floor' as
+    'small category has an unstable direction'."""
+    rng = np.random.default_rng(11)
+    signal = _direction(rng)
+    items = [signal + 1.6 * _direction(rng) for _ in range(400)]
+
+    res = bt.floor_vs_n(items, _mean_extract, [400, 40], n_splits=6, seed=0)
+    assert sorted(res) == [40, 400]
+    assert res[400]["median"] > res[40]["median"], (
+        "with a fixed underlying direction, more items must give a tighter floor")
+    assert res[400]["n_items"] == 400 and res[40]["n_items"] == 40
+
+
+def test_floor_vs_n_skips_sizes_it_cannot_supply():
+    rng = np.random.default_rng(12)
+    items = [_direction(rng) for _ in range(50)]
+    res = bt.floor_vs_n(items, _mean_extract, [20, 50, 5000], n_splits=3)
+    assert sorted(res) == [20, 50]
+
+
+def test_floor_vs_n_errors_when_no_size_is_usable():
+    rng = np.random.default_rng(13)
+    items = [_direction(rng) for _ in range(10)]
+    with pytest.raises(ValueError, match="no usable sizes"):
+        bt.floor_vs_n(items, _mean_extract, [500, 900])
+
+
+def test_summarize_floor_vs_n_orders_smallest_first():
+    rng = np.random.default_rng(14)
+    items = [_direction(rng) for _ in range(200)]
+    res = bt.floor_vs_n(items, _mean_extract, [200, 20], n_splits=3)
+    text = bt.summarize_floor_vs_n(res)
+    assert text.index("      20") < text.index("     200")
 
 
 def test_report_is_incomplete_without_a_null():
