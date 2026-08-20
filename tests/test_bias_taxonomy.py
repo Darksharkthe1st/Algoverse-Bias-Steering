@@ -319,3 +319,92 @@ def test_report_quotes_the_floor_when_it_claims_structure():
 
 def test_report_is_incomplete_without_a_null():
     assert "incomplete" in bt.TaxonomyReport().verdict()
+
+
+# --------------------------------------------------------------------------- #
+# The BBQ judge — the adapter that lets experiment.run bucket by bias
+# --------------------------------------------------------------------------- #
+
+from dataclasses import dataclass, field as _field   # noqa: E402
+
+from src.bias_steer.judge import bbq_choice_judge     # noqa: E402
+from src.bias_steer.registry import JUDGES            # noqa: E402
+
+
+@dataclass
+class _Ex:
+    metadata: dict = _field(default_factory=dict)
+
+
+def _bbq_ex(polarity="neg"):
+    return _Ex(metadata={
+        "answers": ["The Jewish one", "Can't answer", "The Muslim one"],
+        "answer_groups": ["Jewish", "unknown", "Muslim"],
+        "stereotyped_groups": ["Muslim"],
+        "question_polarity": polarity,
+    })
+
+
+def test_bbq_judge_labels_the_three_outcomes():
+    exs = [_bbq_ex(), _bbq_ex(), _bbq_ex()]
+    got = bbq_choice_judge(["The Muslim one", "Can't answer", "The Jewish one"], exs)
+    assert got == ["biased", "unknown", "other"]
+
+
+def test_bbq_judge_marks_unparseable_responses_unresolved_not_unbiased():
+    """An unreadable generation must not become evidence of unbiased behaviour."""
+    got = bbq_choice_judge(["hmm, hard to say", ""], [_bbq_ex(), _bbq_ex()])
+    assert got == ["unresolved", "unresolved"]
+
+
+def test_bbq_judge_marks_unscoreable_rows_unresolved():
+    """Both answers share the stereotyped group (the intersectional case), so the
+    row cannot say which answer is biased."""
+    ex = _Ex(metadata={
+        "answers": ["The Black woman", "Not enough info", "The Black man"],
+        "answer_groups": ["F-Black", "unknown", "M-Black"],
+        "stereotyped_groups": ["Black"],
+        "question_polarity": "neg",
+    })
+    assert bbq_choice_judge(["The Black woman"], [ex]) == ["unresolved"]
+
+
+def test_bbq_judge_respects_polarity_inversion():
+    """Same response, opposite polarity -> opposite label. The silent-flip guard."""
+    resp = ["The Muslim one"]
+    assert bbq_choice_judge(resp, [_bbq_ex("neg")]) == ["biased"]
+    assert bbq_choice_judge(resp, [_bbq_ex("nonneg")]) == ["other"]
+
+
+def test_bbq_judge_requires_examples():
+    with pytest.raises(ValueError, match="needs `examples`"):
+        bbq_choice_judge(["The Muslim one"], None)
+
+
+def test_bbq_judge_is_registered():
+    assert "bbq_choice" in JUDGES
+
+
+def test_config_contrast_points_from_unknown_toward_biased():
+    """`_contrast` takes (labels[1], labels[0]) as (positive, negative). If this
+    inverts, every direction silently flips sign with no error."""
+    from src.bias_steer.experiment import _contrast
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("cfg_bt", "configs/bias_taxonomy.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    cfg = mod.make_config("Religion")
+    assert _contrast(cfg) == ("biased", "unknown")
+    assert cfg.judge.name == "bbq_choice"
+    assert cfg.sample.filter == {"context_condition": ["ambig"]}
+
+
+def test_config_rejects_an_unknown_category():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("cfg_bt2", "configs/bias_taxonomy.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    with pytest.raises(ValueError, match="unknown BBQ category"):
+        mod.make_config("Politics")
