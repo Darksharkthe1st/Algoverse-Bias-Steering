@@ -83,6 +83,16 @@ def main() -> int:
                          "uses every item and every gradation instead of "
                          "discarding 60%% of them and binarising the rest.")
     ap.add_argument("--alpha", type=float, default=1.0, help="ridge penalty")
+    ap.add_argument("--margins-cache", default=None,
+                    help="dir for cached per-item margins (default runs/_margins_cache)")
+    ap.add_argument("--refresh-margins", action="store_true",
+                    help="recompute margins even if a cache entry exists")
+    ap.add_argument("--cluster-usable-only", action="store_true",
+                    help="cluster only categories whose direction reproduces "
+                         "(floor q05 >= MIN_USABLE_FLOOR). Directions that do "
+                         "not reproduce contribute noise to the matrix and to "
+                         "the null, so including them makes the p-value a test "
+                         "of the wrong thing.")
     ap.add_argument("--floor-splits", type=int, default=10)
     ap.add_argument("--permutations", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
@@ -141,11 +151,38 @@ def main() -> int:
 
     # ---------------- stage 2: margins ----------------
     say("STAGE 2 - stereotype margins on ambiguous items")
+    # Margins are the expensive stage (three forward passes per item) and they do
+    # not depend on the extraction method, so they are cached per
+    # (model, category, limit, seed). That is what makes it affordable to re-run
+    # the analysis with a different estimator instead of re-scoring for hours.
+    cache_dir = Path(args.margins_cache or "runs/_margins_cache")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    print(f"margin cache: {cache_dir}")
     print(f"{'category':<22}{'n':>6}{'mean':>9}{'sd':>8}{'top_q':>9}{'bot_q':>9}   sign split")
     print("-" * 74)
     msets = {}
     for cat in usable:
-        ms = bs.margins(loaded, cat, DEFAULT_SYS, limit=args.ambig_limit, seed=args.seed)
+        key = f"{args.model}_{cat}_{args.ambig_limit}_{args.seed}.json"
+        cpath = cache_dir / key
+        ms = None
+        if cpath.exists() and not args.refresh_margins:
+            try:
+                blob = json.loads(cpath.read_text())
+                items = bs.load_scoreable(cat, "ambig", args.ambig_limit, args.seed)
+                if len(items) == len(blob["margins"]) and \
+                        [e.id for e, _ in items] == blob["ids"]:
+                    ms = bs.MarginSet(category=cat, items=items,
+                                      margins=blob["margins"],
+                                      abstention=blob["abstention"])
+                    print(f"  (cached) ", end="")
+            except Exception:
+                ms = None
+        if ms is None:
+            ms = bs.margins(loaded, cat, DEFAULT_SYS,
+                            limit=args.ambig_limit, seed=args.seed)
+            cpath.write_text(json.dumps({
+                "ids": [e.id for e, _ in ms.items],
+                "margins": ms.margins, "abstention": ms.abstention}))
         msets[cat] = ms
         m = np.asarray(ms.margins)
         top_i, bot_i = ms.extremes(args.quintile)
@@ -209,6 +246,23 @@ def main() -> int:
 
     # ---------------- stage 5: cosines, clustering, null ----------------
     say("STAGE 5 - cosine matrix, clustering, permutation null")
+
+    cluster_cats = usable
+    if args.cluster_usable_only:
+        cluster_cats = [c for c in usable if bt.floor_is_usable(floors[c])]
+        dropped = [c for c in usable if c not in cluster_cats]
+        print(f"  clustering only the {len(cluster_cats)} reproducible categories")
+        if dropped:
+            print(f"  excluded (floor below {bt.MIN_USABLE_FLOOR}): {dropped}")
+        if len(cluster_cats) < 3:
+            print("\n  fewer than 3 reproducible directions — nothing to cluster.")
+            report["verdict"] = bt.TaxonomyReport(
+                topics=usable, floors=floors, p_value=1.0).verdict()
+            print("\n=== VERDICT\n  " + report["verdict"])
+            (out_dir / "report.json").write_text(json.dumps(report, indent=2))
+            return 0
+        directions = {c: directions[c] for c in cluster_cats}
+
     names, M = bt.cosine_matrix(directions)
     report["cosine_matrix"] = {"names": names, "matrix": M.tolist()}
 
@@ -240,8 +294,8 @@ def main() -> int:
     # shared pool. Margins travel with their items: a shuffled group is a real
     # mix of items carrying their own real margins, which is exactly the point —
     # it asks whether the TOPIC LABELS are doing any work.
-    all_resid = np.concatenate([cat_resid[c] for c in usable], axis=0)
-    all_marg = np.concatenate([cat_margin[c] for c in usable], axis=0)
+    all_resid = np.concatenate([cat_resid[c] for c in cluster_cats], axis=0)
+    all_marg = np.concatenate([cat_margin[c] for c in cluster_cats], axis=0)
 
     def global_extract(idx):
         idx = list(idx)
@@ -250,7 +304,7 @@ def main() -> int:
         return _extract(args, all_resid[idx], all_marg[idx], n_layers, d_model, "null")
 
     global_pools, off = {}, 0
-    for c in usable:
+    for c in cluster_cats:
         k = len(cat_margin[c])
         global_pools[c] = list(range(off, off + k))
         off += k
