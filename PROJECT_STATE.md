@@ -5,10 +5,10 @@
 
 | | |
 |---|---|
-| **As of** | **Mon 2026-08-17** · 11 days to deadline |
+| **As of** | **Thu 2026-08-20** · 8 days to deadline |
 | **Venue** | Interpretability as a Science @ NeurIPS 2026 (Sydney), long track ≤9pp, non-archival |
 | **Deadline** | **Fri 2026-08-28 AoE** · numbers freeze **Mon 2026-08-24** · red team **Wed 2026-08-26** |
-| **Next decision** | **Tue 2026-08-18** (team call) — G1 result on a submission model. Contract is frozen; only §12 reopens it |
+| **Next decision** | **Sat 2026-08-22** (team call, all four) — G1 status on the submission model, and ratify the 2026-08-20 ownership handover (Edward away from 2026-08-23; new owners in `WORK_LEDGER.md`). Contract is frozen; only §12 reopens it |
 
 ## The paper, in one sentence
 
@@ -151,8 +151,10 @@ change to the science after this point needs a dated amendment there and an
 entry in `DECISION_LOG.md`.
 
 Superseded doctrine lives in `docs/superseded/`, each file carrying a banner. It
-is retained for provenance and **does not govern**. `RUNBOOK_*` and `HANDOFF_*`
-are personal scratchpads, marked non-canonical.
+is retained for provenance and **does not govern**. Root `RUNBOOK_*` and
+`HANDOFF_*` were retired to stub pointers on 2026-08-20 after a stale runbook
+misdirected an agent; the canonical execution handoffs live in `docs/`
+(`HANDOFF_G1.md`, `HANDOFF_WP25.md`).
 
 ## Canonical evidence
 
