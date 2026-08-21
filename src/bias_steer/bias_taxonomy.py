@@ -448,6 +448,51 @@ def split_half(items: list, seed: int) -> tuple[list, list]:
     return [items[i] for i in idx[:mid]], [items[i] for i in idx[mid:]]
 
 
+def probe_direction(residuals, targets, *, alpha: float = 1.0):
+    """Per-layer ridge regression of a CONTINUOUS target onto the residual stream.
+
+    `residuals` is `(n_items, n_layers, d_model)`, `targets` is `(n_items,)`.
+    Returns `(n_layers, d_model)` — the same shape as a mean-difference
+    direction, so everything downstream (cosines, floors, steering) is unchanged.
+
+    **Why this instead of contrasting the extremes.** Difference-of-means over
+    the top and bottom quintile discards 60% of the items and throws away the
+    magnitude of the remaining ones — an item at the 21st percentile and one at
+    the 1st are treated as identical. That is a high-variance estimator of a
+    graded quantity, and high variance is exactly what a split-half floor
+    punishes. A ridge probe uses every item and every gradation, so if the same
+    signal is present it should reproduce far better.
+
+    Fit in the DUAL form, `w = Xᵀ(XXᵀ + αI)⁻¹y`, because n (hundreds) is far
+    smaller than d_model (thousands): that is a few-hundred-square solve per
+    layer instead of a few-thousand-square one.
+
+    Both X and y are centred per layer. Without centring the probe partly
+    encodes the mean activation — which is the same for every item and carries
+    no information about the target.
+    """
+    X_all = np.asarray(residuals, dtype=np.float64)
+    y = np.asarray(targets, dtype=np.float64)
+    if X_all.ndim != 3:
+        raise ValueError(f"residuals must be (n, n_layers, d_model); got {X_all.shape}")
+    if X_all.shape[0] != y.shape[0]:
+        raise ValueError(f"{X_all.shape[0]} residual rows vs {y.shape[0]} targets")
+    if X_all.shape[0] < 3:
+        raise ValueError("need at least 3 items to fit a probe")
+
+    n, n_layers, d_model = X_all.shape
+    yc = y - y.mean()
+    out = np.empty((n_layers, d_model), dtype=np.float64)
+    eye = np.eye(n)
+    for layer in range(n_layers):
+        X = X_all[:, layer, :]
+        X = X - X.mean(axis=0, keepdims=True)
+        K = X @ X.T
+        a = np.linalg.solve(K + alpha * eye, yc)
+        out[layer] = X.T @ a
+    return assert_direction(out, name="probe")
+
+
 def match_position_distribution(buckets: dict, *, seed: int = 0) -> tuple[dict, dict]:
     """Subsample buckets so every bucket has the SAME chosen-position profile.
 

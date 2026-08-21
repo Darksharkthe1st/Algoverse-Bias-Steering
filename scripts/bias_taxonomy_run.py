@@ -53,6 +53,22 @@ def say(msg):
     print(f"\n=== {msg}", flush=True)
 
 
+def _extract(args, resid, marg, n_layers, d_model, cat):
+    """One direction from residuals + margins, by whichever method is selected."""
+    if args.method == "probe":
+        if len(marg) < 3:
+            return np.zeros((n_layers, d_model))
+        return bt.probe_direction(resid, marg, alpha=args.alpha)
+
+    order = np.argsort(marg)
+    k = max(1, int(len(order) * args.quintile))
+    top, bot = order[-k:], order[:k]
+    if len(top) == 0 or len(bot) == 0:
+        return np.zeros((n_layers, d_model))
+    return bt.assert_direction(
+        resid[top].mean(axis=0) - resid[bot].mean(axis=0), name=cat)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="qwen-1.8b")
@@ -60,6 +76,13 @@ def main() -> int:
     ap.add_argument("--ambig-limit", type=int, default=400)
     ap.add_argument("--control-limit", type=int, default=150)
     ap.add_argument("--quintile", type=float, default=0.20)
+    ap.add_argument("--method", choices=["extremes", "probe"], default="extremes",
+                    help="extremes = difference of means over the top/bottom "
+                         "quintile of the margin. probe = per-layer ridge "
+                         "regression of the margin onto the residuals, which "
+                         "uses every item and every gradation instead of "
+                         "discarding 60%% of them and binarising the rest.")
+    ap.add_argument("--alpha", type=float, default=1.0, help="ridge penalty")
     ap.add_argument("--floor-splits", type=int, default=10)
     ap.add_argument("--permutations", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
@@ -138,40 +161,41 @@ def main() -> int:
               f"{tq:>+9.3f}{bq:>+9.3f}   {'opposite signs' if ok_sign else 'SAME SIGN (weak)'}")
 
     # ---------------- stage 3: extract ----------------
-    say("STAGE 3 - extract a direction per category from the margin extremes")
-    directions, bucket_resid = {}, {}
+    say(f"STAGE 3 - extract a direction per category  (method: {args.method})")
+    report["method"] = args.method
+    directions, cat_resid, cat_margin = {}, {}, {}
     for cat in usable:
         ms = msets[cat]
-        top_i, bot_i = ms.extremes(args.quintile)
-        prompts_top = [bs.bare_prompt(ms.items[i][0]) for i in top_i]
-        prompts_bot = [bs.bare_prompt(ms.items[i][0]) for i in bot_i]
-        r_top = bs.capture_prompt_residuals(loaded, prompts_top, DEFAULT_SYS)
-        r_bot = bs.capture_prompt_residuals(loaded, prompts_bot, DEFAULT_SYS)
-        bucket_resid[cat] = (r_top, r_bot)
-        d = bt.assert_direction(r_top.mean(axis=0) - r_bot.mean(axis=0), name=cat)
+        if args.method == "probe":
+            # every item, so the probe sees the full gradation
+            idx = list(range(len(ms.items)))
+        else:
+            top_i, bot_i = ms.extremes(args.quintile)
+            idx = list(top_i) + list(bot_i)
+        prompts = [bs.bare_prompt(ms.items[i][0]) for i in idx]
+        resid = bs.capture_prompt_residuals(loaded, prompts, DEFAULT_SYS)
+        marg = np.asarray([ms.margins[i] for i in idx])
+        cat_resid[cat], cat_margin[cat] = resid, marg
+
+        d = _extract(args, resid, marg, n_layers, d_model, cat)
         directions[cat] = d
-        print(f"  {cat:<22} top n={len(top_i):<4} bottom n={len(bot_i):<4} "
-              f"-> direction {d.shape}")
+        print(f"  {cat:<22} n={len(idx):<5} -> direction {d.shape}")
         np.save(out_dir / f"direction_{cat}.npy", d)
 
     # ---------------- stage 4: extraction floor ----------------
     say("STAGE 4 - extraction floor (re-extract the SAME category from halves)")
 
     def make_extractor(cat):
-        r_top, r_bot = bucket_resid[cat]
+        resid, marg = cat_resid[cat], cat_margin[cat]
 
-        def extract(idx_pairs):
-            ti = [i for kind, i in idx_pairs if kind == "t"]
-            bi = [i for kind, i in idx_pairs if kind == "b"]
-            if not ti or not bi:
-                return np.zeros((n_layers, d_model))
-            return r_top[ti].mean(axis=0) - r_bot[bi].mean(axis=0)
+        def extract(idx):
+            idx = list(idx)
+            return _extract(args, resid[idx], marg[idx], n_layers, d_model, cat)
         return extract
 
     floors = {}
     for cat in usable:
-        r_top, r_bot = bucket_resid[cat]
-        pool = [("t", i) for i in range(len(r_top))] + [("b", i) for i in range(len(r_bot))]
+        pool = list(range(len(cat_margin[cat])))
         floors[cat] = bt.extraction_floor(pool, make_extractor(cat),
                                           n_splits=args.floor_splits, seed=args.seed)
         report["categories"][cat]["extraction_floor"] = floors[cat]
@@ -193,16 +217,18 @@ def main() -> int:
         print(f"{n[:20]:<20}" + "".join(f"{M[i][j]:>10.3f}" for j in range(len(names))))
 
     print(f"\n  random-direction floor (1/sqrt(d)) = {bt.random_floor(d_model):.4f}")
-    print("\n  pair verdicts against each pair's own extraction floor:")
+    print("\n  pair verdicts. 'indeterminate' means at least one of the two")
+    print("  directions does not reproduce against itself, so the cosine between")
+    print(f"  them carries no information (usable floor >= {bt.MIN_USABLE_FLOOR}):")
     pair_rows = []
     for i in range(len(names)):
         for j in range(i + 1, len(names)):
-            f = min(floors[names[i]]["q05"], floors[names[j]]["q05"])
-            dist = bt.distinguishable(M[i][j], f)
+            fa, fb = floors[names[i]], floors[names[j]]
+            v = bt.pair_verdict(M[i][j], fa, fb)
             pair_rows.append({"a": names[i], "b": names[j], "cosine": float(M[i][j]),
-                              "floor_q05": f, "distinguishable": dist})
+                              "floor_a": fa["q05"], "floor_b": fb["q05"], "verdict": v})
             print(f"    {names[i][:18]:<19}{names[j][:18]:<19} cos={M[i][j]:+.3f} "
-                  f"floor={f:.3f}  {'DISTINCT' if dist else 'not distinguishable'}")
+                  f"floors={fa['q05']:+.3f}/{fb['q05']:+.3f}  {v}")
     report["pairs"] = pair_rows
 
     Z = bt.cluster_topics(names, M)
@@ -210,32 +236,24 @@ def main() -> int:
     report["cluster_strength"] = observed
     report["linkage"] = np.asarray(Z).tolist()
 
-    pool_by_topic = {}
-    for cat in usable:
-        r_top, r_bot = bucket_resid[cat]
-        pool_by_topic[cat] = ([("t", i) for i in range(len(r_top))]
-                              + [("b", i) for i in range(len(r_bot))])
+    # The null reshuffles ITEMS across topics, so it needs one extractor over a
+    # shared pool. Margins travel with their items: a shuffled group is a real
+    # mix of items carrying their own real margins, which is exactly the point —
+    # it asks whether the TOPIC LABELS are doing any work.
+    all_resid = np.concatenate([cat_resid[c] for c in usable], axis=0)
+    all_marg = np.concatenate([cat_margin[c] for c in usable], axis=0)
 
-    # The null must reshuffle ITEMS across topics, so it needs one extractor over
-    # a shared pool rather than per-category arrays.
-    all_top = np.concatenate([bucket_resid[c][0] for c in usable], axis=0)
-    all_bot = np.concatenate([bucket_resid[c][1] for c in usable], axis=0)
-
-    def global_extract(idx_pairs):
-        ti = [i for kind, i in idx_pairs if kind == "t"]
-        bi = [i for kind, i in idx_pairs if kind == "b"]
-        if not ti or not bi:
+    def global_extract(idx):
+        idx = list(idx)
+        if len(idx) < 3:
             return np.zeros((n_layers, d_model))
-        return all_top[ti].mean(axis=0) - all_bot[bi].mean(axis=0)
+        return _extract(args, all_resid[idx], all_marg[idx], n_layers, d_model, "null")
 
-    off_t = off_b = 0
-    global_pools = {}
+    global_pools, off = {}, 0
     for c in usable:
-        nt, nb = len(bucket_resid[c][0]), len(bucket_resid[c][1])
-        global_pools[c] = ([("t", off_t + i) for i in range(nt)]
-                           + [("b", off_b + i) for i in range(nb)])
-        off_t += nt
-        off_b += nb
+        k = len(cat_margin[c])
+        global_pools[c] = list(range(off, off + k))
+        off += k
 
     null = bt.permutation_null(global_pools, global_extract,
                                n_permutations=args.permutations, seed=args.seed)
@@ -252,7 +270,8 @@ def main() -> int:
     biggest = max(usable, key=lambda c: floors[c]["n_items"])
     smallest_n = min(floors[c]["n_items"] for c in usable)
     try:
-        fvn = bt.floor_vs_n(pool_by_topic[biggest], make_extractor(biggest),
+        fvn = bt.floor_vs_n(list(range(len(cat_margin[biggest]))),
+                            make_extractor(biggest),
                             [floors[biggest]["n_items"], smallest_n],
                             n_splits=args.floor_splits, seed=args.seed)
         report["floor_vs_n"] = {"category": biggest,

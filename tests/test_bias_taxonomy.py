@@ -370,6 +370,68 @@ def test_extraction_floor_rejects_too_few_items():
         bt.extraction_floor([1, 2], lambda s: np.zeros((N_LAYERS, D_MODEL)))
 
 
+# --- ridge probe: a lower-variance estimator than contrasting extremes ----- #
+
+def _probe_data(rng, n=120, signal=1.0, noise=1.0):
+    """Items whose margin is a linear function of a planted direction."""
+    w = rng.normal(size=(N_LAYERS, D_MODEL))
+    resid = rng.normal(size=(n, N_LAYERS, D_MODEL)) * noise
+    # the target is the projection onto w at a chosen layer, plus noise
+    y = (resid[:, 4, :] @ w[4]) * signal + rng.normal(size=n) * 0.1
+    return resid, y, w
+
+
+def test_probe_recovers_a_planted_direction():
+    rng = np.random.default_rng(21)
+    resid, y, w = _probe_data(rng)
+    d = bt.probe_direction(resid, y, alpha=1.0)
+    assert d.shape == (N_LAYERS, D_MODEL)
+    # the planted layer should align; unrelated layers should not
+    planted = bt.per_layer_cosine(d, w)[4]
+    assert planted > 0.5, f"probe failed to recover the planted direction ({planted:.2f})"
+
+
+def test_probe_beats_extremes_contrast_on_reproducibility():
+    """The reason this estimator exists: with a graded target, contrasting the
+    top and bottom quintile discards most of the data and reproduces worse."""
+    rng = np.random.default_rng(22)
+    resid, y, _w = _probe_data(rng, n=200)
+
+    def probe_extract(idx):
+        idx = list(idx)
+        return bt.probe_direction(resid[idx], y[idx], alpha=1.0)
+
+    def extremes_extract(idx):
+        idx = list(idx)
+        yy = y[idx]
+        order = np.argsort(yy)
+        k = max(1, int(len(order) * 0.20))
+        top = [idx[i] for i in order[-k:]]
+        bot = [idx[i] for i in order[:k]]
+        return resid[top].mean(axis=0) - resid[bot].mean(axis=0)
+
+    items = list(range(len(y)))
+    f_probe = bt.extraction_floor(items, probe_extract, n_splits=4, seed=0, layer=4)
+    f_ext = bt.extraction_floor(items, extremes_extract, n_splits=4, seed=0, layer=4)
+    assert f_probe["median"] > f_ext["median"], (
+        f"probe {f_probe['median']:.3f} did not beat extremes {f_ext['median']:.3f}")
+
+
+def test_probe_rejects_mismatched_shapes():
+    rng = np.random.default_rng(23)
+    resid = rng.normal(size=(10, N_LAYERS, D_MODEL))
+    with pytest.raises(ValueError, match="residual rows vs"):
+        bt.probe_direction(resid, np.zeros(9))
+    with pytest.raises(ValueError, match="must be"):
+        bt.probe_direction(rng.normal(size=(10, D_MODEL)), np.zeros(10))
+
+
+def test_probe_needs_enough_items():
+    rng = np.random.default_rng(24)
+    with pytest.raises(ValueError, match="at least 3"):
+        bt.probe_direction(rng.normal(size=(2, N_LAYERS, D_MODEL)), np.zeros(2))
+
+
 # --- position matching, and what it costs --------------------------------- #
 
 def test_matching_equalizes_position_profiles_across_buckets():
