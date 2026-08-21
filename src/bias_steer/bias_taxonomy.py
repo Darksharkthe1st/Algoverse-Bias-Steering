@@ -644,6 +644,47 @@ def cosine_matrix(directions: dict, *, layer: int | None = None) -> tuple[list, 
 DEFAULT_MARGIN = 0.05
 
 
+#: A floor below this means the direction does not reproduce against ITSELF, so
+#: no comparison involving it carries information. Set at 0.50 — half the
+#: variance shared between two extractions of the same thing — and calibrated
+#: against a measured reference: topic directions (Race vs Gender prompts) on
+#: qwen-1.8b reproduce at q05 = 0.88, so a working direction clears this easily.
+MIN_USABLE_FLOOR = 0.50
+
+
+def floor_is_usable(floor, *, minimum: float = MIN_USABLE_FLOOR) -> bool:
+    """Does this category's direction reproduce well enough to compare at all?
+
+    `floor` is an `extraction_floor` result or a bare q05.
+
+    This exists because `distinguishable` is VACUOUS when the floor collapses.
+    The rule "cosine below the floor means distinct" silently inverts when the
+    floor is near zero: any weakly negative cosine then reads as DISTINCT, and
+    the run that prompted this emitted exactly that — "Age vs Nationality
+    cos=-0.100 floor=0.057 DISTINCT" — which asserts a difference between two
+    directions neither of which reproduces against itself. That table would have
+    gone into a paper looking like a finding.
+    """
+    q05 = floor["q05"] if isinstance(floor, dict) else floor
+    return bool(q05 is not None and q05 >= minimum)
+
+
+def pair_verdict(cos: float, floor_a, floor_b,
+                 margin: float = None) -> str:
+    """"distinct" / "not distinguishable" / "indeterminate" for one pair.
+
+    Returns **"indeterminate"** unless BOTH categories' directions reproduce
+    against themselves. A pair verdict is a statement about two directions, and
+    it means nothing when either of them is noise.
+    """
+    if not (floor_is_usable(floor_a) and floor_is_usable(floor_b)):
+        return "indeterminate"
+    m = DEFAULT_MARGIN if margin is None else margin
+    f = min(floor_a["q05"] if isinstance(floor_a, dict) else floor_a,
+            floor_b["q05"] if isinstance(floor_b, dict) else floor_b)
+    return "distinct" if distinguishable(cos, f, m) else "not distinguishable"
+
+
 def distinguishable(cos: float, floor: float, margin: float = DEFAULT_MARGIN) -> bool:
     """Is a between-topic cosine meaningfully below the extraction floor?
 
@@ -822,19 +863,43 @@ class TaxonomyReport:
         """
         if self.p_value is None:
             return "incomplete: permutation null not run"
-        if self.p_value > 0.05:
-            return (f"NO STRUCTURE: clustering is within the permutation null "
-                    f"(p={self.p_value:.3f}). Bias topics are not separable by "
-                    f"this method at this n.")
         if not self.floors:
-            return (f"structure present (p={self.p_value:.3f}) but no extraction "
-                    f"floor measured — not reportable")
+            return (f"no extraction floor measured — p={self.p_value:.3f} is not "
+                    f"interpretable without it")
 
-        worst_cat = min(self.floors, key=lambda k: self.floors[k]["q05"])
+        # ORDER MATTERS. The floor check comes FIRST, before the p-value.
+        #
+        # If the per-category directions do not reproduce against themselves,
+        # every cosine between them is noise, so the clustering is noise and the
+        # permutation null is comparing noise to noise. Reporting "NO STRUCTURE:
+        # bias topics are not separable" in that situation asserts a scientific
+        # claim the data cannot support — it confuses "we measured no difference"
+        # with "we could not measure". Only the first is a finding.
+        usable = [k for k in self.floors if floor_is_usable(self.floors[k])]
+        if len(usable) < 2:
+            worst_cat = min(self.floors, key=lambda k: self.floors[k]["q05"])
+            return (f"UNMEASURABLE: only {len(usable)} of {len(self.floors)} "
+                    f"categories produce a direction that reproduces against "
+                    f"itself (floor q05 >= {MIN_USABLE_FLOOR}). Worst is "
+                    f"{worst_cat} at {self.floors[worst_cat]['q05']:.3f}. "
+                    f"Cosines between non-reproducing directions carry no "
+                    f"information, so no pair verdict is available — this is "
+                    f"neither evidence for nor against separable subtypes.")
+
+        if self.p_value > 0.05:
+            return (f"NO STRUCTURE: {len(usable)}/{len(self.floors)} categories "
+                    f"produce reproducible directions, and their clustering is "
+                    f"within the permutation null (p={self.p_value:.3f}). This IS "
+                    f"a finding — the measurement had the precision to detect "
+                    f"separable subtypes and did not.")
+
+        worst_cat = min(usable, key=lambda k: self.floors[k]["q05"])
         worst = self.floors[worst_cat]
-        msg = (f"STRUCTURE (p={self.p_value:.3f}); worst extraction floor "
+        msg = (f"STRUCTURE (p={self.p_value:.3f}); worst usable extraction floor "
                f"q05={worst['q05']:.3f} ({worst_cat}, n={worst.get('n_items', '?')}). "
-               f"Pairs below their own categories' floors are distinguishable.")
+               f"Pairs below their own categories' floors are distinguishable. "
+               f"{len(usable)}/{len(self.floors)} categories reproduce well "
+               f"enough to compare.")
 
         spread = self.n_spread()
         if spread is not None and spread > self.N_SPREAD_WARN:

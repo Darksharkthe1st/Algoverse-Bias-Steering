@@ -89,12 +89,17 @@ def _chat(loaded, prompt: str, system_prompt: str) -> str:
             return f"{system_prompt}\n\n{prompt}\n"
 
 
-def score_answers(loaded, prompt: str, answers: list, system_prompt: str) -> list:
+def score_answers(loaded, prompt: str, answers: list, system_prompt: str,
+                  fwd_hooks=None) -> list:
     """Mean log-probability per token of each answer as a continuation.
 
     Length-normalised: the options differ in length ("Undetermined" vs "The
     Muslim one") and a raw sum would systematically favour the short one.
     Deterministic — one forward pass per (prompt, answer), no sampling.
+
+    `fwd_hooks` are TransformerLens forward hooks applied during the pass. That
+    is what makes the transfer test cheap: steering can be measured as a SHIFT
+    IN THE MARGIN, with no generation and no judge anywhere in the loop.
     """
     import torch
 
@@ -109,12 +114,50 @@ def score_answers(loaded, prompt: str, answers: list, system_prompt: str) -> lis
                       add_special_tokens=False)["input_ids"][0]
         full = torch.cat([base_ids, ans_ids]).unsqueeze(0).to(model.cfg.device)
         with torch.no_grad():
-            logits = model(full, return_type="logits")
+            if fwd_hooks:
+                logits = model.run_with_hooks(full, fwd_hooks=fwd_hooks,
+                                              return_type="logits")
+            else:
+                logits = model(full, return_type="logits")
         lp = torch.log_softmax(logits[0].float(), dim=-1)
         tgt = full[0, n_base:]
         pred = lp[n_base - 1: n_base - 1 + tgt.shape[0]]
         out.append(float(pred.gather(-1, tgt.unsqueeze(-1)).squeeze(-1).mean().item()))
     return out
+
+
+def steering_hooks(loaded, direction, coeff: float):
+    """Forward hooks adding `(coeff / n_layers) * direction[layer]` at resid_pre.
+
+    Reuses the project's existing operator so the transfer test steers exactly
+    the way the rest of the repo does, including its shape guard: a 1-D vector
+    indexed per layer would yield a scalar broadcast — a DC offset, not a
+    direction — and `assert_steering_shape` refuses it loudly.
+    """
+    import torch
+
+    from .steering import apply_resid_pre_add
+
+    d = torch.as_tensor(direction, dtype=torch.float32, device=loaded.model.cfg.device)
+    return apply_resid_pre_add(loaded.model, d, coeff)
+
+
+def norm_matched_random(direction, seed: int = 0):
+    """A random direction with the SAME per-layer norms as `direction`.
+
+    The control a steering claim needs. An isotropic random vector is too easy
+    to beat: per-layer norms span 600-1391x within a model, so an unmatched
+    random direction is mostly testing magnitude. Matching the norm profile
+    makes the control test the DIRECTION rather than how hard we pushed.
+    """
+    import numpy as np
+
+    d = np.asarray(direction, dtype=np.float64)
+    rng = np.random.default_rng(seed)
+    r = rng.normal(size=d.shape)
+    r_norms = np.linalg.norm(r, axis=1, keepdims=True)
+    d_norms = np.linalg.norm(d, axis=1, keepdims=True)
+    return r / np.where(r_norms > 0, r_norms, 1.0) * d_norms
 
 
 def positive_control(loaded, category: str, system_prompt: str, *,

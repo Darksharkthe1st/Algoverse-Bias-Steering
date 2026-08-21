@@ -436,6 +436,50 @@ def test_format_matching_loss_shows_before_after_and_percentage():
     assert "100 ->    25" in text and "75%" in text
 
 
+# --- a collapsed floor makes pair verdicts vacuous ------------------------ #
+
+def test_floor_is_usable_rejects_a_collapsed_floor():
+    """Measured reference: topic directions on qwen-1.8b reproduce at q05=0.88,
+    while bias-margin directions came back at -0.20 to 0.42."""
+    assert bt.floor_is_usable({"q05": 0.88})
+    assert not bt.floor_is_usable({"q05": 0.42})
+    assert not bt.floor_is_usable({"q05": -0.115})
+    assert bt.floor_is_usable(0.75)          # bare value accepted too
+
+
+def test_pair_verdict_is_indeterminate_when_either_floor_collapsed():
+    """The exact case the full run mislabelled: cos=-0.100 against floor=0.057
+    printed as DISTINCT, asserting a difference between two directions neither
+    of which reproduces against itself."""
+    assert bt.pair_verdict(-0.100, {"q05": 0.057}, {"q05": 0.423}) == "indeterminate"
+    assert bt.pair_verdict(-0.100, {"q05": 0.90}, {"q05": -0.115}) == "indeterminate"
+
+
+def test_pair_verdict_works_when_both_directions_reproduce():
+    assert bt.pair_verdict(0.10, {"q05": 0.90}, {"q05": 0.88}) == "distinct"
+    assert bt.pair_verdict(0.86, {"q05": 0.90}, {"q05": 0.88}) == "not distinguishable"
+
+
+def test_verdict_reports_unmeasurable_when_floors_collapse():
+    """A null from non-reproducing directions is not evidence of no subtypes."""
+    r = bt.TaxonomyReport(p_value=0.23, floors={
+        "Race_ethnicity": {"q05": -0.115, "n_items": 320},
+        "Age": {"q05": 0.423, "n_items": 320},
+        "Religion": {"q05": -0.008, "n_items": 240},
+    })
+    v = r.verdict()
+    assert "UNMEASURABLE" in v
+    assert "neither evidence for nor against" in v
+
+
+def test_verdict_reports_structure_when_floors_hold():
+    r = bt.TaxonomyReport(p_value=0.001, floors={
+        "a": {"q05": 0.90, "n_items": 300},
+        "b": {"q05": 0.88, "n_items": 300},
+    })
+    assert "STRUCTURE" in r.verdict()
+
+
 def test_distinguishable_uses_the_floor_not_zero():
     # 0.55 looks "different" against 0, but not against a floor of 0.60.
     assert not bt.distinguishable(0.55, floor=0.60)
@@ -534,13 +578,20 @@ def test_cluster_strength_is_zero_for_a_single_merge():
 # --------------------------------------------------------------------------- #
 
 def test_report_says_no_structure_when_the_null_is_not_beaten():
-    r = bt.TaxonomyReport(p_value=0.42, floors={"a": {"q05": 0.9, "n_items": 100}})
-    assert "NO STRUCTURE" in r.verdict()
+    """NO STRUCTURE requires reproducible directions — otherwise the right
+    answer is UNMEASURABLE, which is a different claim."""
+    r = bt.TaxonomyReport(p_value=0.42, floors={
+        "a": {"q05": 0.90, "n_items": 100},
+        "b": {"q05": 0.87, "n_items": 100},
+    })
+    v = r.verdict()
+    assert "NO STRUCTURE" in v
+    assert "IS a finding" in v
 
 
-def test_report_refuses_to_claim_structure_without_an_extraction_floor():
+def test_report_refuses_to_interpret_p_without_an_extraction_floor():
     r = bt.TaxonomyReport(p_value=0.001, floors={})
-    assert "not reportable" in r.verdict()
+    assert "not interpretable without it" in r.verdict()
 
 
 def test_report_quotes_the_worst_floor_with_its_n():
