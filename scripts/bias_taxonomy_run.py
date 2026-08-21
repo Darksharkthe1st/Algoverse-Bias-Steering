@@ -255,9 +255,20 @@ def main() -> int:
         if dropped:
             print(f"  excluded (floor below {bt.MIN_USABLE_FLOOR}): {dropped}")
         if len(cluster_cats) < 3:
+            # Do NOT hand this to TaxonomyReport with a placeholder p-value: its
+            # verdict would read "clustering is within the permutation null
+            # (p=1.000)", which asserts that a null was run and not beaten. No
+            # clustering happened at all. Say what is true.
+            report["verdict"] = (
+                f"NOT CLUSTERABLE: only {len(cluster_cats)} of {len(usable)} "
+                f"categories produce a direction that reproduces against itself "
+                f"(floor q05 >= {bt.MIN_USABLE_FLOOR}) — {cluster_cats}. Three are "
+                f"needed to cluster, so no similarity structure was computed and "
+                f"no permutation null was run. This is neither evidence for nor "
+                f"against separable subtypes.")
+            report["p_value"] = None
+            report["cluster_strength"] = None
             print("\n  fewer than 3 reproducible directions — nothing to cluster.")
-            report["verdict"] = bt.TaxonomyReport(
-                topics=usable, floors=floors, p_value=1.0).verdict()
             print("\n=== VERDICT\n  " + report["verdict"])
             (out_dir / "report.json").write_text(json.dumps(report, indent=2))
             return 0

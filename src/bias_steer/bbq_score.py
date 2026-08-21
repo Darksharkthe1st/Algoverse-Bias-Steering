@@ -126,19 +126,47 @@ def score_answers(loaded, prompt: str, answers: list, system_prompt: str,
     return out
 
 
-def steering_hooks(loaded, direction, coeff: float):
+def unit_per_layer(direction):
+    """Scale each layer's row to unit norm, preserving direction.
+
+    **Required before comparing steering across categories.** A
+    mean-difference direction's norm depends on how far apart its two pole means
+    landed in activation space, and measured across qwen-14b's ten categories
+    that varies by **5x** (Frobenius norm 100 to 314). `apply_resid_pre_add`
+    multiplies by a fixed coefficient, so an unnormalised comparison delivers a
+    5x stronger perturbation to some categories than others — and the categories
+    receiving the strongest dose were precisely the ones whose transfer results
+    looked like generic damage (same-sign response to +coeff and -coeff).
+
+    Normalising puts the dose entirely in the coefficient, which is what the
+    Arditi ablation operator already does and what `apply_resid_pre_add` does
+    not.
+    """
+    import numpy as np
+
+    d = np.asarray(direction, dtype=np.float64)
+    n = np.linalg.norm(d, axis=1, keepdims=True)
+    return d / np.where(n > 0, n, 1.0)
+
+
+def steering_hooks(loaded, direction, coeff: float, *, normalize: bool = True):
     """Forward hooks adding `(coeff / n_layers) * direction[layer]` at resid_pre.
 
     Reuses the project's existing operator so the transfer test steers exactly
     the way the rest of the repo does, including its shape guard: a 1-D vector
     indexed per layer would yield a scalar broadcast — a DC offset, not a
     direction — and `assert_steering_shape` refuses it loudly.
+
+    `normalize=True` (the default) unit-normalises each layer first, so the
+    coefficient means the same thing for every category. Pass False only to
+    reproduce the earlier, confounded behaviour.
     """
     import torch
 
     from .steering import apply_resid_pre_add
 
-    d = torch.as_tensor(direction, dtype=torch.float32, device=loaded.model.cfg.device)
+    v = unit_per_layer(direction) if normalize else direction
+    d = torch.as_tensor(v, dtype=torch.float32, device=loaded.model.cfg.device)
     return apply_resid_pre_add(loaded.model, d, coeff)
 
 
