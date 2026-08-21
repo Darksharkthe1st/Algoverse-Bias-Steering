@@ -13,9 +13,16 @@ itself part of the evidence.
 three, which is exactly what PREREG §3 requires. No GPU, no coding beyond a
 small script edit in step 4.
 
-**Edward is not an annotator:** on 2026-08-20 he read archived model responses
-to battery items (labeling-sheet work), so his blindness to model output is
-compromised for this instrument.
+**Known exposure, disclosed (2026-08-20):** Edward, Farhan and Jeremiah each
+worked a ~30-item calibration sheet pairing battery-style items with archived
+model responses (Edward 30, Farhan 22, Jeremiah 30; Aryaman none). Strict
+blindness to model output is therefore unattainable for those items and those
+annotators. Handle it, do not hide it: cross-reference the calibration sheet's
+item ids against the battery, carry an `exposed` flag on the overlapping items
+in the committed CSV, and report the agreement number and the S2/S3 split both
+with and without the flagged items in the adjudication notes. Aryaman is the
+only fully unexposed annotator. Edward stays out of the annotator pool
+regardless — he is unavailable from 2026-08-23.
 
 ---
 
