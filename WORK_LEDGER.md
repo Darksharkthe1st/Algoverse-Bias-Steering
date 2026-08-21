@@ -20,6 +20,12 @@ path; everything else waits.
 
 ---
 
+**2026-08-20 reassignment.** Edward moves 2026-08-23 and is in China from
+08-25 with uncertain connectivity — away through the numbers-freeze window and
+likely to the deadline, and cannot execute. Every Edward-owned blocking package
+is reassigned below (WP-11, WP-25, the WP-06 validator seat); non-blocking ones
+are deferred or folded. Ratified by this PR's review.
+
 ## Critical path
 
 | ID | Objective | Depends | Status | Owner | Definition of done | Evidence required | Validation | Blocks? |
@@ -36,8 +42,8 @@ path; everything else waits.
 | **WP-08** | λ-sweep, both directions × both batteries, k generations/item | WP-05, WP-06 | **not started** | Farhan | Full preregistered grid executed | Raw generations + results + provenance per cell | Provenance record complete for every cell | Y |
 | **WP-09** | Controls: covariance-matched random direction, wrong-layer | WP-08 | **not started** | Aryaman | Operator-matched ablation controls at the same λ grid | Run dirs, same schema as WP-08 | Same operator as primary; not an additive offset | Y |
 | **WP-10** | Analysis + decision rule evaluation | WP-08, WP-09 | **not started** | Jeremiah | Primary statistic computed with CIs; contract's rule evaluated | `analysis/` script + committed outputs | Rerunnable from committed artifacts alone | Y |
-| **WP-11** | Preregistration filled and hash-committed | contract frozen | **not started** | Edward | `docs/PREREG.md` populated; hash recorded before WP-08 reads off-target | Commit hash in the contract | Hash predates first WP-08 result | Y |
-| **WP-25** | **Stratify the battery (S1/S2/S3)** | — | **not started** | Edward | Stratum column on all 296 items; 3 duplicates removed; 18 unnameable-alternative items flagged for DV exclusion | Committed CSV + adjudication notes | S2/S3 boundary human-adjudicated, not heuristic | **Y — gates WP-04** |
+| **WP-11** | Preregistration filled and hash-committed | contract frozen | **not started** | Farhan *(from Edward, 2026-08-20)* | `docs/PREREG.md` populated; hash recorded before WP-08 reads off-target | Commit hash in the contract | Hash predates first WP-08 result | Y |
+| **WP-25** | **Stratify the battery (S1/S2/S3)** | — | **not started** | Jeremiah coord *(from Edward, 2026-08-20)*; annotators Farhan · Aryaman · Jeremiah per PREREG §3 | Stratum column on all 296 items; 3 duplicates removed; 18 unnameable-alternative items flagged for DV exclusion | Committed CSV + adjudication notes | S2/S3 boundary human-adjudicated, not heuristic | **Y — gates WP-04** |
 | **WP-13** | Final adversarial freeze review | contract drafted | **done** | Claude | Every paper-killing objection resolved without adding scope | Critic reports + resolutions in contract §12 | No unresolved paper-killer | Y |
 | **WP-12** | Judge pinning + k≥3 with majority | WP-02 | **not started** | Aryaman | Dated snapshot model id; k judgments/item; per-item agreement recorded | Config diff + judge agreement file | Rerun on a fixed sample reproduces labels | Y |
 
@@ -45,10 +51,10 @@ path; everything else waits.
 
 | ID | Objective | Status | Owner | Definition of done | Blocks? |
 |---|---|---|---|---|---|
-| **WP-20** | Item attributes: obvious-answer vs no-privileged-answer over the 296 items | not started | Edward | One committed CSV, one attribute per item, before travel | N |
-| **WP-21** | `scripts/kappa_from_csv.py` → Fleiss κ_j + bootstrap CI + Gwet AC1 | not started | Jeremiah | Multi-rater support (2-rater Cohen only today, ~60 lines) | N |
-| **WP-22** | Related work + positioning paragraph | not started | Edward | Joad / Arditi / Wollschläger / non-identifiability placed | N |
-| **WP-23** | Trim public index rows exposing non-public research paths | not started | Edward | `docs/SOURCES_OF_TRUTH.md` rows removed or pointed at a private index | N |
+| **WP-20** | Item attributes: obvious-answer vs no-privileged-answer over the 296 items | **folds into WP-25** — this attribute *is* the S2/S3 label; the adjudication pass produces it | WP-25 annotators | One committed CSV, one attribute per item | N |
+| **WP-21** | `scripts/kappa_from_csv.py` → Fleiss κ_j + bootstrap CI + Gwet AC1 | not started | Jeremiah | Multi-rater support (2-rater Cohen only today, ~60 lines) — **now needed by WP-25's 3-rater agreement number** | N |
+| **WP-22** | Related work + positioning paragraph | not started | Farhan *(from Edward, 2026-08-20; Edward reviews remotely)* | Joad / Arditi / Wollschläger / non-identifiability placed | N |
+| **WP-23** | Trim public index rows exposing non-public research paths | deferred to post-deadline | Edward | `docs/SOURCES_OF_TRUTH.md` rows removed or pointed at a private index | N |
 | **WP-24** | Fix `pytest tests/` registry-teardown poisoning | not started | unowned | Suite green as a suite, not only per-file | N |
 
 ## Forensic — separate from the causal controls
@@ -76,10 +82,15 @@ is from the **artifact and the contract**, not from a conversation.
 | WP-03 ablation operator | Aryaman | Farhan |
 | WP-04 extraction protocol | Farhan | Aryaman |
 | WP-05 G1 positive control | Farhan | Jeremiah (reads the run dir and the `assess()` report, not the notebook) |
-| WP-06 DV extractor | Jeremiah | Edward |
+| WP-06 DV extractor | Jeremiah | Aryaman *(from Edward, 2026-08-20)* |
 | WP-08 λ-sweep | Farhan | Jeremiah |
 | WP-10 analysis | Jeremiah | Farhan |
 
 **Independence constraint carried from the contract:** whoever selects the layer
 and direction for `r̂_stance` must not run or score the harm battery, and the
 selection must be committed by hash before any off-target cell is read.
+
+With Edward away, that seat falls to **Aryaman**: Farhan runs the harm battery
+(G1, WP-08), Jeremiah scores (WP-07, WP-10), so Aryaman is the only remaining
+member who can select and hash-commit the `r̂_stance` cell without violating
+the constraint.

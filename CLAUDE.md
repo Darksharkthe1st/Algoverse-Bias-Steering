@@ -23,8 +23,12 @@ history, not doctrine.
    for provenance and are explicitly not current.
 2. **Do not expand scope.** `RESEARCH_CONTRACT.md` §12 lists the only five things
    that may reopen the contract. "This would be more interesting" is not one.
-3. **`RUNBOOK_*` and `HANDOFF_*` are personal scratchpads.** They may not redefine
-   the paper, a metric, a model set, a deadline, or a definition of done.
+3. **Root `RUNBOOK_*` and `HANDOFF_*` are retired stubs (2026-08-20)** — a stale
+   runbook misdirected an agent's planning, so they now hold pointers only.
+   Work from `WORK_LEDGER.md`, `docs/work-splits/`, and the canonical execution
+   handoffs in `docs/` (`HANDOFF_G1.md`, `HANDOFF_WP25.md`). Do not add
+   substance to a stub; nothing in one may redefine the paper, a metric, a
+   model set, a deadline, or a definition of done.
 4. **A task is done when its evidence exists and validates**, not when a report
    says it ran. See `WORK_LEDGER.md`.
 5. **Do not coin terminology.** The behaviour is *hedging*; the failure mode is
@@ -95,7 +99,9 @@ the Arditi hard-refusal direction. Revival sprint, Aug 2026; 2025 assets
 - `docs/SOURCES_OF_TRUTH.md` — **the fact-ownership registry; read first**
 - `RESEARCH_CONTRACT.md` — canonical framing, terminology, must-cites
 - `docs/2026-08-01_project_analysis.md` — post-mortem + 2025–26 frontier scan
-- `RUNBOOK_<NAME>.md` — per-person marching orders (one file per person)
+- `docs/work-splits/<xx>-task-list.md` — per-person context · execution
+  handoffs: `docs/HANDOFF_G1.md`, `docs/HANDOFF_WP25.md` (root `RUNBOOK_*`
+  are retired stubs)
 - Dashboard: `scripts/build_dashboard.py` (narrative constants at the top) →
   `dashboard/index.html`, CI-rebuilt on push; update constants via the
   `dashboard-update` skill in `.claude/skills/`.
