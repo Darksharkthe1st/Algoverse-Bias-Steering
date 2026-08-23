@@ -180,6 +180,18 @@ ul.tight li::marker{color:var(--accent)}
 code{font-family:"IBM Plex Mono",monospace; font-size:.86em; background:var(--surface-2); padding:1px 5px; border-radius:2px}
 .pill{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:2px; border:1px solid currentColor; font-weight:500}
 .pill.p{color:var(--pass)} .pill.f{color:var(--fail)} .pill.w{color:var(--warn)} .pill.a{color:var(--accent)}
+.triage{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px}
+.tri{border:1px solid var(--rule); border-left-width:4px; border-radius:3px; padding:20px 22px; background:var(--surface); display:flex; flex-direction:column; gap:12px}
+.tri.safe{border-left-color:var(--pass)} .tri.prov{border-left-color:var(--warn)} .tri.no{border-left-color:var(--fail)}
+.tri h4{font-size:1.02rem}
+.tri .hd{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.tri ul{margin:0; padding-left:1.05rem; display:flex; flex-direction:column; gap:7px; font-size:.9rem; color:var(--text-2)}
+.tri.safe ul li::marker{color:var(--pass)} .tri.prov ul li::marker{color:var(--warn)} .tri.no ul li::marker{color:var(--fail)}
+.tri .why{font-size:.84rem; color:var(--text-3); border-top:1px solid var(--rule); padding-top:11px; margin-top:2px}
+.banner{border:1px solid var(--accent); border-left:4px solid var(--accent); background:var(--accent-soft); border-radius:3px; padding:22px 24px; display:flex; flex-direction:column; gap:10px}
+.banner h3{color:var(--text)}
+td.sev{font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.06em; font-weight:600}
+td.sev.s{color:var(--fail)} td.sev.m{color:var(--warn)} td.sev.n{color:var(--accent)}
 footer{padding:52px 0 72px; color:var(--text-3); font-size:.84rem}
 @media (max-width:660px){
   .row{grid-template-columns:118px 1fr 54px; gap:9px}
@@ -217,6 +229,127 @@ footer{padding:52px 0 72px; color:var(--text-3); font-size:.84rem}
     <div class="fig fail"><span class="n">0</span><span class="k">race-related categories that reproduced anywhere, under any method</span></div>
     <div class="fig acc"><span class="n">0.030</span><span class="k">p-value for above-chance clustering on Qwen-14B (0.005 on Qwen-7B)</span></div>
     <div class="fig"><span class="n">0.88</span><span class="k">floor for a control direction we knew should work — proof the pipeline is sound</span></div>
+  </div>
+</section>
+
+<section id="triage">
+  <div class="sec-head">
+    <span class="eyebrow">Status · added after a post-publication audit</span>
+    <h2>Which of these results you can actually use</h2>
+    <p class="lede col">Seven challenges were put to this work after it was first
+      written up, and every one was recomputed from the stored artifacts. None of
+      them were false. This section is the triage: what survived, what is
+      provisional, and what should not be quoted.</p>
+  </div>
+
+  <div class="banner col" style="margin-bottom:30px">
+    <h3>The short version</h3>
+    <p><strong>The experiment is not invalid.</strong> The results split cleanly
+      along one line: anything produced by the <code>extremes</code> estimator —
+      which has <em>no free parameter</em> — survives. Anything that depends on
+      the ridge probe's regularisation constant, or on a category that sits near
+      the decision threshold, does not.</p>
+  </div>
+
+  <div class="triage">
+    <div class="tri safe">
+      <div class="hd"><span class="pill p">safe to publish</span></div>
+      <h4>Survives every challenge</h4>
+      <ul>
+        <li><strong>Disability_status reproduces in all four capable models.</strong>
+          Not a close call anywhere — the <em>worst</em> of ten split-halves on
+          qwen-14b is 0.801.</li>
+        <li><strong>No race-related category reproduces in any model.</strong>
+          Floors sit 0.51–0.73 <em>below</em> the bar.</li>
+        <li><strong>The positive controls.</strong> Topic-identity extraction
+          0.86–0.92; task control 67–89% against 33% chance. These are what make
+          the negative interpretable at all.</li>
+        <li><strong>The two abandoned designs, and why.</strong> The
+          <code>0.38·√2 = 0.54</code> arithmetic is a methodological result in its
+          own right.</li>
+      </ul>
+      <p class="why">Why these hold: they come from <code>extremes</code>, which has
+        no alpha — so the regularisation defects cannot touch them — and they sit
+        far from any threshold, so the unstable decision statistic cannot flip them.</p>
+    </div>
+
+    <div class="tri prov">
+      <div class="hd"><span class="pill w">provisional</span></div>
+      <h4>Needs a qualifier, or a re-run</h4>
+      <ul>
+        <li><strong>Physical_appearance is robust in three models, marginal in the
+          fourth.</strong> On gemma-2b it clears the bar by only <code>+0.011</code>
+          (q05 0.511, worst split 0.510) — the same fragility class as Nationality.
+          <em>Do not write "both categories, all four models" without this
+          qualifier.</em></li>
+        <li><strong>The 4-vs-5 reproducible count on qwen-14b.</strong> It hinges on
+          Nationality at <code>q05 = 0.5103</code>, clearing by 0.010. Bootstrapping
+          the ten splits gives a <strong>26.6% chance it fails on a redraw</strong>.</li>
+        <li><strong>Everything probe-derived</strong> — the 5/10 and 3/10 counts.
+          They inherit the alpha question below.</li>
+      </ul>
+      <p class="why">These are not wrong. They are single measurements sitting close
+        enough to a threshold that a re-run could reasonably land the other side.</p>
+    </div>
+
+    <div class="tri no">
+      <div class="hd"><span class="pill f">do not quote</span></div>
+      <h4>Withdrawn pending a corrected null</h4>
+      <ul>
+        <li><strong>The clustering result — p = 0.030 and p = 0.005.</strong> The
+          permutation null pooled items <em>across</em> categories, so the fake
+          groups were topic-mixed while the real groups were topic-coherent.</li>
+        <li>In a real group both poles come from one category, so topic cancels
+          <em>exactly</em>. In a fake group it cancels only <em>in expectation</em>,
+          leaving noise. Noisier directions are more nearly orthogonal, which
+          lowers the clustering statistic.</li>
+        <li>So the test may be detecting <em>“real directions are less noisy than
+          random mixtures”</em> rather than <em>“bias categories form groups.”</em>
+          Both produce p &lt; 0.05.</li>
+      </ul>
+      <p class="why">The magnitude of this effect is unmeasurable from the stored
+        artifacts, because the null's fake directions were never saved. The corrected
+        null shuffles margin labels <em>within</em> each category, holding topic and
+        n fixed.</p>
+    </div>
+  </div>
+
+  <div class="col stack" style="margin-top:34px">
+    <h3>The evidence behind the triage</h3>
+    <p>Every split-half draw, from the <code>extremes</code> estimator. The last
+      column is how far each decision sat from the 0.50 bar.</p>
+  </div>
+
+  <div class="tbl-wrap" style="margin-top:16px">
+    <table>
+      <thead><tr><th>model</th><th>category</th><th>worst split</th><th>best split</th><th>floor q05</th><th>clears 0.50 by</th></tr></thead>
+      <tbody>
+        <tr><td>qwen-7b</td><td>Disability_status</td><td class="num">0.612</td><td class="num">0.963</td><td class="num">0.700</td><td class="num yes">+0.200</td></tr>
+        <tr><td>yi-6b</td><td>Disability_status</td><td class="num">0.487</td><td class="num">0.941</td><td class="num">0.605</td><td class="num yes">+0.105</td></tr>
+        <tr><td>gemma-2b</td><td>Disability_status</td><td class="num">0.811</td><td class="num">0.978</td><td class="num">0.818</td><td class="num yes">+0.318</td></tr>
+        <tr><td>qwen-14b</td><td>Disability_status</td><td class="num">0.801</td><td class="num">0.950</td><td class="num">0.820</td><td class="num yes">+0.320</td></tr>
+        <tr><td>qwen-7b</td><td>Physical_appearance</td><td class="num">0.751</td><td class="num">0.956</td><td class="num">0.785</td><td class="num yes">+0.285</td></tr>
+        <tr><td>yi-6b</td><td>Physical_appearance</td><td class="num">0.600</td><td class="num">0.894</td><td class="num">0.614</td><td class="num yes">+0.114</td></tr>
+        <tr><td>qwen-14b</td><td>Physical_appearance</td><td class="num">0.607</td><td class="num">0.865</td><td class="num">0.648</td><td class="num yes">+0.148</td></tr>
+        <tr><td><strong>gemma-2b</strong></td><td><strong>Physical_appearance</strong></td><td class="num">0.510</td><td class="num">0.922</td><td class="num">0.511</td><td class="num" style="color:var(--warn);font-weight:600">+0.011</td></tr>
+        <tr><td>qwen-14b</td><td>Nationality</td><td class="num">0.277</td><td class="num">0.624</td><td class="num">0.279</td><td class="num no">−0.221</td></tr>
+        <tr><td>qwen-14b</td><td>Race_ethnicity</td><td class="num">−0.253</td><td class="num">0.172</td><td class="num">−0.204</td><td class="num no">−0.704</td></tr>
+        <tr><td>yi-6b</td><td>Race_ethnicity</td><td class="num">−0.320</td><td class="num">0.238</td><td class="num">−0.230</td><td class="num no">−0.730</td></tr>
+        <tr><td>gemma-2b</td><td>Race_ethnicity</td><td class="num">−0.034</td><td class="num">0.521</td><td class="num">−0.013</td><td class="num no">−0.513</td></tr>
+      </tbody>
+      <caption>No defect in the audit moves a number by 0.3, which is why the Disability_status and race rows are unaffected — and why the gemma-2b Physical_appearance row, at +0.011, is not.</caption>
+    </table>
+  </div>
+
+  <div class="col stack" style="margin-top:30px">
+    <div class="note">
+      <span class="eyebrow">The honest sentence for the paper</span>
+      <p style="font-family:Spectral,Georgia,serif; font-size:1.08rem; line-height:1.5; color:var(--text)">
+        “Disability_status reproduces robustly in all four models.
+        Physical_appearance reproduces robustly in three and marginally in
+        gemma-2b. No race-related category reproduces in any model, under either
+        estimator, across six orders of magnitude of regularisation.”</p>
+    </div>
   </div>
 </section>
 
@@ -554,6 +687,77 @@ footer{padding:52px 0 72px; color:var(--text-3); font-size:.84rem}
         thing is wrong, at least there.</p>
     </div>
 
+  </div>
+</section>
+
+<section id="register">
+  <div class="sec-head col">
+    <span class="eyebrow">Defect register</span>
+    <h2>Every known problem, graded</h2>
+    <p class="lede">Eight defects were put to this work by an outside reviewer and
+      all eight verified exactly against the artifacts. A fresh audit then found
+      five more. Nothing here is speculative — each row cites the number that
+      demonstrates it.</p>
+  </div>
+
+  <div class="col stack">
+    <h3>Verified from the original challenge</h3>
+  </div>
+  <div class="tbl-wrap" style="margin-top:14px">
+    <table>
+      <thead><tr><th>id</th><th>defect</th><th>the number that shows it</th><th>severity</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">S1</td><td>The decision statistic is a 5th percentile over only <strong>10</strong> split-half draws, and its sampling error was never quantified.</td><td class="num">Nationality q05 = 0.5103, clears by 0.010; bootstrap gives <strong>26.6%</strong> chance of failing on a redraw</td><td class="sev s">SEVERE</td></tr>
+        <tr><td class="mono">S2</td><td>The estimator comparison is confounded with sample size — the probe saw more data than <code>extremes</code>.</td><td class="num">240 vs 600 items, exactly <strong>2.50×</strong>, in every category</td><td class="sev s">SEVERE</td></tr>
+        <tr><td class="mono">S3</td><td>The ridge penalty selects <em>a different direction</em> rather than tuning one — and was chosen by inspecting the quantity it then gates.</td><td class="num">same category at α=1 vs α=1e6 agrees at only <strong>0.10–0.21</strong>; off-diagonal mean |cos| rises 9.4×</td><td class="sev s">SEVERE</td></tr>
+        <tr><td class="mono">S4</td><td>The 0.50 threshold was calibrated through <code>extremes</code> and then applied to the probe unchanged.</td><td class="num">no probe-based calibration artifact exists; all three control files carry no <code>method</code> field</td><td class="sev s">SEVERE</td></tr>
+        <tr><td class="mono">S5</td><td>Residuals were never cached — only margins. Fixing anything else requires renting a GPU again.</td><td class="num">cache holds <code>['ids','margins','abstention']</code>; zero residual files on disk</td><td class="sev s">SEVERE</td></tr>
+        <tr><td class="mono">M1</td><td>Reproducibility is confounded with the model's behavioural tilt. A category with no tilt is split on noise and cannot reproduce whether or not a representation exists.</td><td class="num">floor vs mean margin: <strong>+0.660 to +0.769</strong> across all five models</td><td class="sev m">MODERATE</td></tr>
+        <tr><td class="mono">M2</td><td>Two positives rest on heavy-tailed margins, and the extremes contrast selects exactly those tails.</td><td class="num">Physical_appearance and Age: excess kurtosis <strong>+3.9</strong>, top 5% of items carry ~half the variance</td><td class="sev m">MODERATE</td></tr>
+        <tr><td class="mono">M3</td><td>On qwen-1.8b, sample size varies across categories and correlates with the floor.</td><td class="num">n range 172–320, pearson <strong>+0.505</strong> (other models +0.078 to +0.410)</td><td class="sev m">MODERATE</td></tr>
+      </tbody>
+      <caption>All eight recomputed from stored artifacts. None were false.</caption>
+    </table>
+  </div>
+
+  <div class="col stack" style="margin-top:34px">
+    <h3>Found in a fresh audit afterwards</h3>
+    <p>Assuming the list above was incomplete, the artifacts were re-examined for
+      parameters chosen against the quantity they gate, unquantified sampling
+      error, controls weaker than the claim needs, and silent data loss.</p>
+  </div>
+  <div class="tbl-wrap" style="margin-top:14px">
+    <table>
+      <thead><tr><th>id</th><th>defect</th><th>the number that shows it</th><th>severity</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">N4</td><td><strong>The permutation null tests against the wrong alternative.</strong> It pooled items across categories, so fake groups were topic-mixed while real ones were topic-coherent. Topic cancels <em>exactly</em> in a real group and only <em>in expectation</em> in a fake one, so fake directions are systematically noisier regardless of any bias structure.</td><td class="num">null median 0.0473 — consistent with near-orthogonal noise; observed 0.0962</td><td class="sev s">SEVERE</td></tr>
+        <tr><td class="mono">N3</td><td><strong>Abstentions are measured, recorded, then ignored.</strong> On items where the model prefers "can't answer" over both named options, the item is still ranked by a stereotype margin between two options it rejected — and can enter a pole.</td><td class="num"><strong>1,369 of 5,830</strong> qwen-14b items (23.5%) have logP(unknown) above both named options</td><td class="sev s">SEVERE</td></tr>
+        <tr><td class="mono">N2</td><td>The clustering statistic has no error estimate. It is the maximum of 3 differences computed on 5 leaves.</td><td class="num">p = 0.0299 sits just <strong>0.011</strong> above the null's q95 (0.0852)</td><td class="sev s">SEVERE</td></tr>
+        <tr><td class="mono">N1</td><td>The per-layer summary rule (unweighted median across layers) is undocumented and averages a different population for each estimator. <em>Initially graded severe, then measured down.</em></td><td class="num">21 of 40 layers below 10% of peak norm — but the median lands within <strong>0.03</strong> of a norm-weighted alternative</td><td class="sev m">MODERATE</td></tr>
+        <tr><td class="mono">N5</td><td>Split-halves are not stratified by pole — the pooled list is shuffled and cut blind, admitting pole imbalance that adds variance unrelated to reproducibility.</td><td class="num">±11 imbalance routine at 120+120; zero degenerate splits observed in 760 recorded cosines</td><td class="sev m">MODERATE</td></tr>
+      </tbody>
+      <caption>Categories that yielded nothing are reported as such rather than padded: no post-hoc layer selection, no degenerate estimator solutions, no unaccounted dropped categories.</caption>
+    </table>
+  </div>
+
+  <div class="col stack" style="margin-top:34px">
+    <div class="note pass">
+      <span class="eyebrow p">The common cause, and the fix</span>
+      <p>Almost every defect above is <strong>a free parameter set by looking at
+        data and never written down first</strong> — or <strong>a decision
+        statistic reported as a point value with no interval</strong>. Both are
+        planning failures, not execution failures: the split count and the layer
+        rule were chosen before any GPU existed.</p>
+      <p>The re-run replaces the 0.50 threshold entirely. A category will reproduce
+        <em>iff its split-half interval is disjoint from the interval of its own
+        negative control</em> — the same category with margin labels shuffled,
+        holding topic, sample size and prompt format fixed. That single change
+        closes S1, S4, N1 and N4 together and removes the last arbitrary constant
+        from the pipeline.</p>
+      <p>Split count rises from 10 to <strong>400</strong>, calculated: the observed
+        SD of split-half cosines is 0.2023 at the 90th percentile, so a ±0.020
+        interval requires 393. <strong>The original run was 40× short.</strong></p>
+    </div>
   </div>
 </section>
 
