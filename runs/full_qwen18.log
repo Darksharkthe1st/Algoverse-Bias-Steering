@@ -1,0 +1,117 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+run dir: runs/full_qwen18
+model  : qwen-1.8b  (Qwen/Qwen1.5-1.8B-Chat)
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  58%|█████▊    | 168/291 [00:00<00:00, 1667.06it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 1694.53it/s]
+Loaded pretrained model Qwen/Qwen1.5-1.8B-Chat into HookedTransformer
+Moving model to device:  cuda
+         n_layers=24 d_model=2048
+
+=== STAGE 1 - positive control (disambiguated, no option list)
+category                   n      acc       z   gate
+----------------------------------------------------
+Religion                 150    64.0%    +8.0   PASS
+Race_ethnicity           150    61.3%    +7.3   PASS
+Gender_identity          150    58.7%    +6.6   PASS
+Age                      150    55.3%    +5.7   PASS
+Nationality              150    56.0%    +5.9   PASS
+Physical_appearance      150    49.3%    +4.2   FAIL - dropped
+Disability_status        150    44.7%    +2.9   FAIL - dropped
+Sexual_orientation       150    55.3%    +5.7   PASS
+Race_x_gender            150    60.7%    +7.1   PASS
+Race_x_SES               150    62.0%    +7.4   PASS
+
+usable categories: 8/10
+
+=== STAGE 2 - stereotype margins on ambiguous items
+category                   n     mean      sd    top_q    bot_q   sign split
+--------------------------------------------------------------------------
+Religion                 600   +0.050   1.312   +1.820   -1.753   opposite signs
+Race_ethnicity           800   -0.066   1.915   +2.537   -2.778   opposite signs
+Gender_identity          797   +0.048   2.994   +4.264   -4.129   opposite signs
+Age                      800   +0.095   1.832   +2.488   -2.338   opposite signs
+Nationality              800   +0.011   1.718   +2.388   -2.414   opposite signs
+Sexual_orientation       432   -0.032   1.448   +1.968   -2.100   opposite signs
+Race_x_gender            800   +0.110   1.663   +2.430   -2.235   opposite signs
+Race_x_SES               800   -0.048   0.848   +1.154   -1.231   opposite signs
+
+=== STAGE 3 - extract a direction per category from the margin extremes
+  Religion               top n=120  bottom n=120  -> direction (24, 2048)
+  Race_ethnicity         top n=160  bottom n=160  -> direction (24, 2048)
+  Gender_identity        top n=159  bottom n=159  -> direction (24, 2048)
+  Age                    top n=160  bottom n=160  -> direction (24, 2048)
+  Nationality            top n=160  bottom n=160  -> direction (24, 2048)
+  Sexual_orientation     top n=86   bottom n=86   -> direction (24, 2048)
+  Race_x_gender          top n=160  bottom n=160  -> direction (24, 2048)
+  Race_x_SES             top n=160  bottom n=160  -> direction (24, 2048)
+
+=== STAGE 4 - extraction floor (re-extract the SAME category from halves)
+  category                     n floor q05    median
+  Sexual_orientation         172    -0.202    -0.065
+  Race_ethnicity             320    -0.115     0.048
+  Gender_identity            318    -0.072     0.065
+  Religion                   240    -0.008     0.139
+  Race_x_SES                 320     0.017     0.239
+  Nationality                320     0.057     0.359
+  Race_x_gender              320     0.138     0.380
+  Age                        320     0.423     0.478
+
+  n spread across categories: 1.9x
+
+=== STAGE 5 - cosine matrix, clustering, permutation null
+             Age  Gender_i  National  Race_eth  Race_x_S  Race_x_g  Religion  Sexual_o
+Age                      1.000    -0.098    -0.100    -0.064     0.133    -0.085     0.209     0.365
+Gender_identity         -0.098     1.000    -0.228     0.097     0.010     0.131    -0.048    -0.074
+Nationality             -0.100    -0.228     1.000    -0.122    -0.074    -0.136    -0.043    -0.106
+Race_ethnicity          -0.064     0.097    -0.122     1.000    -0.052     0.186    -0.027    -0.058
+Race_x_SES               0.133     0.010    -0.074    -0.052     1.000    -0.051     0.041     0.308
+Race_x_gender           -0.085     0.131    -0.136     0.186    -0.051     1.000     0.193     0.002
+Religion                 0.209    -0.048    -0.043    -0.027     0.041     0.193     1.000     0.242
+Sexual_orientation       0.365    -0.074    -0.106    -0.058     0.308     0.002     0.242     1.000
+
+  random-direction floor (1/sqrt(d)) = 0.0221
+
+  pair verdicts against each pair's own extraction floor:
+    Age                Gender_identity     cos=-0.098 floor=-0.072  not distinguishable
+    Age                Nationality         cos=-0.100 floor=0.057  DISTINCT
+    Age                Race_ethnicity      cos=-0.064 floor=-0.115  not distinguishable
+    Age                Race_x_SES          cos=+0.133 floor=0.017  not distinguishable
+    Age                Race_x_gender       cos=-0.085 floor=0.138  DISTINCT
+    Age                Religion            cos=+0.209 floor=-0.008  not distinguishable
+    Age                Sexual_orientation  cos=+0.365 floor=-0.202  not distinguishable
+    Gender_identity    Nationality         cos=-0.228 floor=-0.072  DISTINCT
+    Gender_identity    Race_ethnicity      cos=+0.097 floor=-0.115  not distinguishable
+    Gender_identity    Race_x_SES          cos=+0.010 floor=-0.072  not distinguishable
+    Gender_identity    Race_x_gender       cos=+0.131 floor=-0.072  not distinguishable
+    Gender_identity    Religion            cos=-0.048 floor=-0.072  not distinguishable
+    Gender_identity    Sexual_orientation  cos=-0.074 floor=-0.202  not distinguishable
+    Nationality        Race_ethnicity      cos=-0.122 floor=-0.115  not distinguishable
+    Nationality        Race_x_SES          cos=-0.074 floor=0.017  DISTINCT
+    Nationality        Race_x_gender       cos=-0.136 floor=0.057  DISTINCT
+    Nationality        Religion            cos=-0.043 floor=-0.008  not distinguishable
+    Nationality        Sexual_orientation  cos=-0.106 floor=-0.202  not distinguishable
+    Race_ethnicity     Race_x_SES          cos=-0.052 floor=-0.115  not distinguishable
+    Race_ethnicity     Race_x_gender       cos=+0.186 floor=-0.115  not distinguishable
+    Race_ethnicity     Religion            cos=-0.027 floor=-0.115  not distinguishable
+    Race_ethnicity     Sexual_orientation  cos=-0.058 floor=-0.202  not distinguishable
+    Race_x_SES         Race_x_gender       cos=-0.051 floor=0.017  DISTINCT
+    Race_x_SES         Religion            cos=+0.041 floor=-0.008  not distinguishable
+    Race_x_SES         Sexual_orientation  cos=+0.308 floor=-0.202  not distinguishable
+    Race_x_gender      Religion            cos=+0.193 floor=-0.008  not distinguishable
+    Race_x_gender      Sexual_orientation  cos=+0.002 floor=-0.202  not distinguishable
+    Religion           Sexual_orientation  cos=+0.242 floor=-0.202  not distinguishable
+
+  cluster strength observed : 0.1429
+  permutation null median   : 0.1126  q95 0.1889
+  p                          : 0.2289
+
+=== STAGE 6 - how much of the floor is sample size?
+  on Race_ethnicity:
+         n floor q05    median
+       172    -0.268    -0.016
+       320    -0.217    -0.085
+
+=== VERDICT
+  NO STRUCTURE: clustering is within the permutation null (p=0.229). Bias topics are not separable by this method at this n.
+
+written to runs/full_qwen18

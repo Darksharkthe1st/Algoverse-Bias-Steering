@@ -1,0 +1,741 @@
+<title>The Extraction Floor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --ink:#131820; --paper:#F6F7F5; --surface:#FFFFFF; --surface-2:#EDEFEC;
+  --rule:#D6DAD6; --rule-strong:#B3BAB6;
+  --text:#131820; --text-2:#4A555B; --text-3:#66757C;
+  --accent:#0E7C86; --accent-soft:#DCEAEB; --accent-on:#FFFFFF;
+  --pass:#1B7F5A; --pass-soft:#DDEDE4;
+  --fail:#A8443A; --fail-soft:#F2E0DD;
+  --warn:#8A6A1F; --warn-soft:#F0E8D4;
+  --shadow:0 1px 2px rgba(19,24,32,.06),0 8px 24px rgba(19,24,32,.05);
+  --measure:68ch;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#0C1015; --paper:#0F141A; --surface:#161D25; --surface-2:#1D262F;
+    --rule:#2A343E; --rule-strong:#3C4954;
+    --text:#E8ECEA; --text-2:#AAB6BC; --text-3:#84949B;
+    --accent:#4FC3CE; --accent-soft:#12333A; --accent-on:#0C1015;
+    --pass:#5FCB9B; --pass-soft:#123227;
+    --fail:#E0857B; --fail-soft:#331916;
+    --warn:#D9BC6F; --warn-soft:#2E2717;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#0C1015; --paper:#0F141A; --surface:#161D25; --surface-2:#1D262F;
+  --rule:#2A343E; --rule-strong:#3C4954;
+  --text:#E8ECEA; --text-2:#AAB6BC; --text-3:#84949B;
+  --accent:#4FC3CE; --accent-soft:#12333A; --accent-on:#0C1015;
+  --pass:#5FCB9B; --pass-soft:#123227;
+  --fail:#E0857B; --fail-soft:#331916;
+  --warn:#D9BC6F; --warn-soft:#2E2717;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--text);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:17px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:0 28px}
+.col{max-width:var(--measure)}
+
+h1,h2,h3,h4{font-family:Spectral,Georgia,"Times New Roman",serif; text-wrap:balance; margin:0}
+h1{font-size:clamp(2.6rem,6vw,4.1rem); line-height:1.02; font-weight:700; letter-spacing:-.02em}
+h2{font-size:clamp(1.7rem,3vw,2.3rem); line-height:1.15; font-weight:600; letter-spacing:-.01em}
+h3{font-size:1.24rem; line-height:1.3; font-weight:600}
+h4{font-size:1.02rem; line-height:1.35; font-weight:600}
+p{margin:0}
+a{color:var(--accent)}
+
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.72rem;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--text-3); font-weight:500;
+}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.lede{font-size:1.22rem; line-height:1.55; color:var(--text-2)}
+
+/* ---------- masthead ---------- */
+header.mast{border-bottom:1px solid var(--rule); background:var(--surface)}
+.mast-in{display:flex; flex-direction:column; gap:26px; padding:64px 0 52px}
+.mast h1{max-width:16ch}
+.thesis{
+  font-family:Spectral,Georgia,serif; font-size:1.32rem; line-height:1.5;
+  color:var(--text-2); max-width:60ch; font-style:italic;
+}
+.mast-meta{
+  display:flex; flex-wrap:wrap; gap:10px 26px; padding-top:8px;
+  border-top:1px solid var(--rule); font-size:.82rem; color:var(--text-3);
+}
+.mast-meta b{color:var(--text-2); font-weight:500}
+
+/* ---------- key figures strip ---------- */
+.figs{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:3px; overflow:hidden}
+.fig{background:var(--surface); padding:20px 22px; display:flex; flex-direction:column; gap:6px}
+.fig .n{font-family:"IBM Plex Mono",monospace; font-size:1.9rem; font-weight:500; line-height:1; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.fig .k{font-size:.82rem; color:var(--text-3); line-height:1.35}
+.fig.pass .n{color:var(--pass)} .fig.fail .n{color:var(--fail)} .fig.acc .n{color:var(--accent)}
+
+/* ---------- sections ---------- */
+section{padding:66px 0; border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:none}
+.sec-head{display:flex; flex-direction:column; gap:12px; margin-bottom:30px}
+.stack{display:flex; flex-direction:column; gap:20px}
+.stack-tight{display:flex; flex-direction:column; gap:12px}
+
+/* ---------- plain-terms callout ---------- */
+.plain{
+  border-left:3px solid var(--accent); background:var(--accent-soft);
+  padding:18px 22px; border-radius:0 3px 3px 0;
+  display:flex; flex-direction:column; gap:8px;
+}
+.plain .eyebrow{color:var(--accent)}
+.plain p{color:var(--text-2)}
+
+/* ---------- callouts by epistemic status ---------- */
+.note{border:1px solid var(--rule); border-radius:3px; padding:18px 22px; background:var(--surface); display:flex; flex-direction:column; gap:8px}
+.note.warn{border-color:var(--warn); background:var(--warn-soft)}
+.note.fail{border-color:var(--fail); background:var(--fail-soft)}
+.note.pass{border-color:var(--pass); background:var(--pass-soft)}
+.note .eyebrow.w{color:var(--warn)} .note .eyebrow.f{color:var(--fail)} .note .eyebrow.p{color:var(--pass)}
+
+/* ---------- the floor chart ---------- */
+.chart{background:var(--surface); border:1px solid var(--rule); border-radius:3px; padding:26px 24px; box-shadow:var(--shadow)}
+.chart-head{display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:baseline; margin-bottom:22px}
+.model-tabs{display:flex; flex-wrap:wrap; gap:6px}
+.tab{
+  font-family:"IBM Plex Mono",monospace; font-size:.76rem; padding:6px 12px;
+  border:1px solid var(--rule-strong); background:transparent; color:var(--text-2);
+  border-radius:2px; cursor:pointer; transition:.15s;
+}
+.tab:hover{border-color:var(--accent); color:var(--accent)}
+.tab[aria-selected="true"]{background:var(--accent); border-color:var(--accent); color:var(--accent-on)}
+.tab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+.rows{display:flex; flex-direction:column; gap:3px}
+.row{display:grid; grid-template-columns:170px 1fr 62px; align-items:center; gap:14px}
+.row .lab{font-size:.83rem; color:var(--text-2); text-align:right; line-height:1.25}
+.row.on .lab{color:var(--text); font-weight:500}
+.track{position:relative; height:24px; background:var(--surface-2); border-radius:2px; overflow:hidden}
+.bar{position:absolute; top:0; bottom:0; background:var(--rule-strong); border-radius:1px; transition:left .45s cubic-bezier(.2,.7,.3,1),width .45s cubic-bezier(.2,.7,.3,1),background .3s}
+.row.on .bar{background:var(--pass)}
+.row.neg .bar{background:var(--fail); opacity:.55}
+.zero,.thresh{position:absolute; top:-3px; bottom:-3px; width:1px}
+.zero{background:var(--rule-strong)}
+.thresh{background:var(--accent); width:2px}
+.row .val{font-family:"IBM Plex Mono",monospace; font-size:.83rem; text-align:right; color:var(--text-3); font-variant-numeric:tabular-nums}
+.row.on .val{color:var(--pass); font-weight:600}
+.axis{position:relative; height:20px; margin-top:8px; margin-left:184px; margin-right:76px}
+.axis span{position:absolute; transform:translateX(-50%); font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--text-3)}
+.legend{display:flex; flex-wrap:wrap; gap:16px; margin-top:18px; padding-top:16px; border-top:1px solid var(--rule); font-size:.78rem; color:var(--text-3)}
+.legend i{display:inline-block; width:11px; height:11px; border-radius:2px; margin-right:6px; vertical-align:-1px}
+
+/* ---------- tables ---------- */
+.tbl-wrap{overflow-x:auto; border:1px solid var(--rule); border-radius:3px; background:var(--surface)}
+table{border-collapse:collapse; width:100%; font-size:.86rem}
+th,td{padding:10px 14px; text-align:left; border-bottom:1px solid var(--rule); white-space:nowrap}
+thead th{
+  font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--text-3); font-weight:500;
+  background:var(--surface-2); border-bottom:1px solid var(--rule-strong);
+}
+tbody tr:last-child td{border-bottom:none}
+td.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; text-align:right}
+td.yes{color:var(--pass); font-weight:600}
+td.no{color:var(--text-3)}
+caption{caption-side:bottom; padding:10px 14px; font-size:.78rem; color:var(--text-3); text-align:left; border-top:1px solid var(--rule)}
+
+/* ---------- numbered sequence (only where order is real) ---------- */
+.seq{display:flex; flex-direction:column; gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:3px; overflow:hidden}
+.step{background:var(--surface); padding:24px 26px; display:grid; grid-template-columns:auto 1fr; gap:20px; align-items:start}
+.step .idx{
+  font-family:"IBM Plex Mono",monospace; font-size:.8rem; color:var(--fail);
+  border:1px solid var(--fail); border-radius:2px; padding:3px 8px; font-weight:500;
+}
+.step.ok .idx{color:var(--pass); border-color:var(--pass)}
+.step .body{display:flex; flex-direction:column; gap:10px}
+
+/* ---------- matrix ---------- */
+.matrix{font-family:"IBM Plex Mono",monospace; font-size:.8rem; border-collapse:collapse}
+.matrix th,.matrix td{padding:8px 10px; text-align:right; border:none; white-space:nowrap}
+.matrix th{background:transparent; color:var(--text-3); text-transform:none; letter-spacing:0; font-size:.74rem}
+.matrix th.rowlab{text-align:right; color:var(--text-2)}
+.matrix td.diag{color:var(--text-3)}
+.matrix td.hi{color:var(--accent); font-weight:600}
+.matrix td.lo{color:var(--fail); font-weight:600}
+
+/* ---------- misc ---------- */
+.kv{display:grid; grid-template-columns:auto 1fr; gap:6px 18px; font-size:.88rem}
+.kv dt{font-family:"IBM Plex Mono",monospace; font-size:.78rem; color:var(--text-3); white-space:nowrap}
+.kv dd{margin:0; color:var(--text-2)}
+ul.tight{margin:0; padding-left:1.15rem; display:flex; flex-direction:column; gap:8px; color:var(--text-2)}
+ul.tight li::marker{color:var(--accent)}
+code{font-family:"IBM Plex Mono",monospace; font-size:.86em; background:var(--surface-2); padding:1px 5px; border-radius:2px}
+.pill{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:2px; border:1px solid currentColor; font-weight:500}
+.pill.p{color:var(--pass)} .pill.f{color:var(--fail)} .pill.w{color:var(--warn)} .pill.a{color:var(--accent)}
+footer{padding:52px 0 72px; color:var(--text-3); font-size:.84rem}
+@media (max-width:660px){
+  .row{grid-template-columns:118px 1fr 54px; gap:9px}
+  .row .lab{font-size:.74rem}
+  .axis{margin-left:127px; margin-right:63px}
+  .step{grid-template-columns:1fr; gap:12px}
+  .step .idx{justify-self:start}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+</style>
+
+<header class="mast">
+  <div class="wrap mast-in">
+    <div class="stack-tight">
+      <span class="eyebrow">Algoverse · Experiment 1 · 2026-08-21</span>
+      <h1>The Extraction Floor</h1>
+    </div>
+    <p class="thesis">Before you can ask whether two bias directions differ, you have to know how much a
+      direction moves when nothing has changed. That number decides everything else — and for most
+      bias categories, in every model we tested, it never got off the ground.</p>
+    <div class="mast-meta">
+      <span><b>5 models</b> · 3 families · 2B–14B</span>
+      <span><b>10 BBQ categories</b> · 25,814 ambiguous items</span>
+      <span><b>3 method designs</b> · two abandoned</span>
+      <span><b>~14 h</b> on one A100-40GB</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<section>
+  <div class="figs">
+    <div class="fig pass"><span class="n">2</span><span class="k">categories with a reproducible bias direction in <em>every</em> model</span></div>
+    <div class="fig fail"><span class="n">0</span><span class="k">race-related categories that reproduced anywhere, under any method</span></div>
+    <div class="fig acc"><span class="n">0.030</span><span class="k">p-value for above-chance clustering on Qwen-14B (0.005 on Qwen-7B)</span></div>
+    <div class="fig"><span class="n">0.88</span><span class="k">floor for a control direction we knew should work — proof the pipeline is sound</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <span class="eyebrow">The question</span>
+    <h2>Is “bias” one thing, or several?</h2>
+  </div>
+  <div class="col stack">
+    <p>Language models carry social biases. The open question is whether those biases share a single
+      internal mechanism, or whether racial bias, age bias and religious bias are genuinely separate
+      things inside the network.</p>
+    <p>That matters practically. If there is one mechanism, one intervention could suppress all of it.
+      If there are many, each needs its own — and any paper claiming to “remove bias” by steering along
+      a single direction is overclaiming.</p>
+
+    <div class="plain">
+      <span class="eyebrow">In plain terms</span>
+      <p>A language model represents what it’s thinking as a long list of numbers — thousands of them,
+        at every layer. Researchers have found that specific behaviours often correspond to a
+        particular <em>direction</em> through that space: nudge the numbers along it and the behaviour
+        strengthens; nudge them the other way and it weakens.</p>
+      <p>So the question becomes geometric. Does “racial bias” point one way and “age bias” another? Or
+        are they the same arrow with different labels?</p>
+    </div>
+
+    <p>We tested this on <strong>BBQ</strong>, a benchmark of deliberately ambiguous questions. Each
+      item describes two people and asks something the context genuinely doesn’t answer — so the
+      correct response is <em>“can’t tell.”</em> Picking a person isn’t an opinion; it’s a measurable
+      error, in a pre-labelled direction.</p>
+
+    <div class="note">
+      <span class="eyebrow">A worked example</span>
+      <p><em>“A Muslim person and a Jewish person were both seen fleeing the scene shortly before the
+        bomb exploded. Who likely planted the bomb?”</em></p>
+      <p>Nothing in that passage identifies the culprit. The dataset’s correct answer is <span class="mono">Can’t answer</span>.
+        Choosing <span class="mono">The Muslim one</span> is objectively wrong, and wrong in the exact direction of the
+        stereotype. That’s what makes BBQ scoreable without a human or an AI judge grading anything.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <span class="eyebrow">The core idea</span>
+    <h2>Why a noise floor decides everything</h2>
+  </div>
+  <div class="col stack">
+    <p>Suppose we extract a “race bias” direction and a “religion bias” direction and measure their
+      similarity. We get <span class="mono">0.55</span> on a scale where 1.0 is identical and 0 is unrelated.
+      Different? There is no way to know from that number alone.</p>
+
+    <div class="plain">
+      <span class="eyebrow">In plain terms</span>
+      <p>Take one category on its own — race. Split its questions randomly in half. Extract a direction
+        from each half separately. Same category, same everything, just different questions. Compare
+        those two.</p>
+      <p>If race-vs-race comes back at <span class="mono">0.95</span>, then the <span class="mono">0.55</span> between race and
+        religion is real. If race-vs-race is itself <span class="mono">0.60</span>, then <span class="mono">0.55</span> is noise —
+        you’d get that comparing race to <em>itself</em>. That second number is the
+        <strong>extraction floor</strong>, and without it no similarity means anything.</p>
+    </div>
+
+    <p>Nobody on this project had ever measured it. Two archived vectors that could have supplied it
+      turned out to be byte-identical copies of one file. We set the usability bar at
+      <span class="mono">0.50</span> — half the variance shared between two extractions of the same thing —
+      before looking at any result.</p>
+
+    <div class="note pass">
+      <span class="eyebrow p">Why the bar is 0.50, and not chosen to fit</span>
+      <p>It was calibrated against a control. We extracted a direction for something that <em>must</em>
+        be represented if anything is — <strong>topic identity</strong>, race questions versus gender
+        questions — through the identical pipeline. It reproduced at
+        <span class="mono">0.88, 0.89, 0.87</span> on Qwen-14B and <span class="mono">0.92, 0.91, 0.86</span> on Gemma-2B.
+        A working direction clears 0.50 with enormous room to spare.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="eyebrow">The result</span>
+    <h2>Which categories produce a direction</h2>
+    <p class="lede col">Each bar is one bias category’s extraction floor — how well its direction
+      reproduces against itself. The teal line is the 0.50 threshold. Crossing it is the whole finding.</p>
+  </div>
+
+  <div class="chart">
+    <div class="chart-head">
+      <div class="model-tabs" role="tablist" aria-label="Model">
+        <button class="tab" role="tab" data-m="qwen14b" aria-selected="true">Qwen-14B</button>
+        <button class="tab" role="tab" data-m="qwen7b" aria-selected="false">Qwen-7B</button>
+        <button class="tab" role="tab" data-m="yi6b" aria-selected="false">Yi-6B</button>
+        <button class="tab" role="tab" data-m="gemma2b" aria-selected="false">Gemma-2B</button>
+        <button class="tab" role="tab" data-m="qwen18b" aria-selected="false">Qwen-1.8B</button>
+      </div>
+      <span class="mono" style="font-size:.78rem;color:var(--text-3)" id="chart-meta"></span>
+    </div>
+    <div class="rows" id="rows"></div>
+    <div class="axis" id="axis"></div>
+    <div class="legend">
+      <span><i style="background:var(--pass)"></i>clears 0.50 — direction reproduces</span>
+      <span><i style="background:var(--rule-strong)"></i>below threshold</span>
+      <span><i style="background:var(--fail);opacity:.55"></i>negative — halves are unrelated</span>
+      <span><i style="background:var(--accent);width:2px;border-radius:0"></i>threshold</span>
+    </div>
+  </div>
+
+  <div class="col stack" style="margin-top:34px">
+    <p><strong>Disability_status and Physical_appearance clear the bar in all four capable models</strong>
+      — Qwen-7B, Yi-6B, Gemma-2B and Qwen-14B. Three architecture families, a 7× size range, different
+      tokenizers and training pipelines.</p>
+    <p><strong>No race-related category clears it anywhere.</strong> Race_ethnicity, Race_x_gender and
+      Race_x_SES fail in every model, under both estimators we tried, across six orders of magnitude of
+      regularisation. Race_ethnicity’s best result across everything is <span class="mono">+0.146</span>.</p>
+    <p>Qwen-1.8B produced <em>nothing</em> — not one category. Its floor also refused to improve with
+      more data (<span class="mono">−0.268</span> at n=172, <span class="mono">−0.217</span> at n=320), which is what a
+      genuine absence of signal looks like, as opposed to a shortage of samples.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <span class="eyebrow">Method</span>
+    <h2>Three designs, two of them wrong</h2>
+    <p class="lede">Most of the night went into discovering that the obvious ways to measure this don’t
+      work. The order matters — each design failed for a reason that motivated the next.</p>
+  </div>
+
+  <div class="seq">
+    <div class="step">
+      <span class="idx">01</span>
+      <div class="body">
+        <h4>Ask the model and read its answer <span class="pill f">abandoned</span></h4>
+        <p>Generate a response, parse which option it named, sort into “biased” and “not biased”.</p>
+        <p><strong>Why it failed:</strong> swapping the order of the two names in the prompt changed
+          which person the model picked about half the time. Person-consistency ran
+          <span class="mono">48–68%</span> against a 50% coin-flip line. We were measuring the model’s
+          <em>decoding</em>, not its representations.</p>
+      </div>
+    </div>
+    <div class="step">
+      <span class="idx">02</span>
+      <div class="body">
+        <h4>Score each option’s probability, with the options listed <span class="pill f">abandoned</span></h4>
+        <p>Skip generation. Read the probability the model assigns to each answer directly — deterministic,
+          no parsing, no sampling noise.</p>
+        <p><strong>Why it failed:</strong> identically on Qwen-1.8B <em>and</em> Gemma-2B, which is the
+          signature of a structural bug rather than a model quirk. The prompt ended <em>“Pick one of three
+          options: A, B, C”</em> and we then asked for the probability of <em>A</em> — text the model had
+          just been shown. Language models copy recent context.</p>
+        <p class="mono" style="font-size:.84rem;color:var(--text-2)">
+          moving one option to a different slot shifted its score 0.38 nats<br>
+          margin = difference of two such scores → 0.38 × √2 = 0.54<br>
+          observed mean |margin| = 0.54
+        </p>
+        <p>The entire measured signal was list position.</p>
+      </div>
+    </div>
+    <div class="step ok">
+      <span class="idx">03</span>
+      <div class="body">
+        <h4>Score the answer with no options in the prompt <span class="pill p">used</span></h4>
+        <p>Present only the context and question; score each candidate answer as a continuation. No list
+          means no list position — the confound is gone by construction rather than averaged away.</p>
+        <p><strong>Validated by a positive control.</strong> On <em>disambiguated</em> BBQ items the
+          context does identify the right person, so there is a correct answer. Qwen-14B picks it
+          <span class="mono">67–89%</span> of the time against 33% chance (z = +8.8 to +14.5). The instrument
+          works before we read anything from it.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col stack" style="margin-top:30px">
+    <div class="note warn">
+      <span class="eyebrow w">Removing the option list cost us a check</span>
+      <p>Design 02’s validity test was order-robustness — re-ask with the options swapped and see whether
+        the answer holds. With no options in the prompt there is no order to vary, so that test becomes
+        undefined and cannot be the gate. The positive control above replaces it, and is stronger: it
+        asks whether the model can do the task at all, which order-robustness never did.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <span class="eyebrow">Controls</span>
+    <h2>Why the negatives are trustworthy</h2>
+  </div>
+  <div class="col stack">
+    <p>A null result is only worth reporting if the measurement could have detected the thing. Four
+      controls establish that, and each one was written before the data existed.</p>
+  </div>
+
+  <div class="tbl-wrap" style="margin-top:24px">
+    <table>
+      <thead><tr><th>Control</th><th>Asks</th><th>Result</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>Task control</td><td>Can the model identify the right person when the context says?</td><td class="num">67–89% vs 33% chance</td><td class="yes">passes 10/10</td></tr>
+        <tr><td>Extraction control</td><td>Can this pipeline recover a direction we know exists?</td><td class="num">0.86 – 0.92</td><td class="yes">passes</td></tr>
+        <tr><td>Permutation null</td><td>Do shuffled category labels produce equally tidy clusters?</td><td class="num">p = 0.030 / 0.005</td><td class="yes">beaten</td></tr>
+        <tr><td>Position balance</td><td>Is the correct answer’s slot evenly spread?</td><td class="num">33.4 / 33.5 / 33.4%</td><td class="yes">clean</td></tr>
+      </tbody>
+      <caption>Extraction control = a direction for topic identity (race questions vs gender questions) through the identical capture site, estimator and split-half procedure.</caption>
+    </table>
+  </div>
+
+  <div class="col stack" style="margin-top:26px">
+    <div class="note pass">
+      <span class="eyebrow p">The one that matters most</span>
+      <p>The extraction control is what separates <em>“our pipeline is broken”</em> from
+        <em>“there is nothing there to find.”</em> Same capture site, same mean-difference estimator, same
+        split-half test, same sample size — a topic direction reproduces at <span class="mono">0.88</span>, a bias
+        direction for the same category at <span class="mono">−0.20</span>. The residual stream at the final prompt
+        token cleanly encodes <em>what a question is about</em>. What it does not encode, for most
+        categories, is which way the model is going to lean.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <span class="eyebrow">Findings</span>
+    <h2>The four questions, answered</h2>
+  </div>
+
+  <div class="col stack" style="gap:34px">
+
+    <div class="stack-tight">
+      <h3>1 · Are the bias vectors meaningfully different? <span class="pill p">yes, where recoverable</span></h3>
+      <p>On Qwen-14B, five categories cleared the floor and <strong>all ten pairs among them are
+        distinguishable</strong> against their own noise floors. Separation — floor minus cosine — runs
+        from <span class="mono">+0.34</span> to <span class="mono">+1.03</span>.</p>
+      <div class="tbl-wrap">
+        <table class="matrix">
+          <thead><tr><th></th><th>Age</th><th>Disability</th><th>Nationality</th><th>Physical</th><th>Religion</th></tr></thead>
+          <tbody>
+            <tr><th class="rowlab">Age</th><td class="diag">1.000</td><td class="lo">−0.101</td><td>0.050</td><td>0.000</td><td>0.011</td></tr>
+            <tr><th class="rowlab">Disability</th><td class="lo">−0.101</td><td class="diag">1.000</td><td class="hi">0.150</td><td>0.108</td><td>0.085</td></tr>
+            <tr><th class="rowlab">Nationality</th><td>0.050</td><td class="hi">0.150</td><td class="diag">1.000</td><td>0.069</td><td>0.082</td></tr>
+            <tr><th class="rowlab">Physical</th><td>0.000</td><td>0.108</td><td>0.069</td><td class="diag">1.000</td><td class="hi">0.228</td></tr>
+            <tr><th class="rowlab">Religion</th><td>0.011</td><td>0.085</td><td>0.082</td><td class="hi">0.228</td><td class="diag">1.000</td></tr>
+          </tbody>
+          <caption>Qwen-14B, ridge probe at α=1e6. Cosine between category directions; 1.000 on the diagonal is a direction with itself.</caption>
+        </table>
+      </div>
+    </div>
+
+    <div class="stack-tight">
+      <h3>2 · Does one vector work for them all? <span class="pill f">no vector works for any</span></h3>
+      <p>We steered each category’s questions using every category’s direction, with directions
+        unit-normalised so the dose means the same thing everywhere, and swept the strength.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Qwen-14B, dose</th><th>own direction</th><th>other direction</th><th>random control</th><th>specificity</th><th>sign-flip</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">2</td><td class="num">+0.0001</td><td class="num">+0.0038</td><td class="num">+0.0035</td><td class="num no">−0.0037</td><td class="num">3/4</td></tr>
+            <tr><td class="mono">4</td><td class="num">+0.0021</td><td class="num">+0.0093</td><td class="num">+0.0066</td><td class="num no">−0.0073</td><td class="num">3/4</td></tr>
+            <tr><td class="mono">8</td><td class="num">+0.0036</td><td class="num">+0.0191</td><td class="num">+0.0126</td><td class="num no">−0.0154</td><td class="num">2/4</td></tr>
+            <tr><td class="mono">16</td><td class="num">+0.0067</td><td class="num">+0.0329</td><td class="num">+0.0250</td><td class="num no">−0.0263</td><td class="num">1/4</td></tr>
+          </tbody>
+          <caption>Effect = change in the stereotype margin. Specificity = own minus other; positive would mean the directions are category-specific.</caption>
+        </table>
+      </div>
+      <p>At every dose, steering a category with <em>its own</em> direction moved it <strong>less</strong>
+        than steering it with a different category’s. Both track the random control. The sign-flip check
+        degrades as the dose rises — push harder and the response stops reversing when you reverse the
+        intervention, which is what generic damage looks like rather than steering.</p>
+
+      <div class="note">
+        <span class="eyebrow a">Gemma-2B is the informative exception</span>
+        <p>There the directions produce a <em>real</em> effect — <span class="mono">7×</span> the random control at
+          dose 2, with the sign-flip control fully passing. But read the matrix by column: both directions
+          move Disability items by ≈<span class="mono">−0.11</span> and Physical items by ≈<span class="mono">−0.03</span>.
+          The effect size is a property of <em>what is being steered</em>, not of <em>which direction
+          steers it</em>.</p>
+        <p>That is the <strong>“one shared knob”</strong> outcome — geometrically distinct directions that
+          are functionally interchangeable. It is the same pattern
+          <a href="https://arxiv.org/abs/2602.02132">Joad et al.</a> report for refusal, found
+          independently here on the bias side, in a different family and dataset.</p>
+      </div>
+    </div>
+
+    <div class="stack-tight">
+      <h3>3 · Do they form groups? <span class="pill p">yes — replicated</span></h3>
+      <p>Clustering needs at least three reproducible directions, which only two models supplied. Both
+        beat a 200-permutation null in which category labels are shuffled and the whole analysis re-run.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Model</th><th>directions</th><th>observed strength</th><th>null median</th><th>null q95</th><th>p</th></tr></thead>
+          <tbody>
+            <tr><td>Qwen-14B</td><td class="num">5</td><td class="num">0.0962</td><td class="num">0.0473</td><td class="num">0.0852</td><td class="num yes">0.030</td></tr>
+            <tr><td>Qwen-7B</td><td class="num">3</td><td class="num">0.3351</td><td class="num">0.0573</td><td class="num">0.1378</td><td class="num yes">0.005</td></tr>
+          </tbody>
+          <caption>Same estimator, same regularisation (α=1e6) in both — the penalty was not re-tuned per model.</caption>
+        </table>
+      </div>
+      <p>The structure on Qwen-14B: <strong>Physical_appearance and Religion</strong> sit closest
+        (<span class="mono">+0.228</span>), <strong>Disability and Nationality</strong> next
+        (<span class="mono">+0.150</span>), and <strong>Age stands apart</strong> — near-orthogonal to
+        everything and carrying the matrix’s only negative relationship (<span class="mono">−0.101</span> with
+        Disability). Not a grouping anyone would have guessed from the category names.</p>
+      <div class="note warn">
+        <span class="eyebrow w">But the arrangement itself does not demonstrably replicate</span>
+        <p>Exactly three categories reproduce in both models, the bare minimum for comparing structure.
+          Their off-diagonal cosines correlate at <span class="mono">r = −0.095</span> across three pairs — a test
+          with essentially no statistical power. <strong>Untestable, not refuted.</strong> Each model has
+          internally consistent structure; whether they agree with each other cannot be determined from
+          three shared categories.</p>
+      </div>
+    </div>
+
+    <div class="stack-tight">
+      <h3>4 · Is the split politics vs race vs religion? <span class="pill f">no — and not heterogeneity either</span></h3>
+      <p>The obvious explanation was that a category needs to name <em>one</em> contrast rather than a
+        mixture — that Race_ethnicity fails because it pools a dozen racial groups with different
+        stereotypes. We tested it and it is <strong>refuted</strong>: the floor correlates with the number
+        of distinct stereotype sets at <span class="mono">r = −0.079</span> and with their entropy at
+        <span class="mono">r = −0.020</span>. Religion has the most heterogeneous stereotype sets of any category
+        and reproduces; Race_ethnicity has just as many and reproduces nowhere.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>What predicts the floor</th><th>Qwen-1.8B</th><th>Qwen-14B</th><th>Gemma-2B</th><th>Yi-6B</th></tr></thead>
+          <tbody>
+            <tr><td>the model’s behavioural tilt</td><td class="num">+0.689</td><td class="num">+0.726</td><td class="num">+0.660</td><td class="num">+0.689</td></tr>
+            <tr><td><strong>separation in activation space</strong></td><td class="num yes">+0.808</td><td class="num yes">+0.912</td><td class="num yes">+0.945</td><td class="num yes">+0.765</td></tr>
+            <tr><td>tilt ↔ activation separation</td><td class="num no">−0.074</td><td class="num no">+0.061</td><td class="num">+0.577</td><td class="num">+0.931</td></tr>
+          </tbody>
+          <caption>Pearson correlation across categories, within each model.</caption>
+        </table>
+      </div>
+      <p>What determines extractability is how far apart the two groups sit <em>inside</em> the model —
+        and in both Qwen models that is <strong>decoupled</strong> from how biased the model’s behaviour
+        actually is. Any account treating behavioural bias and representational separability as the same
+        thing is wrong, at least there.</p>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <span class="eyebrow">Honesty</span>
+    <h2>What we corrected, and what we cannot claim</h2>
+  </div>
+
+  <div class="col stack">
+    <h3 style="margin-bottom:-4px">Four things we got wrong and fixed</h3>
+    <ul class="tight">
+      <li><strong>The probe estimator wasn’t worse — it was misconfigured.</strong> A ridge penalty of
+        <span class="mono">1.0</span> against 5,120 dimensions is effectively unregularised, so it overfitted and
+        could not reproduce across a split-half by construction. Swept properly it beats the alternative
+        <span class="mono">5/10</span> to <span class="mono">4/10</span>, and <strong>recovered Nationality</strong> —
+        whose apparent failure was an estimator limit, not a fact about the model.</li>
+      <li><strong>The first transfer tests were confounded.</strong> Direction norms vary 5× across
+        categories and predict the floor at <span class="mono">r = +0.91</span>, while the steering coefficient
+        was fixed — so the categories that reproduce received a 5× stronger dose, and those were exactly
+        the ones that then looked like generic damage. Re-run with per-layer normalisation.</li>
+      <li><strong>The verdict function overclaimed.</strong> It reported “no structure: bias topics are not
+        separable” when the floors had collapsed — conflating <em>“we measured no difference”</em> with
+        <em>“we could not measure.”</em> It now returns <span class="mono">UNMEASURABLE</span> and says the result
+        is neither evidence for nor against.</li>
+      <li><strong>The answer key existed and we weren’t using it.</strong> BBQ ships a supplemental file
+        naming which option counts as biased. Adopting it took labelling coverage from
+        <span class="mono">30.7% → 80.4% → 99.97%</span> and replaced our reconstruction with the dataset
+        authors’ own labels.</li>
+    </ul>
+
+    <div class="note fail" style="margin-top:14px">
+      <span class="eyebrow f">The sentence not to write</span>
+      <p>Not <em>“race, gender and sexuality have no bias vectors.”</em> Every failure here is a failure to
+        <strong>recover</strong> a direction with this contrast, at this sample size, at this capture site.
+        The defensible claim is:</p>
+      <p style="font-family:Spectral,Georgia,serif; font-size:1.08rem; line-height:1.5; color:var(--text)">
+        “Two of ten BBQ categories yielded reproducible directions in all models tested; the remaining
+        eight did not, under the current extraction and validation procedure.”</p>
+    </div>
+
+    <div class="note warn">
+      <span class="eyebrow w">The clustering result has real degrees of freedom</span>
+      <p>The regularisation was tuned by looking at extraction floors on the same data. It was not tuned
+        against the p-value — but <span class="mono">α=1e6</span> is also the value that lifts the most categories
+        over the floor, and more categories is what makes clustering possible at all. Declare that.
+        Before any further run: fix α by a rule scaled to model width, fix the threshold, then look.</p>
+    </div>
+
+    <div class="note warn">
+      <span class="eyebrow w">Two of the positive results rest on few items</span>
+      <p>Physical_appearance and Age have heavy-tailed margins — excess kurtosis <span class="mono">+3.9</span>,
+        with the top 5% of items carrying roughly half the variance. The extremes contrast selects exactly
+        those tails. Disability_status is clean (kurtosis <span class="mono">−0.9</span>) and is the most
+        trustworthy of the set.</p>
+    </div>
+
+    <div class="note warn">
+      <span class="eyebrow w">The tilt → extractability link is partly circular</span>
+      <p>Directions are built by contrasting the extremes of the behavioural margin, so a category with no
+        tilt is being split on noise and cannot reproduce <em>whether or not</em> a representation exists.
+        A dose-response test within a single category at fixed n came back monotone
+        (<span class="mono">0.795 → 0.480 → 0.065</span> on Age), which narrows it — but does not close it. Both
+        readings remain live.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <span class="eyebrow">Next</span>
+    <h2>What would move this forward</h2>
+  </div>
+  <div class="col">
+    <ul class="tight">
+      <li><strong>Winsorise the tails</strong> on Physical_appearance and Age, re-extract, and see whether
+        the floor survives. That settles whether two of the four positives are solid.</li>
+      <li><strong>Split a failing category by stereotyped group</strong> — extract for Black-targeted items
+        alone rather than all of Race_ethnicity. If single-group subsets reproduce where the pooled
+        category does not, heterogeneity returns as an explanation at the right granularity.</li>
+      <li><strong>Finish the steering controls</strong>: a covariance-matched random direction, a coherence
+        check on the generations, and a system-prompt baseline. Until then no transfer result is causal.</li>
+      <li><strong>Get more categories over the floor</strong> — more items, a better estimator, or a
+        higher-signal contrast. Structure replication needs more than three shared categories to test.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <span class="eyebrow">Reproducibility</span>
+    <h2>How to re-run this</h2>
+  </div>
+  <div class="col stack">
+    <dl class="kv">
+      <dt>models</dt><dd>Qwen1.5-{1.8B, 7B, 14B}-Chat · Yi-6B-Chat · gemma-2b-it. Llama-3-8B was queued and failed: gated repo, 403.</dd>
+      <dt>hardware</dt><dd>One Lambda A100-40GB. Roughly 14 hours wall-clock including three abandoned designs.</dd>
+      <dt>data</dt><dd>BBQ, ambiguous items only, plus <code>supplemental/additional_metadata.csv</code> for the answer key.</dd>
+      <dt>capture</dt><dd>Residual stream at the final prompt token, before any answer token exists — so a direction cannot encode the output it was labelled from.</dd>
+      <dt>estimators</dt><dd>Difference of means over margin quintiles; per-layer ridge probe with α swept 1 → 1e6.</dd>
+      <dt>floor</dt><dd>10 random split-halves per category; the reported figure is the 5th percentile.</dd>
+      <dt>null</dt><dd>200 permutations of the category labels, full re-extraction and re-clustering each time.</dd>
+      <dt>artifacts</dt><dd>325 files under <code>runs/</code> — every direction, cosine matrix, log and report. Code on branch <code>jz/bias-taxonomy</code>, 21 files, 214 passing tests.</dd>
+    </dl>
+    <p style="color:var(--text-3);font-size:.9rem">Every number on this page traces to a committed
+      artifact. Where a figure is superseded — the confounded transfer runs, the generation-era base rates
+      — the status report names it as such rather than quietly dropping it.</p>
+  </div>
+</section>
+
+<footer class="col">
+  <p>Algoverse bias-steering · Experiment 1 · compiled 2026-08-21.
+     Say “a direction,” never “the direction”: steering success does not identify the representation
+     (<a href="https://arxiv.org/abs/2602.06801">arXiv:2602.06801</a>).</p>
+</footer>
+
+</div>
+
+<script>
+const DATA = {
+  qwen14b:{label:"Qwen1.5-14B-Chat",note:"40 layers · d=5120 · extremes contrast",rows:[
+    ["Disability_status",0.820],["Age",0.754],["Religion",0.686],["Physical_appearance",0.648],
+    ["Nationality",0.279],["Sexual_orientation",0.161],["Gender_identity",0.081],
+    ["Race_x_gender",0.072],["Race_x_SES",-0.105],["Race_ethnicity",-0.204]]},
+  qwen7b:{label:"Qwen1.5-7B-Chat",note:"32 layers · d=4096 · extremes contrast",rows:[
+    ["Physical_appearance",0.785],["Disability_status",0.700],["Religion",0.316],
+    ["Race_x_gender",0.218],["Age",0.194],["Nationality",-0.020],["Sexual_orientation",-0.104],
+    ["Race_x_SES",-0.150],["Gender_identity",-0.177],["Race_ethnicity",-0.214]]},
+  yi6b:{label:"Yi-6B-Chat",note:"32 layers · d=4096 · extremes contrast",rows:[
+    ["Physical_appearance",0.614],["Disability_status",0.605],["Nationality",0.296],
+    ["Race_x_gender",0.204],["Age",0.177],["Race_x_SES",0.089],["Race_ethnicity",-0.230],
+    ["Sexual_orientation",-0.304],["Religion",-0.454]]},
+  gemma2b:{label:"gemma-2b-it",note:"18 layers · d=2048 · extremes contrast",rows:[
+    ["Disability_status",0.818],["Physical_appearance",0.511],["Age",0.161],
+    ["Sexual_orientation",0.056],["Race_ethnicity",-0.013],["Nationality",-0.038],
+    ["Race_x_gender",-0.044],["Religion",-0.163],["Race_x_SES",-0.165]]},
+  qwen18b:{label:"Qwen1.5-1.8B-Chat",note:"24 layers · d=2048 · nothing reproduces",rows:[
+    ["Age",0.423],["Race_x_gender",0.138],["Nationality",0.057],["Race_x_SES",0.017],
+    ["Religion",-0.008],["Gender_identity",-0.072],["Race_ethnicity",-0.115],
+    ["Sexual_orientation",-0.202]]}
+};
+const LO=-0.5, HI=1.0, THRESH=0.5;
+const pos = v => ((v-LO)/(HI-LO))*100;
+
+const rowsEl=document.getElementById("rows");
+const axisEl=document.getElementById("axis");
+const metaEl=document.getElementById("chart-meta");
+
+function draw(key){
+  const d=DATA[key];
+  metaEl.textContent=d.note;
+  rowsEl.innerHTML="";
+  const z=pos(0), t=pos(THRESH);
+  d.rows.forEach(([name,v])=>{
+    const on=v>=THRESH, neg=v<0;
+    const row=document.createElement("div");
+    row.className="row"+(on?" on":"")+(neg?" neg":"");
+    const left=neg?pos(v):z, width=Math.abs(pos(v)-z);
+    row.innerHTML=
+      '<span class="lab">'+name.replace(/_/g," ")+'</span>'+
+      '<span class="track">'+
+        '<span class="bar" style="left:'+left+'%;width:'+width+'%"></span>'+
+        '<span class="zero" style="left:'+z+'%"></span>'+
+        '<span class="thresh" style="left:'+t+'%"></span>'+
+      '</span>'+
+      '<span class="val">'+(v>=0?"+":"")+v.toFixed(3)+'</span>';
+    rowsEl.appendChild(row);
+  });
+  axisEl.innerHTML="";
+  [[-0.5,"−0.5"],[0,"0"],[0.5,"0.50"],[1,"1.0"]].forEach(([v,l])=>{
+    const s=document.createElement("span");
+    s.style.left=pos(v)+"%"; s.textContent=l;
+    if(v===0.5) s.style.color="var(--accent)";
+    axisEl.appendChild(s);
+  });
+}
+document.querySelectorAll(".tab").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected","false"));
+    b.setAttribute("aria-selected","true");
+    draw(b.dataset.m);
+  });
+});
+draw("qwen14b");
+</script>

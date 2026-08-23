@@ -1,0 +1,53 @@
+{
+  "model": "gemma-2b",
+  "coeff": 10.0,
+  "normalized": true,
+  "categories": [
+    "Disability_status",
+    "Physical_appearance"
+  ],
+  "baseline_margin": {
+    "Disability_status": 0.2525936096906662,
+    "Physical_appearance": 1.668115895986557
+  },
+  "effects": {
+    "Disability_status": {
+      "Disability_status": -0.5415861129760742,
+      "Physical_appearance": -0.2543510735034942
+    },
+    "Physical_appearance": {
+      "Disability_status": -0.4666637271642685,
+      "Physical_appearance": -0.32368806600570665
+    }
+  },
+  "controls": {
+    "random_Disability_status": {
+      "Disability_status": 0.11301704943180085,
+      "Physical_appearance": 0.013857933878898665
+    },
+    "random_Physical_appearance": {
+      "Disability_status": 0.07895123958587646,
+      "Physical_appearance": -0.05275868773460379
+    }
+  },
+  "sign_flip": {
+    "Disability_status": {
+      "pos": -0.5415861129760742,
+      "neg": -0.030303080379962904,
+      "opposite_signs": false
+    },
+    "Physical_appearance": {
+      "pos": -0.32368806600570665,
+      "neg": -0.1201453864574431,
+      "opposite_signs": false
+    }
+  },
+  "summary": {
+    "mean_own_effect": -0.4326370894908904,
+    "mean_cross_effect": -0.36050740033388134,
+    "mean_random_effect": 0.06464622765779494,
+    "specificity_own_minus_cross": -0.07212968915700907,
+    "n_sign_flips_good": 0,
+    "n_categories": 2
+  }
+}

@@ -1,0 +1,43 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  17%|█▋        | 49/291 [00:00<00:00, 468.50it/s]Loading weights:  33%|███▎      | 96/291 [00:00<00:00, 436.46it/s]Loading weights:  48%|████▊     | 140/291 [00:00<00:00, 426.10it/s]Loading weights:  63%|██████▎   | 183/291 [00:00<00:00, 390.31it/s]Loading weights:  77%|███████▋  | 223/291 [00:00<00:00, 390.39it/s]Loading weights:  91%|█████████▏| 266/291 [00:00<00:00, 399.15it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 415.09it/s]
+Loaded pretrained model 01-ai/Yi-6B-Chat into HookedTransformer
+Moving model to device:  cuda
+yi-6b  n_layers=32 d_model=4096
+alphas: [1.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0]
+
+category                      1e+00      1e+02      1e+03      1e+04      1e+05      1e+06
+------------------------------------------------------------------------------------------
+Religion                     0.070     -0.018     -0.118     -0.231     -0.254     -0.257 
+Race_ethnicity               0.052      0.039     -0.093     -0.187     -0.206     -0.207 
+Gender_identity           (no cached margins - skipped)
+Age                          0.170      0.214      0.209      0.103      0.072      0.068 
+Nationality                  0.093      0.128      0.200      0.327      0.297      0.293 
+Physical_appearance          0.382      0.552*     0.606*     0.522*     0.485      0.481 
+Disability_status            0.491      0.650*     0.748*     0.876*     0.871*     0.870*
+Sexual_orientation           0.089      0.083      0.066     -0.116     -0.144     -0.148 
+Race_x_gender                0.083      0.145      0.157      0.282      0.312      0.272 
+Race_x_SES                   0.000     -0.027     -0.037      0.047      0.098      0.063 
+
+* clears the usability threshold (0.5)
+
+best alpha per category:
+  Disability_status        alpha=    1e+04  q05=+0.876  USABLE
+  Physical_appearance      alpha=    1e+03  q05=+0.606  USABLE
+  Nationality              alpha=    1e+04  q05=+0.327  
+  Race_x_gender            alpha=    1e+05  q05=+0.312  
+  Age                      alpha=    1e+02  q05=+0.214  
+  Race_x_SES               alpha=    1e+05  q05=+0.098  
+  Sexual_orientation       alpha=    1e+00  q05=+0.089  
+  Religion                 alpha=    1e+00  q05=+0.070  
+  Race_ethnicity           alpha=    1e+00  q05=+0.052  
+
+categories reproducible under SOME alpha: 2 -> ['Physical_appearance', 'Disability_status']
+Compare against the extremes contrast, which reproduced 4/10 on
+qwen-14b (Disability_status, Age, Religion, Physical_appearance).
+
+If a tuned probe lifts categories the extremes contrast missed, then
+'no recoverable direction' was an estimator limit for those categories,
+not a fact about the model.
+
+written to runs/_probe_alpha_sweep_yi-6b.json
