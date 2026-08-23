@@ -33,7 +33,7 @@ qwen-1.8b scores 8. See `notes/09-open-questions-answered.md` Q2.
 ## 2. Where everything is
 
 ```
-C:\Users\Jeremiah Zhang\research\soft-refusal-algoverse\
+<project-root>\
 ├── README.md          ← you are here
 ├── notes\             12 documents; see §3 for which to read
 ├── runs\              325 files, 100 MB — every result artifact
@@ -86,7 +86,7 @@ superseded twice. Do not plan from them.
 
 ## 4. Environment — things that will waste your time if you don't know them
 
-**Python.** Use `C:\Users\Jeremiah Zhang\anaconda3\python.exe`. The conda env
+**Python.** Use `<your-anaconda>\python.exe`. The conda env
 named `algoverse` is a **broken stub** — it has a `conda-meta` directory and no
 interpreter. The base env has numpy, scipy, sklearn, matplotlib and pytest.
 No torch locally, by design: all analysis code is torch-free and runs on CPU.
@@ -143,34 +143,8 @@ that matter most:
 7. The project is **frozen** (`RESEARCH_CONTRACT.md` §12). Work entering the paper
    needs a dated amendment.
 
----
 
-## 6. How Jeremiah wants to work
-
-These are standing preferences, learned by correction. They are also in the
-agent's persistent memory, but state them here so they survive a memory reset.
-
-- **Plan fully, then execute once.** Most of the effort goes into the plan;
-  execution is one clean pass. No changing parameters, code or scope mid-run. If
-  you are editing analysis code while a GPU bills, planning was not finished.
-- **Stop him before mistakes.** Raise design problems *before* running, not in a
-  caveat afterwards. He would rather be stopped than proceed into a bad result.
-- **Evaluate critiques on the merits.** He often brings outside critiques from
-  other models. Judge each claim independently and say plainly which parts are
-  wrong. Agreeing with everything reads as instability and destroys the signal
-  value of agreement. Check claims against data where you can.
-- **Explain in plain language.** He is building the ML and linear-algebra
-  background as he goes. Define terms on first use; prefer a concrete example with
-  real numbers. He follows the substance well — don't simplify that, just don't
-  assume vocabulary.
-- **Never delete a superseded plan.** Mark it superseded and keep it. He has
-  corrected this twice.
-- **Only use browser automation when he explicitly asks.** It consumes his usage
-  allowance quickly.
-
----
-
-## 7. Experiment 1 — the state of the result
+## 6. Experiment 1 — the state of the result
 
 **Established:**
 - `Disability_status` and `Physical_appearance` produce reproducible directions in
@@ -206,7 +180,7 @@ agent's persistent memory, but state them here so they survive a memory reset.
 
 ---
 
-## 8. What to do next
+## 7. What to do next
 
 **Do not start Experiment 2 by writing code.** Start with
 `notes/11-EXPERIMENT-PROTOCOL.md` §4 and produce `notes/PREREG-exp2.md`. A blank
@@ -235,7 +209,7 @@ Candidate next experiments, in rough value order — Jeremiah decides:
 
 ---
 
-## 9. The one-paragraph version
+## 8. The one-paragraph version
 
 Experiment 1 asked whether different kinds of bias have different directions
 inside a language model. Two categories — disability and physical appearance —

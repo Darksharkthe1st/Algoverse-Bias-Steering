@@ -110,7 +110,7 @@ predate the answer key and used the reconstruction.
 ## 6. Artifacts written this session
 
 All of `runs/` exists **on both** the box and the laptop
-(`C:\Users\Jeremiah Zhang\research\soft-refusal-algoverse\runs`), synced by
+(`<project-root>\runs`), synced by
 `sync_from_box.ps1`, which verifies every file is non-empty, that JSON parses and
 that `.npy` headers are valid.
 
@@ -213,7 +213,7 @@ re-run successfully afterwards), the deliberately-killed first `qwen7b_extremes`
 
 ## 10. Where everything is
 
-- **Laptop:** `C:\Users\Jeremiah Zhang\research\soft-refusal-algoverse\`
+- **Laptop:** `<project-root>\`
   - `runs/` — **275 files, 64.6 MB**, synced and verified (non-empty, JSON
     parses, `.npy` headers valid)
   - `notes/` — this report, the results, the plan, the literature read
