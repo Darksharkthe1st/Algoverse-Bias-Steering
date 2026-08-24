@@ -19,6 +19,7 @@ from .registry import register, METHODS
 def resid_pre_hook_names(n_layers: int) -> list[str]:
     """The `resid_pre` hook point at every layer — where residuals are read and
     steering is injected (torch-free; used by both capture and apply)."""
+    assert n_layers >= 1, f"n_layers must be >= 1, got {n_layers}"
     return [f"blocks.{layer}.hook_resid_pre" for layer in range(n_layers)]
 
 
@@ -54,8 +55,17 @@ def build_mean_difference(resids_by_label: dict, contrast: tuple):
     import torch
 
     pos_label, neg_label = contrast
+    for lbl in (pos_label, neg_label):
+        assert resids_by_label.get(lbl), (
+            f"contrast label {lbl!r} has no captured residuals; available with "
+            f"data: {[k for k, v in resids_by_label.items() if v]}"
+        )
     pos = torch.stack(resids_by_label[pos_label]).mean(dim=0)
     neg = torch.stack(resids_by_label[neg_label]).mean(dim=0)
+    assert pos.ndim == 2 and pos.shape == neg.shape, (
+        f"pos/neg residual means must both be (n_layers, d_model) and match; "
+        f"got pos {tuple(pos.shape)}, neg {tuple(neg.shape)}"
+    )
     return pos - neg
 
 
@@ -70,6 +80,12 @@ def apply_resid_pre_add(model, vector, coeff: float):
     import functools
 
     n_layers = model.cfg.n_layers
+    d_model = model.cfg.d_model
+    assert vector.ndim == 2 and tuple(vector.shape) == (n_layers, d_model), (
+        f"steering vector: expected (n_layers, d_model) = {(n_layers, d_model)}, "
+        f"got {tuple(vector.shape)} — a 1-D vector would broadcast as a scalar DC "
+        "offset, not a direction (see CLAUDE.md §6 / docs/REVIVAL_AUDIT.md)"
+    )
     scaled = coeff / n_layers
 
     def _steer(value, hook, vec):

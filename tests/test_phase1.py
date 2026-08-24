@@ -157,16 +157,29 @@ def test_mean_diff_method_defaults():
 
 class _StubCfg:
     n_layers = 3
+    d_model = 4
 
 
 class _StubModel:
     cfg = _StubCfg()
 
 
+class _StubVector:
+    """A torch-free stand-in: apply only reads .ndim/.shape (for the shape guard)
+    and indexes it per layer when building hooks; the tensor math runs only when a
+    hook fires during generation, which this structural test does not do."""
+
+    ndim = 2
+    shape = (3, 4)  # (n_layers, d_model)
+
+    def __getitem__(self, layer):
+        return f"v{layer}"
+
+
 def test_apply_builds_hooks_structure_without_torch():
-    # building hooks needs only n_layers + an indexable vector; torch is used only
-    # when the hook fires during generation.
-    hooks = steering.apply_resid_pre_add(_StubModel(), ["v0", "v1", "v2"], coeff=6.0)
+    # building hooks needs only n_layers + an indexable (n_layers, d_model) vector;
+    # torch is used only when the hook fires during generation.
+    hooks = steering.apply_resid_pre_add(_StubModel(), _StubVector(), coeff=6.0)
     assert [name for name, _ in hooks] == steering.resid_pre_hook_names(3)
     assert len(hooks) == 3
 

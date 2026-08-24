@@ -59,12 +59,24 @@ artifact claims its row."
 
 ## 2. Assert residual tensor shape before stacking
 
-**Status: partially done (2026-08-24).** `steering.capture_mean` and
-`capture_last` now assert (a) each cached `resid_pre` is `(1, seq, d_model)` with
-batch == 1 — catching the silent batched-cache / `.squeeze(0)` regression — and (b)
-the stacked output is `(n_layers, d_model)`. **Still open:** the `build` /
-`save_vector` end (assert the built vector is `(n_layers, d_model)` before it's
-saved and applied), and `save_residuals` itself.
+**Status: mostly done (2026-08-24).** `steering.py` is now guarded end to end:
+- `capture_mean` / `capture_last`: each cached `resid_pre` is `(1, seq, d_model)`
+  with batch == 1 (catches the silent batched-cache / `.squeeze(0)` regression), and
+  the stacked output is `(n_layers, d_model)`.
+- `build_mean_difference`: both contrast labels have captured residuals (clear error
+  listing available labels instead of a bare `KeyError`), and the pos/neg means are
+  matching 2-D `(n_layers, d_model)`.
+- `apply_resid_pre_add`: **the vector is `(n_layers, d_model)`** before hooks are
+  built — the exact guard `CLAUDE.md` §6 mandates against the retracted 1-D → scalar
+  DC-offset bug (`docs/REVIVAL_AUDIT.md`).
+- `resid_pre_hook_names`: `n_layers >= 1`.
+- Test updated: `tests/test_phase1.py::test_apply_builds_hooks_structure_without_torch`
+  now uses a torch-free `_StubVector` (with `.ndim`/`.shape`) + `_StubCfg.d_model`, so
+  the structural test still runs without torch and exercises the new shape guard.
+
+**Still open:** `artifacts.save_residuals` (assert each per-example residual is
+`(n_layers, d_model)` before `torch.stack`) and `artifacts.save_vector` (assert the
+vector shape at the persistence boundary too).
 
 **Idea.** In `artifacts.save_residuals` (and/or `steering.capture`), assert each
 per-example residual is `(n_layers, d_model)` before `torch.stack`, instead of
