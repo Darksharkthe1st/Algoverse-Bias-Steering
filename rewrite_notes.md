@@ -113,3 +113,77 @@ into a reusable asset and makes `build` auditable offline.
 - If they're going to stay write-only, the alternative is to *stop writing them by
   default* (a config flag) and save the disk/time — decide whether the artifact
   earns its keep before building a loader for it.
+
+---
+
+## 4. `datasets._resolve`: fail loud on a non-existent resolved path
+
+**Observation.** `_resolve` has a binary model — absolute → use as-is; anything
+else → join under repo root. But "not absolute" ≠ "relative to root." A path
+anchored at the root's *parent* (or a higher ancestor) — exactly what you get when
+the string starts with the repo dir name (`Algoverse-Bias-Steering/datasets/...`,
+as when copied from a file browser or tab-completed from `GitHub/`) — is blindly
+joined under root, producing a doubled, non-existent
+`<root>/Algoverse-Bias-Steering/datasets/...`. It's the most *natural* wrong input,
+and there's no check at resolve time: the bad path surfaces much later as an opaque
+`FileNotFoundError` deep in a loader's `open()`, showing the confusing doubled path
+with no hint that resolution was the culprit. (An explicit `../Algoverse-.../...`
+with a leading `..` does resolve correctly — the gap is the *bare* parent-relative
+path.)
+
+**Idea.** Validate in `_resolve`: if the resolved path doesn't exist, raise a clear
+error naming both the attempted absolute path and the repo root, so the
+doubled-name mistake is obvious immediately instead of 40 lines into a loader.
+
+**Why.** The ambiguity is fundamental — a bare relative string like `foo/bar` is
+genuinely indistinguishable between "relative to root" and "relative to root's
+parent," so no rule can disambiguate from the string alone. The honest fix isn't
+smarter resolution, it's **failing loud and early** at the resolution boundary.
+
+**Shape.**
+- After computing the resolved path, `if not resolved.exists(): raise
+  FileNotFoundError(...)` with a message showing the input, the resolved absolute
+  path, and the repo root.
+- Keep it in `_resolve` so every loader benefits (they all route paths through it).
+
+**Explicitly not doing:** no fallback heuristic (e.g. retry `root.parent/path` or
+strip a leading repo-name segment). It would rescue the natural case but can mask
+real typos. Fail loud and proud instead.
+
+---
+
+## 5. Decouple the new package from legacy `src/data.py`
+
+**Observation.** `src/bias_steer/datasets.py` reaches out of its own package into
+the frozen legacy module `src/data.py`, importing 3 loaders at call time:
+`load_plain_dataset`, `load_crows_pairs`, `load_hidden_bias_dataset`. The other two
+loaders are already self-contained — `load_bbq` reimplements the prompt inline (its
+docstring only *references* the legacy version) and `load_stereoset` reads JSON
+directly. `src/data.py` is retained because the legacy consumers still import it:
+`examples/data.ipynb`, `experiments/farhan-experimentation.ipynb`, and (as a
+deliberate equivalence check) `tests/test_phase1.py`. Two of its functions
+(`load_custom_dataset`, `load_bbq_dataset`) are legacy-only, unused by the package.
+
+**Why.** The new package isn't self-contained — it has a lateral/upward dependency
+on frozen legacy code. That makes `src/data.py` effectively un-editable (the
+notebook depends on it), so the new pipeline is stuck inheriting legacy quirks it
+can't safely fix. Clean separation lets the two layers diverge safely in both
+directions. Notably, arch roadmap §3.3 says the legacy loaders should "*become the
+bodies* of these functions" — i.e. copy the code in, not `import` and call. So the
+current import-wrapping is the *deviation*; inlining **restores** the documented
+design rather than reopening it (cleanup, not a scope change).
+
+**Shape.**
+- Inline the 3 wrapped loader bodies directly into `datasets.py` (~40 lines of
+  small CSV/txt parsing); delete every `from src.data import ...` in the package.
+- Leave `src/data.py` byte-for-byte as-is — purely legacy, owned by the two
+  notebooks. Do not modify it (keeps `experiments/` untouched, arch §12).
+- Keep the `test_phase1` legacy import but re-label it explicitly as a
+  *frozen-legacy equivalence anchor* (its purpose is proving new inline BBQ == old
+  output).
+- Optional: document the rule "`bias_steer` must not import from `src.data`" in the
+  arch roadmap / `docs/SOURCES_OF_TRUTH.md` so the coupling doesn't creep back.
+
+**Caveat.** Duplicates parsing logic across the old and new loaders. Acceptable
+because legacy is frozen: the duplication is static, and the inlined copy becomes
+the sole source of truth going forward. That divergence is the goal, not a regret.
