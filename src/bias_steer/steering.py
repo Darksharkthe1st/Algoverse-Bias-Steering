@@ -32,9 +32,17 @@ def capture_mean(cache, n_layers: int):
     per_layer = []
     for layer in range(n_layers):
         resid = cache[f"blocks.{layer}.hook_resid_pre"]  # (1, seq, d_model)
+        assert resid.ndim == 3 and resid.shape[0] == 1, (
+            f"resid_pre at layer {layer}: expected (1, seq, d_model), got "
+            f"{tuple(resid.shape)} — capture assumes a single, unbatched response"
+        )
         resid = resid.mean(dim=1).squeeze(0)             # (d_model,)
         per_layer.append(resid.detach().clone())
-    return torch.stack(per_layer)
+    out = torch.stack(per_layer)
+    assert out.ndim == 2 and out.shape[0] == n_layers, (
+        f"captured residual: expected (n_layers, d_model), got {tuple(out.shape)}"
+    )
+    return out
 
 
 def build_mean_difference(resids_by_label: dict, contrast: tuple):
@@ -86,9 +94,17 @@ def capture_last(cache, n_layers: int):
     per_layer = []
     for layer in range(n_layers):
         resid = cache[f"blocks.{layer}.hook_resid_pre"]  # (1, seq, d_model)
+        assert resid.ndim == 3 and resid.shape[0] == 1, (
+            f"resid_pre at layer {layer}: expected (1, seq, d_model), got "
+            f"{tuple(resid.shape)} — capture assumes a single, unbatched response"
+        )
         resid = resid[:, -1, :].squeeze(0)               # last token -> (d_model,)
         per_layer.append(resid.detach().clone())
-    return torch.stack(per_layer)
+    out = torch.stack(per_layer)
+    assert out.ndim == 2 and out.shape[0] == n_layers, (
+        f"captured residual: expected (n_layers, d_model), got {tuple(out.shape)}"
+    )
+    return out
 
 
 @dataclass

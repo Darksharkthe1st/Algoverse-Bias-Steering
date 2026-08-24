@@ -59,6 +59,13 @@ artifact claims its row."
 
 ## 2. Assert residual tensor shape before stacking
 
+**Status: partially done (2026-08-24).** `steering.capture_mean` and
+`capture_last` now assert (a) each cached `resid_pre` is `(1, seq, d_model)` with
+batch == 1 — catching the silent batched-cache / `.squeeze(0)` regression — and (b)
+the stacked output is `(n_layers, d_model)`. **Still open:** the `build` /
+`save_vector` end (assert the built vector is `(n_layers, d_model)` before it's
+saved and applied), and `save_residuals` itself.
+
 **Idea.** In `artifacts.save_residuals` (and/or `steering.capture`), assert each
 per-example residual is `(n_layers, d_model)` before `torch.stack`, instead of
 trusting the shape.
@@ -187,3 +194,39 @@ design rather than reopening it (cleanup, not a scope change).
 **Caveat.** Duplicates parsing logic across the old and new loaders. Acceptable
 because legacy is frozen: the duplication is static, and the inlined copy becomes
 the sole source of truth going forward. That divergence is the goal, not a regret.
+
+---
+
+## 6. Shuffle inside `sample()` after stratifying
+
+**Observation.** `sample`'s `per_group` stage concatenates groups in sorted order
+(`for g in sorted(groups, ...): picked.extend(items[:n])`), so the returned list is
+**blocked by group** (all of category A, then all of B, …). The `limit` stage
+preserves that order too (it selects random indices but rebuilds in original
+order). A positional train/test slice over a blocked list would be badly
+imbalanced. Today this is patched *by the caller* — `experiment.py:87` does
+`random.Random(config.sample.seed).shuffle(examples)` right after `sample()`,
+before the `examples[:n_train]` split — not by `sample()` itself.
+
+**Idea.** Do the final shuffle *inside* `sample()`, so it returns a de-blocked
+(interleaved) representative subset, and the caller no longer has to know to shuffle
+before slicing.
+
+**Why.** The current split of responsibility is a leaky contract: `sample()`
+creates the ordering problem but leaves the fix to whoever calls it. Any other
+consumer (analysis, tests, a future caller) that slices `sample()`'s output without
+knowing to shuffle first hits a silent category-imbalance footgun. Encapsulating
+makes the contract "returns a randomly-ordered representative sample," full stop.
+
+**Shape.**
+- Add `rng.shuffle(out)` at the end of `sample()`, reusing the existing seeded
+  `rng` (still deterministic).
+- Then drop the now-redundant `random.Random(...).shuffle(...)` at
+  `experiment.py:87` (or keep it as defensive no-harm double-shuffle).
+
+**Caveat.** This changes the exact ordering — and therefore the exact train/test
+partition — versus today, because the in-`sample` shuffle continues the existing
+`rng` stream (already advanced by per_group/limit) rather than a fresh
+`random.Random(seed)`. Reproducibility going forward is preserved, but historical
+splits won't reproduce bit-for-bit. Minor, but worth flagging given the repo's
+emphasis on reproducible subsets (seed recorded in the manifest).
