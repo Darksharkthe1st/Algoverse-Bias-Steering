@@ -301,6 +301,24 @@ emphasis on reproducible subsets (seed recorded in the manifest).
 
 ## 7. Log judge retries (transient failures currently vanish)
 
+**Status: A + B done, C declined (2026-08-25).**
+- **(A) logging:** `_call_with_retry` emits a `logging.warning` per retry (attempt +
+  error type) via `_log = getLogger("bias_steer.judge")`; `_judge_async` emits a
+  per-phase summary ("judge: N retries across M item(s), all recovered"). Stdlib
+  logging, so the `(responses, examples, spec) -> list[str]` contract is unchanged.
+- **(B) narrow except:** retries only `_transient_errors()` (a lazy openai import of
+  `RateLimitError`/`APITimeoutError`/`APIConnectionError`/`InternalServerError`);
+  everything else (400/auth/etc.) fails fast — no pointless backoff.
+- **(C) declined:** deliberately NOT swallowing terminal failures into `UNMATCHED` — a
+  terminal transient exhaustion still re-raises to abort the phase loudly (consistent
+  with the fail-loud ethos of [[#4]]; a bad API key must crash, not silently yield
+  all-`UNMATCHED`).
+- **Testable design:** retry *mechanism* decoupled from *policy* — `_call_with_retry`
+  takes the `transient` tuple + a `stats` dict, and backoff is a swappable
+  `_backoff_seconds(attempt)`. Three openai-free tests in `test_phase1` (stub client +
+  fake exception classes + zeroed backoff) cover retry-then-succeed, fail-fast, and
+  re-raise-after-exhaustion.
+
 **Observation.** `judge._call_with_retry` retries a chat completion up to
 `_MAX_RETRIES` times with exponential backoff, but a retry that eventually succeeds
 leaves **no trace** — the function returns the good result and the failed attempts
@@ -336,6 +354,15 @@ already gone.
 ---
 
 ## 8. Determinism test: same config + same code → identical results
+
+**Status: done (2026-08-25).** Hermetic version implemented as
+`test_phase2::test_run_is_deterministic_under_same_config_and_code`: runs `experiment.run`
+twice (stub model + stub judge, two temp `runs_dir`s so run folders never collide) and
+asserts `examples.csv` byte-identical (proves sample → seeded shuffle → positional split
+is stable — guards [[#6]]), `results.csv` identical after dropping the timestamp-derived
+`run_id` column, and equal `counts`/`quality`. Deliberately does NOT compare
+run_id/timestamps/git SHA (per the caveat). The real end-to-end double-run (GPT +
+CUDA nondeterminism) is out of scope for the suite as noted.
 
 **Idea.** Since the whole point of the seeds in this pipeline is reproducibility,
 add a test that runs the pipeline **twice under the exact same config and code** and

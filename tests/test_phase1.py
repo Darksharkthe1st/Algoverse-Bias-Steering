@@ -11,6 +11,7 @@ run on a GPU box where torch is installed. Everything else runs anywhere.
 
 import os
 import sys
+import types
 from pathlib import Path
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -220,6 +221,104 @@ def test_parse_verdict_variants():
 
 def test_unmatched_bucket_name():
     assert UNMATCHED == "nonsense"
+
+
+# ---------------------------------------------------------------- judge retry (#7)
+# Exercises the retry *mechanism* (retry/backoff/log/count + fail-fast) with injected
+# fake exception classes and a stub client — no openai, no real sleeps. The *policy*
+# (which openai classes are transient) is a trivial lazy import, checked separately.
+
+def _stub_client(behaviour):
+    """Async chat client whose `.chat.completions.create` runs `behaviour(n_call)`."""
+    class _Stub:
+        def __init__(self):
+            self.calls = 0
+            self.chat = types.SimpleNamespace(completions=self)
+
+        async def create(self, model, messages):
+            self.calls += 1
+            return behaviour(self.calls)
+    return _Stub()
+
+
+def _reply(content):
+    return types.SimpleNamespace(
+        choices=[types.SimpleNamespace(message=types.SimpleNamespace(content=content))]
+    )
+
+
+def _run_retry(client, transient, stats):
+    import asyncio
+    from src.bias_steer import judge
+    orig = judge._backoff_seconds
+    judge._backoff_seconds = lambda attempt: 0          # no real sleeps in tests
+    try:
+        return asyncio.run(
+            judge._call_with_retry(client, "m", [], transient=transient, stats=stats)
+        )
+    finally:
+        judge._backoff_seconds = orig
+
+
+def test_judge_retries_transient_then_succeeds():
+    class _Transient(Exception):
+        pass
+
+    def behaviour(n):
+        if n <= 2:
+            raise _Transient("rate limited")
+        return _reply("  ANSWER: neutral  ")
+
+    client = _stub_client(behaviour)
+    stats = {"retries": 0, "items_retried": 0}
+    reply = _run_retry(client, (_Transient,), stats)
+    assert reply == "ANSWER: neutral"                   # succeeded + stripped
+    assert client.calls == 3                            # 2 failures + 1 success
+    assert stats == {"retries": 2, "items_retried": 1}  # counted for the summary
+
+
+def test_judge_fails_fast_on_non_transient():
+    class _Transient(Exception):
+        pass
+
+    class _Permanent(Exception):
+        pass
+
+    def behaviour(n):
+        raise _Permanent("400 bad request")
+
+    client = _stub_client(behaviour)
+    stats = {"retries": 0, "items_retried": 0}
+    raised = False
+    try:
+        _run_retry(client, (_Transient,), stats)
+    except _Permanent:
+        raised = True
+    assert raised, "non-transient error must propagate"
+    assert client.calls == 1, "non-transient error must NOT be retried"
+    assert stats == {"retries": 0, "items_retried": 0}
+
+
+def test_judge_reraises_after_exhausting_retries():
+    # not-C: a terminal transient failure still propagates loudly (no UNMATCHED swallow)
+    from src.bias_steer import judge
+
+    class _Transient(Exception):
+        pass
+
+    def behaviour(n):
+        raise _Transient("always down")
+
+    client = _stub_client(behaviour)
+    stats = {"retries": 0, "items_retried": 0}
+    raised = False
+    try:
+        _run_retry(client, (_Transient,), stats)
+    except _Transient:
+        raised = True
+    assert raised, "exhausted transient retries must re-raise"
+    assert client.calls == judge._MAX_RETRIES
+    assert stats["retries"] == judge._MAX_RETRIES and stats["items_retried"] == 1
 
 
 # ---------------------------------------------------------------- steering (structural)
