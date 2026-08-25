@@ -242,3 +242,223 @@ partition — versus today, because the in-`sample` shuffle continues the existi
 `random.Random(seed)`. Reproducibility going forward is preserved, but historical
 splits won't reproduce bit-for-bit. Minor, but worth flagging given the repo's
 emphasis on reproducible subsets (seed recorded in the manifest).
+
+---
+
+## 7. Log judge retries (transient failures currently vanish)
+
+**Observation.** `judge._call_with_retry` retries a chat completion up to
+`_MAX_RETRIES` times with exponential backoff, but a retry that eventually succeeds
+leaves **no trace** — the function returns the good result and the failed attempts
+are silently discarded. Only the terminal case (all retries exhausted) surfaces,
+via `raise last_error`. So a clean run and one that retried 3× on every item look
+identical in the outputs; retry cost (tokens/money/latency) and the rate-limit /
+flakiness signal are invisible.
+
+**Why.** Arch §7.2 defines `run.log` as the event stream for "counts, timings,
+**errors**." Silent retries are errors that never reach it. Retries are also the
+earliest warning of API degradation — losing them means you only find out at the
+terminal failure, when the pattern (one bad item vs. the whole batch degrading) is
+already gone.
+
+**Shape.**
+- Emit a `logging.warning` on each retry (attempt number + error type) and a
+  per-phase summary count (e.g. "judge: 9 retries across 4 items, 0 terminal
+  failures"). Stdlib `logging` is the low-friction start — it doesn't change the
+  judge's `(responses, examples, spec) -> list[str]` contract.
+- Cleaner but heavier: thread the `RunLogger` into the judge so retry events land
+  in `run.log` directly (changes the contract — probably not worth it).
+
+**Related gaps (same function, distinct from logging).**
+- `except Exception` retries *any* error, including non-transient ones (a 400 / auth
+  error is pointlessly retried 4× with backoff). Consider narrowing to transient
+  API/network errors and failing fast otherwise.
+- A terminal failure raises inside `asyncio.gather`, whose default propagates the
+  first exception — so **one item exhausting retries kills the whole judge phase**
+  instead of that item falling back to `UNMATCHED`. Consider
+  `gather(..., return_exceptions=True)` + per-item fallback so one dead item can't
+  sink the run.
+
+---
+
+## 8. Determinism test: same config + same code → identical results
+
+**Idea.** Since the whole point of the seeds in this pipeline is reproducibility,
+add a test that runs the pipeline **twice under the exact same config and code** and
+asserts the outputs are identical — guarding against *accidental* randomness (an
+unseeded `random`/`torch` call, dict-ordering leakage, etc.) creeping in.
+
+**Why.** Seeds are threaded through `sample()` and the train/test shuffle
+(`experiment.py:87`) and recorded in the manifest specifically so a run is
+reproducible. Nothing currently *verifies* that promise, so a future edit could
+introduce nondeterminism silently and no test would catch it.
+
+**Shape.**
+- **Hermetic version (belongs in the test suite):** with a stub model + stub judge
+  (as the phase tests already do), run `experiment.run` twice with one config and
+  assert bit-identical `results.csv`, steering vector, and the frozen example
+  subset + train/test split. Stubs remove model/judge noise, so any diff is
+  code-introduced randomness — exactly what we want to catch. Cheap, CI-able.
+- Assert on the deterministic artifacts (sampled ids, split, ordering, and the
+  built vector given fixed residuals), not on wall-clock/timestamps.
+
+**Caveat.** A *real* end-to-end double-run is not bit-reproducible for reasons
+outside our code: the GPT judge is nondeterministic (see needed-experiments §0.2),
+and CUDA float ops can differ run-to-run. So the full-stack version (see
+needed-experiments §12) must compare only the stable parts (sampled subset,
+train/test partition, and the vector given identical residuals), while the hermetic
+stubbed test is what actually pins *our* determinism.
+
+---
+
+## 9. Move captured residuals off the GPU (`.cpu()`), not to disk
+
+**Observation.** `_run_one` accumulates `resids_by_label` across the whole train
+phase (`experiment.py:115-121`). The concern was OOM from holding "two arrays of
+many large residuals," but the footprint is smaller than it looks: `capture_mean`
+already collapses the sequence dim (`.mean(dim=1)`), so what's kept per example is
+just `(n_layers, d_model)` fp16 ≈ **256 KB (Llama-8B) / 400 KB (Qwen-14B)** — tens
+to a few hundred MB even at `n_train`=1000. In *system RAM* that's a non-issue.
+
+**The real problem is *where* it lives: VRAM.** `capture` does `.detach().clone()`
+but never `.cpu()`, so residuals accumulate on the model's device, competing with the
+model weights and generation activations for scarce VRAM.
+
+**Fix (cheapest first).**
+1. **`.cpu()` the captured residual** — do it once on the stacked `(n_layers,
+   d_model)` tensor (`torch.stack(per_layer).cpu()`), not per layer. Cost is a
+   ~256–400 KB device→host copy per example (~10–80 µs over PCIe gen4), utterly
+   dwarfed by the per-example generation + `run_with_cache` pass (tens–hundreds of
+   ms). Effectively free; removes the growing VRAM term entirely.
+   - **Required companion change:** the built vector then lands on CPU, so
+     `apply_resid_pre_add`'s hook (`value += scaled * vec`, `value` on GPU) would hit
+     a **device-mismatch error**. Move the vector back before the test phase:
+     `vector = vector.to(loaded.device)` after `build` (one ~256 KB transfer). Bonus:
+     safetensors saves cleanly from CPU.
+2. **Stream to disk** — only if CPU RAM also gets tight at very large `n_train` ×
+   large models. More machinery; premature until (1) proves insufficient.
+3. **Running sums instead of all residuals** — for `mean_diff` you only need per-label
+   running sum + count to get `mean(pos) − mean(neg)`, which is `O(n_layers × d_model)`
+   regardless of `n_train`. **Tradeoff:** sacrifices the per-example
+   `residuals.safetensors` artifact and breaks methods that need all residuals
+   (`capture_last`, future probes) — conflicts with the "make residuals loadable"
+   idea in [[#3]]. Method-specific optimization, not a default.
+
+**Sizing (A100 40 GB SXM4).** 7–8B models (~14–16 GB weights) have ~24 GB headroom —
+residuals-in-VRAM won't OOM even without the fix. 14B models (~28 GB weights) leave
+~12 GB, so `.cpu()` clearly earns its keep. `.cpu()`-ing residuals is basically free
+insurance either way.
+
+**Not fixed by this:** the bigger *transient* VRAM spike is the per-batch `caches`
+from `generate_with_cache` (all hooks' activations at full seq length for the whole
+batch, freed each iteration). That scales with `batch_size` + seq length, not
+`n_train` — so a train-phase OOM on 14B is addressed by lowering `batch_size`,
+whereas `.cpu()` addresses the slow accumulation across the phase. Different knobs.
+
+---
+
+## 10. Split `_run_one` into per-phase helpers (readability)
+
+**Idea.** `_run_one` (`experiment.py:102-183`) is one ~80-line function doing four
+things in sequence: setup (load model) → TRAIN (capture → build → save vector) →
+TEST (initial + steered gen → judge) → FINALIZE (metrics + results.csv + summary +
+index). Split the phases into `_train_one`, `_test_one`, and a finalize helper, with
+`_run_one` reduced to a short conductor.
+
+**Data flow (why the seams fall where they do).** It's a strict linear pipeline with
+two hand-offs: `vector` (TRAIN→TEST) and `results: list[Result]` (TEST→FINALIZE).
+Everything else is shared setup state (`loaded`, `log`, `handle`, `config`,
+`method`, `judge_fn`, `contrast`, `backend`, `n_layers`). Natural signatures:
+- `_train_one(ctx, train) -> vector` — owns capture loop, `build`, `save_vector` /
+  `save_residuals`, and `on_phase("vector")`.
+- `_test_one(ctx, test, vector) -> list[Result]` — owns the eval loop.
+- `_finalize_one(ctx, results, train, test) -> RunResult` — owns tidy_rows/CSV,
+  counts/quality, summary.md, index row, and `on_phase("eval")`.
+
+**Pros.**
+- **Readability / one concern per function** — each helper is ~15–30 lines named by
+  intent; `_run_one` becomes a ~15-line conductor.
+- **Testability** — unit-test `_test_one` against a fixed vector, or `_finalize_one`
+  against a fixed `results` list, without running TRAIN (today the phase tests can
+  only exercise the whole `run()` via `Backend` fakes).
+- **Enables "re-eval without retrain"** — a load-existing-vector-then-eval path (ties
+  to [[#3]] on loading residuals/vectors) becomes calling `_test_one` with a loaded
+  vector, instead of duplicating the eval loop.
+- **Mirrors structure that already exists** — the `on_phase("vector")` /
+  `on_phase("eval")` boundaries already mark these seams.
+
+**Cons.**
+- **Parameter threading** — the helpers share ~8–11 locals; naive splitting turns one
+  long function into three long *signatures*. That's the exact smell the arch roadmap
+  called out in the notebook (long param lists). Mitigation: a small `_RunCtx`
+  dataclass (handle, log, loaded, config, method, judge_fn, contrast, backend,
+  n_layers) passed to each — but that's added machinery.
+- **Implied independence that isn't there** — the phases are sequential with hard
+  data deps (TEST needs a built, device-correct vector; FINALIZE needs TEST's
+  results). Functions can read as more modular/reorderable than they are.
+- **Distributed side effects** — the persistence + `on_phase` boundaries move out of
+  one visible place into the helpers (arguably fine — co-locating a save with its
+  phase — but it's a change in where effects live).
+- **Churn for a pure-readability gain** — `_run_one` is already sectioned with
+  `# --- TRAIN/TEST ---` banners and reads linearly top-to-bottom; the marginal gain
+  may be modest relative to the diff.
+
+**Recommended shape.** Do it **only if paired with a `_RunCtx`** — otherwise the
+signature bloat cancels the readability win. Rename the third helper `_finalize_one`,
+**not** `_log_one`: there's already incremental plaintext logging via `RunLogger`
+(`log.train`/`log.eval`/`log.event`) interleaved *inside* TRAIN/TEST that must stay
+put; the final phase is metrics + persistence, not logging. Lighter-touch
+alternative if the goal is purely visual: extract just the two dense loop bodies
+(`_capture_residuals(...) -> resids_by_label`, `_eval_examples(...) -> results`),
+which are the visually heavy parts, and leave the rest inline — most of the
+readability for far less param threading.
+
+---
+
+## 11. Show queue position per run (banner, not a per-line prefix)
+
+**Idea.** When the coordinator drains a queue, make it obvious which experiment
+you're on ("1 of 5"). The tempting approach — prefix every echoed stdout line in
+`_subprocess_runner` (`coordinator.py:89-90`) with `[001]` — is the wrong one
+(see "why not per-line" below). Instead surface the queue position at the *run*
+level.
+
+**Shape (option 1 — recommended).**
+- Print a one-time banner before launching each queue item, e.g.
+  `=== [1/5] config foo.py ===`.
+- And/or thread the queue index into the run's header and the tqdm `desc` (already
+  `f"{model_key} train"` in `experiment.py:116/133` → `f"[1/5] {model_key} train"`),
+  e.g. passed via an env var or CLI arg to the child.
+- Rationale: queue position is a *per-run* fact, not a *per-line* one — one banner
+  answers "which experiment am I on" without touching every line or fighting tqdm.
+
+**Why NOT a per-line prefix.**
+- **tqdm interaction.** tqdm draws with carriage returns (`\r`, no newline) and
+  writes to stderr, which is merged into the pipe (`stderr=subprocess.STDOUT`). The
+  pipe is `text=True`, so universal-newline translation turns every `\r` update into
+  its own `\n`-terminated line — the animated bar already renders as a vertical
+  *waterfall* under the coordinator. A per-line prefix then stamps every micro-update
+  (`[001] bar 42%` ×200 per bar) — very noisy.
+- If a per-line prefix were ever wanted anyway (option 2, not chosen): read the pipe
+  in **binary** (`text=False`) and prefix only after a real `\n`, passing `\r` runs
+  through untouched, to preserve the in-place bar.
+
+**Gotcha regardless of approach.** If any prefixing is added to the echo, apply it to
+the *echoed copy only* and keep `_PHASE_RE.match` on the **original** line —
+`line.strip()` removes whitespace, not a `[001] ` prefix, so matching a prefixed line
+would silently break phase-sentinel detection (`on_phase`).
+
+---
+
+## 12. Drop the non-ASCII middle dot from coordinator commit messages
+
+**Status: done (2026-08-25).** The coordinator's `add_commit` messages used a
+Unicode middle dot (`·`, U+00B7): `f"{config} · {phase} ({run_id})"` and
+`f"{config} · finalize"` (`coordinator.py:172,185`). Replaced with a plain ASCII
+hyphen (` - `).
+
+**Why.** A non-ASCII separator in commit subjects is a small portability/tooling
+liability — encoding surprises in terminals, hooks, log parsers, or CI that don't
+assume UTF-8 — for no readability benefit over `-`. No behavior change: the messages
+are cosmetic, no test asserts on the separator (phase-4 tests check commit
+*counts*/behavior, not text), and phase4 still passes 7/7.

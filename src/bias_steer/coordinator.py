@@ -169,7 +169,7 @@ class Coordinator:
         self._status(state="running", branch=entry.branch, config=config, phase="start")
 
         def on_phase(phase, run_id):
-            self.git.add_commit(self.runs_dir, f"{config} · {phase} ({run_id})")
+            self.git.add_commit(self.runs_dir, f"{config} - {phase} ({run_id})")
             pushed = self.git.push(entry.branch) if entry.push else None
             self._status(state="running", branch=entry.branch, config=config,
                          phase=phase, run_id=run_id, pushed=pushed)
@@ -182,7 +182,7 @@ class Coordinator:
 
         # Finalize: capture any straggler files so the tree is clean before the next
         # checkout, and record done/failed for batch-restart.
-        self.git.add_commit(self.runs_dir, f"{config} · finalize")
+        self.git.add_commit(self.runs_dir, f"{config} - finalize")
         if entry.push:
             self.git.push(entry.branch)
         marker = self.queue_done if code == 0 else self.queue_failed
