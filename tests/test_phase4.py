@@ -196,15 +196,15 @@ def _register_p4_fakes():
 def _p4_backend():
     return experiment.Backend(
         load=lambda spec: types.SimpleNamespace(
-            model=types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2)),
+            model=types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4)),
             tokenizer=None, spec=spec, device="cpu"),
         generate=lambda l, p, m, s: ["opinionated"] * len(p),
         generate_with_cache=lambda l, p, m, s: (
             ["opinionated" if i % 2 == 0 else "neutral" for i in range(len(p))], [None] * len(p)),
         generate_with_hooks=lambda l, p, h, m, s: [
             ("opinionated" if (h and h[0][1] > 0) else "neutral")] * len(p),
-        save_vector=lambda p, v: Path(p).write_text("v"),
-        save_residuals=lambda p, r: Path(p).write_text("r"),
+        save_vector=lambda p, v, **kw: Path(p).write_text("v"),
+        save_residuals=lambda p, r, **kw: Path(p).write_text("r"),
     )
 
 

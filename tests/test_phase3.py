@@ -111,7 +111,7 @@ class _FakeMethod:
 def _fake_backend():
     def load(spec):
         return types.SimpleNamespace(
-            model=types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2)),
+            model=types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4)),
             tokenizer=None, spec=spec, device="cpu",
         )
 
@@ -129,8 +129,8 @@ def _fake_backend():
     return experiment.Backend(
         load=load, generate=generate, generate_with_cache=generate_with_cache,
         generate_with_hooks=generate_with_hooks,
-        save_vector=lambda p, v: Path(p).write_text("v"),
-        save_residuals=lambda p, r: Path(p).write_text("r"),
+        save_vector=lambda p, v, **kw: Path(p).write_text("v"),
+        save_residuals=lambda p, r, **kw: Path(p).write_text("r"),
     )
 
 

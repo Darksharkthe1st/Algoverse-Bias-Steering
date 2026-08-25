@@ -84,9 +84,15 @@ artifact claims its row."
   now uses a torch-free `_StubVector` (with `.ndim`/`.shape`) + `_StubCfg.d_model`, so
   the structural test still runs without torch and exercises the new shape guard.
 
-**Still open:** `artifacts.save_residuals` (assert each per-example residual is
-`(n_layers, d_model)` before `torch.stack`) and `artifacts.save_vector` (assert the
-vector shape at the persistence boundary too).
+**Done (2026-08-25):** `artifacts.save_residuals` and `artifacts.save_vector` now take
+`n_layers`/`d_model` (threaded from `loaded.model.cfg` at the `_run_one` call sites) and
+assert the *exact* `(n_layers, d_model)` shape against that ground truth — the passed
+check subsumes an infer-and-compare backstop, and matches §6's "assert against
+`(n_layers, d_model)`" wording. `save_residuals`' loop runs before `import torch`, so
+inputs are validated ahead of the heavy import (and the check is testable torch-free).
+`test_phase2::test_save_boundary_asserts_reject_wrong_shape` exercises both rejections
+with a shape-only stub; the four wiring fakes (phase2/3/4) gained `cfg.d_model` and
+`**kw` on their save lambdas.
 
 **Idea.** In `artifacts.save_residuals` (and/or `steering.capture`), assert each
 per-example residual is `(n_layers, d_model)` before `torch.stack`, instead of
