@@ -62,7 +62,7 @@ class _FakeMethod:
 
 def _fake_backend():
     def load(spec):
-        model = types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2))
+        model = types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4))
         return types.SimpleNamespace(model=model, tokenizer=None, spec=spec, device="cpu")
 
     def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt):
@@ -78,10 +78,10 @@ def _fake_backend():
         label = "opinionated" if sign > 0 else "neutral"  # +coeff -> opinion, -coeff -> neutral
         return [label] * len(prompts)
 
-    def save_vector(path, vector):
+    def save_vector(path, vector, *, n_layers, d_model):
         Path(path).write_text("fake-vector")
 
-    def save_residuals(path, resids_by_label):
+    def save_residuals(path, resids_by_label, *, n_layers, d_model):
         Path(path).write_text("fake-residuals")
 
     return experiment.Backend(
@@ -208,6 +208,38 @@ def test_cli_loads_config_file():
         p.write_text(src_cfg)
         cfg = cli.load_config_file(p)
         assert cfg.label == "c" and cfg.models == ["qwen-7b"]
+
+
+class _StubTensor:
+    """A shape-only stand-in so the save-boundary asserts can be exercised without
+    torch (both fire before any torch/safetensors import)."""
+    def __init__(self, shape):
+        self.shape = shape
+
+
+def test_save_boundary_asserts_reject_wrong_shape():
+    from src.bias_steer import artifacts
+
+    # save_vector: wrong-shaped vector is refused before it's persisted
+    raised = False
+    try:
+        artifacts.save_vector("unused", _StubTensor((3, 4)), n_layers=2, d_model=4)
+    except AssertionError as e:
+        raised = True
+        assert "steering vector" in str(e)
+    assert raised, "save_vector accepted a (3,4) vector for (2,4)"
+
+    # save_residuals: a single mis-shaped residual is caught before torch.stack
+    raised = False
+    try:
+        artifacts.save_residuals(
+            "unused", {"opinionated": [_StubTensor((2, 4)), _StubTensor((2, 5))]},
+            n_layers=2, d_model=4,
+        )
+    except AssertionError as e:
+        raised = True
+        assert "residual opinionated[1]" in str(e)
+    assert raised, "save_residuals accepted a (2,5) residual for (2,4)"
 
 
 def test_cli_queue_requires_a_route_file():

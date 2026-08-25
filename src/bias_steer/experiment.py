@@ -110,6 +110,7 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     log.event(f"loading model {spec.hf_id}")
     loaded = backend.load(spec)
     n_layers = loaded.model.cfg.n_layers
+    d_model = loaded.model.cfg.d_model
 
     # --- TRAIN: capture residuals, judge, bucket by verdict --------------------
     resids_by_label: dict = {}
@@ -124,8 +125,10 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     log.event(f"building steering vector (buckets: "
               f"{ {k: len(v) for k, v in resids_by_label.items()} })")
     vector = method.build(resids_by_label, contrast)
-    backend.save_vector(handle.dir / "steering_vector.safetensors", vector)
-    backend.save_residuals(handle.dir / "residuals.safetensors", resids_by_label)
+    backend.save_vector(handle.dir / "steering_vector.safetensors", vector,
+                        n_layers=n_layers, d_model=d_model)
+    backend.save_residuals(handle.dir / "residuals.safetensors", resids_by_label,
+                           n_layers=n_layers, d_model=d_model)
     on_phase("vector", handle.run_id)  # steering vector persisted -> coordinator commits/pushes
 
     # --- TEST: initial + steered (both directions), judge each -----------------
