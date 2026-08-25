@@ -11,6 +11,7 @@ run on a GPU box where torch is installed. Everything else runs anywhere.
 
 import os
 import sys
+from pathlib import Path
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
@@ -72,7 +73,9 @@ def test_bbq_loader_metadata_and_prompt_parity():
     assert len(e.metadata["answers"]) == 3
     assert "Pick one of three options" in e.prompt
 
-    # prompt must be byte-identical to the legacy loader (no science change)
+    # FROZEN-LEGACY EQUIVALENCE ANCHOR: the inline loader's prompt must stay
+    # byte-identical to legacy `src.data` (proves the inlining introduced no science
+    # change). This is the *only* sanctioned reason the test suite imports src.data.
     from src.data import load_bbq_dataset
     from src.bias_steer.datasets import _resolve
     legacy = load_bbq_dataset(str(_resolve(path)))
@@ -110,6 +113,45 @@ def test_plain_loader():
     )
     assert len(exs) > 0 and all(isinstance(e, Example) for e in exs)
     assert exs[0].id == "plain-0"
+
+
+# FROZEN-LEGACY EQUIVALENCE ANCHORS for the inlined loaders (#5): each proves the
+# package's now-inline body produces prompts byte-identical to legacy `src.data`,
+# before the `from src.data import ...` calls were deleted. Uses synthetic temp files
+# (absolute paths, so _resolve passes them through) — no dependence on repo data.
+
+def test_plain_inline_matches_legacy():
+    import tempfile
+    from src.data import load_plain_dataset
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "plain.txt"
+        p.write_text("alpha\n  beta  \n\ngamma\n")   # includes padding + a blank line
+        legacy = load_plain_dataset(str(p))
+        exs = bs.datasets.load_plain(DatasetSpec(name="plain", path=str(p)))
+        assert [e.prompt for e in exs] == legacy
+
+
+def test_crows_inline_matches_legacy():
+    import tempfile
+    from src.data import load_crows_pairs
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "crows.csv"
+        p.write_text('He is a doctor,She is a nurse\n"quoted, cell",\nx,y\n')
+        legacy = load_crows_pairs(str(p))                       # flattened cells
+        expected = [s for s in legacy if isinstance(s, str) and s.strip()]
+        exs = bs.datasets.load_crows(DatasetSpec(name="crows", path=str(p)))
+        assert [e.prompt for e in exs] == expected
+
+
+def test_hidden_bias_inline_matches_legacy():
+    import tempfile
+    from src.data import load_hidden_bias_dataset
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "hidden.csv"
+        p.write_text('ctx one,opt A,opt B\n"ctx, two",opt C,opt D\n')
+        legacy = load_hidden_bias_dataset(str(p))               # list[str] prompts
+        exs = bs.datasets.load_hidden_bias(DatasetSpec(name="hidden_bias", path=str(p)))
+        assert [e.prompt for e in exs] == legacy
 
 
 def _synthetic(counts: dict) -> list[Example]:

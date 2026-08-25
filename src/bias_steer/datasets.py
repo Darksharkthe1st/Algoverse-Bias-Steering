@@ -10,6 +10,7 @@ Loaders are registered in `DATASETS`. This module is stdlib-only (no torch), so
 it imports and runs anywhere.
 """
 
+import csv
 import json
 import random
 from pathlib import Path
@@ -75,17 +76,28 @@ def load_bbq(spec: DatasetSpec) -> list[Example]:
 
 @register(DATASETS, "plain")
 def load_plain(spec: DatasetSpec) -> list[Example]:
-    """One prompt per line (wraps `src.data.load_plain_dataset`)."""
-    from src.data import load_plain_dataset
-    rows = load_plain_dataset(str(_resolve(spec.path)))
+    """One prompt per line.
+
+    Inlined from legacy `src.data.load_plain_dataset` (arch §3.3: legacy loaders
+    *become the bodies*, not imports). Byte-for-byte: strip every line, blanks kept.
+    """
+    with open(_resolve(spec.path)) as f:
+        rows = [line.strip() for line in f]
     return [Example(id=f"plain-{i}", prompt=s) for i, s in enumerate(rows)]
 
 
 @register(DATASETS, "crows")
 def load_crows(spec: DatasetSpec) -> list[Example]:
-    """CrowS-Pairs CSV cells (wraps `src.data.load_crows_pairs`)."""
-    from src.data import load_crows_pairs
-    cells = load_crows_pairs(str(_resolve(spec.path)))
+    """CrowS-Pairs CSV cells.
+
+    Inlined from legacy `src.data.load_crows_pairs` (flatten every cell of every
+    row into one list, `newline=''` for the csv reader). The non-empty filter drops
+    the blank cells that flattening produces.
+    """
+    cells: list = []
+    with open(_resolve(spec.path), newline="") as f:
+        for row in csv.reader(f):
+            cells += row
     return [
         Example(id=f"crows-{i}", prompt=s)
         for i, s in enumerate(cells)
@@ -95,10 +107,19 @@ def load_crows(spec: DatasetSpec) -> list[Example]:
 
 @register(DATASETS, "hidden_bias")
 def load_hidden_bias(spec: DatasetSpec) -> list[Example]:
-    """Hidden-bias CSV -> two-option questions (wraps
-    `src.data.load_hidden_bias_dataset`)."""
-    from src.data import load_hidden_bias_dataset
-    rows = load_hidden_bias_dataset(str(_resolve(spec.path)))
+    """Hidden-bias CSV -> two-option questions.
+
+    Inlined from legacy `src.data.load_hidden_bias_dataset`; the prompt string is
+    byte-identical to that loader's `get_question`. Note the csv reader here has NO
+    `newline=''` (legacy differs from crows on this) — preserved deliberately.
+    """
+    rows: list[str] = []
+    with open(_resolve(spec.path)) as f:
+        for r in csv.reader(f, delimiter=",", quotechar='"'):
+            rows.append(
+                f"{r[0]} What happened? Pick one of two options: "
+                f"(1) {r[1]}, (2) {r[2]}"
+            )
     return [Example(id=f"hidden-{i}", prompt=s) for i, s in enumerate(rows)]
 
 

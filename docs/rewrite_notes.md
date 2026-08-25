@@ -203,6 +203,20 @@ real typos. Fail loud and proud instead.
 
 ## 5. Decouple the new package from legacy `src/data.py`
 
+**Status: done (2026-08-25).** The 3 wrapped loader bodies (`plain`, `crows`,
+`hidden_bias`) are inlined into `datasets.py` (byte-for-byte: plain keeps blanks; crows
+uses `newline=''` + flatten + non-empty filter; hidden_bias uses NO `newline=''` and an
+f-string identical to legacy `get_question`). Every `from src.data import ...` is gone
+from the package (verified: `bias_steer` imports no legacy module). `src/data.py` left
+untouched. Three FROZEN-LEGACY EQUIVALENCE ANCHOR tests in `test_phase1` prove each
+inline body == legacy output on synthetic temp files; the BBQ anchor comment is
+relabeled. **Doc rule** added to arch §3.3 (broadened per feedback): `bias_steer` must
+not import from the legacy notebook-owned modules `src/data.py`, `src/main.py`,
+`src/stereoset-dataloader.py` — with `src/utils.py` (stdlib-only shared helpers) the one
+sanctioned `src.*` dependency; `tests/` may import `src.data` only as an equivalence
+anchor. (`docs/SOURCES_OF_TRUTH.md` doesn't exist, so the rule landed in the arch roadmap,
+which already owned "become the bodies"; the stale "wraps src/data.py" tree comment fixed.)
+
 **Observation.** `src/bias_steer/datasets.py` reaches out of its own package into
 the frozen legacy module `src/data.py`, importing 3 loaders at call time:
 `load_plain_dataset`, `load_crows_pairs`, `load_hidden_bias_dataset`. The other two
