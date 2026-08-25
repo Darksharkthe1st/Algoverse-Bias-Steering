@@ -6,6 +6,7 @@ and `TestResults` (did steering move each example the right way?).
 """
 
 import csv
+import json
 from collections import Counter
 
 from .schema import INITIAL, STEERED_POS, STEERED_NEG
@@ -14,6 +15,10 @@ from .schema import INITIAL, STEERED_POS, STEERED_NEG
 RESULT_COLUMNS = [
     "run_id", "model", "dataset", "condition", "coeff", "example_id", "verdict", "category",
 ]
+
+# Columns of a run's examples.csv — one row per Example (the frozen sampled subset
+# this run used). Parent table to results.csv's child; join on `example_id`.
+EXAMPLE_COLUMNS = ["example_id", "dataset", "prompt", "category", "metadata_json"]
 
 
 def tidy_rows(results, *, run_id, model, dataset, opin_coeff, neut_coeff) -> list[dict]:
@@ -31,12 +36,33 @@ def tidy_rows(results, *, run_id, model, dataset, opin_coeff, neut_coeff) -> lis
     ]
 
 
-def write_csv(path, rows) -> None:
+def write_csv(path, rows, columns) -> None:
+    """Write tidy `rows` to `path` with exactly `columns` as the header. Extra keys
+    in a row are dropped (`extrasaction="ignore"`), so callers can pass richer dicts."""
     with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=RESULT_COLUMNS, extrasaction="ignore")
+        writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
+
+
+def write_examples_csv(path, examples, *, dataset) -> None:
+    """Snapshot the frozen sampled subset a run used — one row per `Example`, keyed
+    by `example_id`. Freezes the ground truth against positional-id drift and makes a
+    run folder self-contained (prompts recoverable without replaying `sample(seed)`).
+
+    `metadata` is JSON-encoded into one column so nested fields (e.g. BBQ's `answers`)
+    survive losslessly; `category` is also lifted to its own column to match
+    results.csv and keep groupbys cheap. Delegates to `write_csv`."""
+    rows = [
+        {
+            "example_id": ex.id, "dataset": dataset, "prompt": ex.prompt,
+            "category": ex.metadata.get("category"),
+            "metadata_json": json.dumps(ex.metadata),
+        }
+        for ex in examples
+    ]
+    write_csv(path, rows, EXAMPLE_COLUMNS)
 
 
 def _by_example(results) -> dict:

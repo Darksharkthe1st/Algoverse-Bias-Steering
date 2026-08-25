@@ -113,7 +113,7 @@ def test_run_end_to_end_produces_all_artifacts():
         r = results[0]
 
         # artifacts on disk
-        for fname in ("manifest.json", "results.csv", "summary.md",
+        for fname in ("manifest.json", "examples.csv", "results.csv", "summary.md",
                       "steering_vector.safetensors", "residuals.safetensors"):
             assert (r.dir / fname).is_file(), f"missing artifact: {fname}"
         for log in ("run.log", "train.txt", "eval.txt"):
@@ -130,6 +130,17 @@ def test_run_end_to_end_produces_all_artifacts():
         assert len(rows) == 15
         conds = {row["condition"] for row in rows}
         assert conds == {INITIAL, STEERED_POS, STEERED_NEG}
+
+        # examples.csv: the frozen sampled subset (5 train + 5 test), parent table
+        with (r.dir / "examples.csv").open() as f:
+            ex_rows = list(csv.DictReader(f))
+        assert len(ex_rows) == 10
+        assert set(ex_rows[0]) == {"example_id", "dataset", "prompt", "category", "metadata_json"}
+        # every results.csv example_id joins back to an examples.csv row
+        ex_ids = {row["example_id"] for row in ex_rows}
+        assert {row["example_id"] for row in rows} <= ex_ids
+        # metadata round-trips losslessly through the JSON column
+        assert json.loads(ex_rows[0]["metadata_json"]) == {"category": "X"}
 
         # index.csv row with headline metrics
         with (Path(tmp) / "index.csv").open() as f:

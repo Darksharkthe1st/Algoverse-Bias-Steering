@@ -8,6 +8,16 @@ the shape, and any caveats/process notes.
 
 ## 1. Per-run `examples.csv` (snapshot the examples actually used)
 
+**Status: done (2026-08-25).** `metrics.write_examples_csv(path, examples, *, dataset)`
+writes one row per `Example` (`example_id, dataset, prompt, category, metadata_json`)
+and delegates to a now-generic `write_csv(path, rows, columns)` (both artifacts route
+through it; `EXAMPLE_COLUMNS`/`RESULT_COLUMNS` are passed explicitly). Called from
+`_run_one` beside the `results.csv` write, from the frozen `train + test` subset — one
+copy per model run folder. Arch roadmap §5.2 WRITE block + §8 tree updated to register
+the artifact. `test_phase2::test_run_end_to_end_produces_all_artifacts` asserts the file
+exists, has the five columns, joins back to `results.csv` on `example_id`, and
+round-trips `metadata` through the JSON column.
+
 **Idea.** Alongside each run's `results.csv`, write an `examples.csv` containing
 only the examples that run actually used (the frozen sampled subset), so a run
 folder holds both the inputs and the outputs of the experiment together.

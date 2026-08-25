@@ -313,6 +313,7 @@ for each model key in config.models:                     [tqdm: outer bar over m
    │
    └─ WRITE (experiment.py + tracking.py) ────────────────
        manifest.json              full config + git SHA + timestamp + sample seed
+       examples.csv               tidy: one row per Example (frozen sampled subset)  ← parent table
        results.csv                tidy: one row per (example × condition)  ← analysis input
        steering_vector.safetensors
        residuals.safetensors      (git-ignored — bulky)
@@ -415,6 +416,7 @@ runs/                                   # C  committed by default
   _discard/                             # I  throwaway runs you don't want tracked
   <run_id>/                             # C  <date>_<label>_<model> slug
     manifest.json                       # C  full config + git SHA + timestamp (traceability)
+    examples.csv                        # C  tidy: one row per Example (frozen sampled subset — parent table)
     results.csv                         # C  tidy: one row per (example × condition)
     steering_vector.safetensors         # C  the DELIVERABLE — tiny (<1MB)
     residuals.safetensors               # I  bulky (~200MB+), regenerable — NOT backed up
