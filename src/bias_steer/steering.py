@@ -39,7 +39,11 @@ def capture_mean(cache, n_layers: int):
         )
         resid = resid.mean(dim=1).squeeze(0)             # (d_model,)
         per_layer.append(resid.detach().clone())
-    out = torch.stack(per_layer)
+    # .cpu() once on the stacked tensor: residuals accumulate across the whole train
+    # phase, so keeping them on the model's device would grow VRAM (competing with
+    # weights + generation activations). ~256-400 KB fp16 per example in system RAM is
+    # a non-issue; the device->host copy is dwarfed by the generation pass (#9).
+    out = torch.stack(per_layer).cpu()
     assert out.ndim == 2 and out.shape[0] == n_layers, (
         f"captured residual: expected (n_layers, d_model), got {tuple(out.shape)}"
     )
@@ -116,7 +120,7 @@ def capture_last(cache, n_layers: int):
         )
         resid = resid[:, -1, :].squeeze(0)               # last token -> (d_model,)
         per_layer.append(resid.detach().clone())
-    out = torch.stack(per_layer)
+    out = torch.stack(per_layer).cpu()                   # off-GPU, see capture_mean (#9)
     assert out.ndim == 2 and out.shape[0] == n_layers, (
         f"captured residual: expected (n_layers, d_model), got {tuple(out.shape)}"
     )

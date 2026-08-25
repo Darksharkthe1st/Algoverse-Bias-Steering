@@ -182,10 +182,12 @@ def _register_p4_fakes():
     if "p4model" not in registry.MODELS:
         registry.register(registry.MODELS, "p4model", ModelSpec("p4model", "fake/m", True, "S"))
     if "p4method" not in registry.METHODS:
+        # opaque steering vector; needs only .to() (run() moves it to device, #9)
+        fake_vec = types.SimpleNamespace(to=lambda device: fake_vec)
         m = types.SimpleNamespace(
             name="p4method",
             capture=lambda cache, n: ("r", n),
-            build=lambda rbl, contrast: "VEC",
+            build=lambda rbl, contrast: fake_vec,
             apply=lambda model, vec, coeff: [("sign", 1 if coeff >= 0 else -1)],
         )
         registry.register(registry.METHODS, "p4method", m)

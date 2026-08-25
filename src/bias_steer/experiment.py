@@ -129,6 +129,13 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
                            n_layers=n_layers, d_model=d_model)
     on_phase("vector", handle.run_id)  # steering vector persisted -> coordinator commits/pushes
 
+    # Residuals were captured off-GPU (#9), so `build` produced a CPU vector (which
+    # also let save_vector serialize cleanly). Move it onto the model's device ONCE
+    # here — it's applied at every layer on every forward step of the test phase, so
+    # it must live on-device; a per-hook-fire transfer would recopy it thousands of
+    # times. One ~256 KB host->device copy covers the whole phase.
+    vector = vector.to(loaded.device)
+
     # --- TEST: initial + steered (both directions), judge each -----------------
     results: list[Result] = []
     for batch in progress(list(_batches(test, config.batch_size)), desc=f"{model_key} eval"):

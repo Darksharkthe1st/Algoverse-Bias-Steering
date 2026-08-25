@@ -47,6 +47,13 @@ def _register_fakes():
         registry.register(registry.JUDGES, "faketest", lambda responses, examples, spec: list(responses))
 
 
+class _FakeVector:
+    """Opaque steering vector for the fake method. Only needs `.to()`: `run()` moves
+    the built vector onto the model device once before the test phase (#9)."""
+    def to(self, device):
+        return self
+
+
 class _FakeMethod:
     name = "faketest"
 
@@ -54,7 +61,7 @@ class _FakeMethod:
         return ("resid", n_layers)                       # opaque; never serialized for real
 
     def build(self, resids_by_label, contrast):
-        return "VECTOR"                                  # opaque steering vector
+        return _FakeVector()                             # opaque steering vector
 
     def apply(self, model, vector, coeff):
         return [("sign", 1 if coeff >= 0 else -1)]       # encode direction for the fake generator

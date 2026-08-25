@@ -95,6 +95,12 @@ def _register_p3_fakes():
         registry.register(registry.JUDGES, "p3judge", lambda responses, examples, spec: list(responses))
 
 
+class _FakeVector:
+    """Opaque steering vector; needs only `.to()` (run() moves it to device, #9)."""
+    def to(self, device):
+        return self
+
+
 class _FakeMethod:
     name = "p3method"
 
@@ -102,7 +108,7 @@ class _FakeMethod:
         return ("resid", n_layers)
 
     def build(self, resids_by_label, contrast):
-        return "VECTOR"
+        return _FakeVector()
 
     def apply(self, model, vector, coeff):
         return [("sign", 1 if coeff >= 0 else -1)]

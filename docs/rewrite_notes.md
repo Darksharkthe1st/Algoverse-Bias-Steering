@@ -123,10 +123,12 @@ validation on the hot path.
 
 ## 3. No load path for residuals — they're currently write-only
 
-**Status: deferred (2026-08-25).** Decision held until [[#9]] is settled: #9's
-running-sums option (3) would remove the per-example residuals artifact entirely,
-which is mutually exclusive with building a loader for it. Revisit the loader-vs-drop
-fork once the VRAM/memory direction is chosen — don't commit either way first.
+**Status: deferred (2026-08-25); blocker now resolved.** Originally held pending [[#9]]
+(its running-sums option 3 would have deleted the residuals artifact). #9 shipped as
+option 1 (`.cpu()`), which *keeps* per-example residuals — so a `load_residuals` loader is
+still viable and the mutual-exclusivity is gone. #3 remains deferred by choice, but can now
+be decided on its own merits (build a loader + consumer, vs. add a flag to stop writing
+residuals by default) whenever revisited.
 
 **Observation.** `residuals.safetensors` is *written* (`experiment.py:128` →
 `artifacts.save_residuals`) but never *read back*: there is a `load_vector` but no
@@ -393,6 +395,23 @@ stubbed test is what actually pins *our* determinism.
 ---
 
 ## 9. Move captured residuals off the GPU (`.cpu()`), not to disk
+
+**Status: option 1 done (2026-08-25); 2 & 3 not pursued.** `capture_mean`/`capture_last`
+now `.cpu()` the stacked `(n_layers, d_model)` tensor, so residuals accumulate in system
+RAM instead of VRAM during the train phase (where they accumulate). **Companion = the
+note's design:** `_run_one` does `vector = vector.to(loaded.device)` ONCE after build/save,
+before the test phase. The vector is applied at every layer on every forward step, so it
+must be on-device for the whole phase — the once-transfer (~256 KB) is right; an initial
+attempt to move it per-hook-fire inside `_steer` was wrong (it would recopy the vector
+thousands of times) and was reverted. Because `.cpu()` runs in capture, `build` yields a
+CPU vector and `save_vector`/`save_residuals` serialize from CPU cleanly (the note's bonus);
+the GPU move happens only for the test phase. The 3 fake methods' `build` now return a
+`.to()`-able opaque stub. The torch-gated `test_capture_and_build_math` gained
+`cap.device.type == "cpu"` asserts (meaningful on a GPU box; trivially true CPU-only).
+**Not verified end-to-end this session** (no torch/GPU here) — structural tests green +
+reasoning only; real VRAM behavior runs on a GPU machine. Options 2 (stream to disk) and 3
+(running sums) left unbuilt. **Un-blocks [[#3]]:** option 1 keeps per-example residuals, so
+a `load_residuals` loader stays viable — #3 can now be decided on its own merits.
 
 **Observation.** `_run_one` accumulates `resids_by_label` across the whole train
 phase (`experiment.py:115-121`). The concern was OOM from holding "two arrays of

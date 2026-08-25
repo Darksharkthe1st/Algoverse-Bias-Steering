@@ -387,6 +387,11 @@ def test_capture_and_build_math():
     cap = steering.capture_mean(cache, n_layers=1)
     assert cap.shape == (1, d_model)
     assert torch.allclose(cap[0], cache["blocks.0.hook_resid_pre"][0].mean(dim=0))
+    # #9: captured residuals must land on CPU (kept off the model's device so they
+    # don't accumulate in VRAM across the train phase). Meaningful on a GPU box; on a
+    # CPU-only machine it's trivially true but still pins the contract.
+    assert cap.device.type == "cpu"
+    assert steering.capture_last(cache, n_layers=1).device.type == "cpu"
 
     # build_mean_difference: mean(pos) - mean(neg)
     n_layers = 2
