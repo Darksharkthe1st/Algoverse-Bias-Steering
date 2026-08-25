@@ -157,7 +157,14 @@ def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     Order: (1) keep Examples whose `metadata[k]` is in `spec.filter[k]` for every
     key; (2) if `per_group=(key, n)`, keep up to `n` random Examples per distinct
     `metadata[key]` (balanced/representative); (3) if `limit` is set, randomly cap
-    the total. All randomness is seeded, so the same spec yields the same subset.
+    the total; (4) shuffle so the result is de-blocked (interleaved), not grouped by
+    category. All randomness is seeded, so the same spec yields the same subset.
+
+    The final shuffle is part of the contract: `sample()` returns a *randomly-ordered*
+    representative subset, so a positional train/test slice over it is balanced without
+    the caller having to know to shuffle first. It uses a fresh `Random(spec.seed)` (not
+    the stream already advanced by steps 2-3) so the order is bit-identical to the
+    historical caller-side shuffle it replaces — a pure refactor, reproducible splits.
     """
     rng = random.Random(spec.seed)
     out = examples
@@ -185,4 +192,9 @@ def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
         keep_idx = set(idx[: spec.limit])
         out = [e for i, e in enumerate(out) if i in keep_idx]
 
+    # De-block: a fresh Random(seed) so the permutation matches the caller-side
+    # shuffle this replaces (see docstring), keeping historical splits reproducible.
+    if out is examples:
+        out = list(out)  # never shuffle the caller's list in place
+    random.Random(spec.seed).shuffle(out)
     return out

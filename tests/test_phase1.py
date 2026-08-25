@@ -188,6 +188,23 @@ def test_sample_limit_and_determinism():
     assert [e.id for e in a] == [e.id for e in b], "same seed must give same subset"
 
 
+def test_sample_returns_de_blocked_order():
+    # per_group used to return a list blocked by category (all A, then all B, ...);
+    # sample() now shuffles so a positional train/test slice is balanced without the
+    # caller having to shuffle first (#6). A blocked list would have exactly one
+    # category boundary; an interleaved one has many.
+    exs = _synthetic({"A": 30, "B": 30, "C": 30})
+    got = sample(exs, SampleSpec(per_group=("category", 30), seed=0))
+    assert len(got) == 90
+    cats = [e.metadata["category"] for e in got]
+    boundaries = sum(1 for i in range(1, len(cats)) if cats[i] != cats[i - 1])
+    assert boundaries > 3, f"expected interleaved categories, got blocked (boundaries={boundaries})"
+    # first half vs second half are both roughly balanced across categories
+    from collections import Counter
+    first_half = Counter(cats[:45])
+    assert all(first_half[c] > 3 for c in ("A", "B", "C")), first_half
+
+
 # ---------------------------------------------------------------- judge parsing
 
 def test_parse_verdict_variants():

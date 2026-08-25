@@ -15,7 +15,6 @@ whole wiring runs without torch/OpenAI; the numeric correctness of capture/build
 lives in the (torch-gated) steering tests.
 """
 
-import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -83,8 +82,7 @@ def run(config: ExperimentConfig, *, backend: Backend | None = None,
 
     # Resolve + materialize the dataset once (shared across this config's models).
     examples = DATASETS[config.dataset.name](config.dataset)
-    examples = datasets.sample(examples, config.sample)
-    random.Random(config.sample.seed).shuffle(examples)  # balanced train/test split
+    examples = datasets.sample(examples, config.sample)  # returns a shuffled, de-blocked subset
     n_train = int(len(examples) * config.dataset.train_split)
     train, test = examples[:n_train], examples[n_train:]
 

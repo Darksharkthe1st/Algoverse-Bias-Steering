@@ -255,6 +255,16 @@ the sole source of truth going forward. That divergence is the goal, not a regre
 
 ## 6. Shuffle inside `sample()` after stratifying
 
+**Status: done (2026-08-25).** `sample()` now ends with `random.Random(spec.seed).shuffle(out)`
+and returns a de-blocked subset; the caller-side shuffle at `experiment.py:87` (and the
+now-unused `import random`) are gone. **The caveat below was avoided:** rather than reusing
+the advanced `rng` (which would change the permutation), a *fresh* `Random(spec.seed)`
+reproduces the exact permutation the old caller-side shuffle produced — verified bit-for-bit
+against the old blocked-then-shuffle pipeline — so historical train/test splits still
+reproduce exactly. A guard copies the list when no filter/group/limit ran, so the caller's
+input list is never mutated in place. `test_phase1::test_sample_returns_de_blocked_order`
+asserts the output is interleaved (many category boundaries) and each half is balanced.
+
 **Observation.** `sample`'s `per_group` stage concatenates groups in sorted order
 (`for g in sorted(groups, ...): picked.extend(items[:n])`), so the returned list is
 **blocked by group** (all of category A, then all of B, …). The `limit` stage
