@@ -459,6 +459,12 @@ whereas `.cpu()` addresses the slow accumulation across the phase. Different kno
 
 ## 10. Split `_run_one` into per-phase helpers (readability)
 
+**Status: skipped (2026-08-25).** Deliberately not done — pure-readability refactor on
+critical orchestration code with zero behavior change; `_run_one` already reads linearly
+with `# --- TRAIN/TEST ---` banners, and the churn-vs-gain tradeoff (this note's own cons)
+didn't justify it now. Revisit if/when a re-eval-without-retrain path (a reusable eval loop,
+ties to [[#3]]) is actually needed — that would make extracting `_eval_examples` earn its keep.
+
 **Idea.** `_run_one` (`experiment.py:102-183`) is one ~80-line function doing four
 things in sequence: setup (load model) → TRAIN (capture → build → save vector) →
 TEST (initial + steered gen → judge) → FINALIZE (metrics + results.csv + summary +
@@ -516,6 +522,17 @@ readability for far less param threading.
 ---
 
 ## 11. Show queue position per run (banner, not a per-line prefix)
+
+**Status: done (2026-08-25), option 1 core.** `Coordinator.run()` computes `total` (queue
+size across all route branches) and a 1-based `pos` (skipped items still count, so numbering
+is stable across restarts); `_run_config` prints a one-time banner
+`=== [pos/total] {branch} / {config} ===` before launching, and every `_status` write in the
+run now carries `queue_pos`/`queue_total` for the supervising LLM. `_subprocess_runner` is
+untouched — no per-line prefix — so the tqdm-\r-waterfall and `_PHASE_RE` gotchas don't
+apply. The optional child-side tqdm `desc` threading (the note's "and/or") was skipped:
+env-var/CLI plumbing through `cli.py`+`experiment.py` for a marginal gain. Covered by
+`test_phase4::test_coordinator_shows_queue_position` (3-config route asserts all three
+banners + final `queue_pos`/`queue_total`).
 
 **Idea.** When the coordinator drains a queue, make it obvious which experiment
 you're on ("1 of 5"). The tempting approach — prefix every echoed stdout line in

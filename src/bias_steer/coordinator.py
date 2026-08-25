@@ -136,7 +136,10 @@ class Coordinator:
 
     # -- main loop ----------------------------------------------------------
     def run(self) -> None:
-        for entry in self.load_route():
+        route = self.load_route()
+        total = sum(len(entry.configs) for entry in route)  # queue size across all branches
+        pos = 0
+        for entry in route:
             if self._control() == "stop":
                 self._status(state="stopped")
                 return
@@ -151,6 +154,7 @@ class Coordinator:
                 continue
 
             for config in entry.configs:
+                pos += 1  # 1-based position in the whole queue (skipped items still count)
                 key = self._key(entry.branch, config)
                 if (self.queue_done / key).exists():
                     continue  # batch-restart: already completed
@@ -163,21 +167,30 @@ class Coordinator:
                     self._clear_control()
                     continue
 
-                self._run_config(entry, config, key)
+                self._run_config(entry, config, key, pos=pos, total=total)
 
-    def _run_config(self, entry: RouteEntry, config: str, key: str) -> None:
-        self._status(state="running", branch=entry.branch, config=config, phase="start")
+    def _run_config(self, entry: RouteEntry, config: str, key: str, *,
+                    pos: int = 1, total: int = 1) -> None:
+        # One-time run-level banner so it's obvious which queue item is running
+        # ("3 of 5"). Queue position is a per-run fact, not a per-line one — a banner
+        # answers "which experiment am I on" without prefixing every echoed line (which
+        # would fight tqdm's \r waterfall and risk breaking phase-sentinel detection).
+        print(f"=== [{pos}/{total}] {entry.branch} / {config} ===", flush=True)
+        self._status(state="running", branch=entry.branch, config=config, phase="start",
+                     queue_pos=pos, queue_total=total)
 
         def on_phase(phase, run_id):
             self.git.add_commit(self.runs_dir, f"{config} - {phase} ({run_id})")
             pushed = self.git.push(entry.branch) if entry.push else None
             self._status(state="running", branch=entry.branch, config=config,
-                         phase=phase, run_id=run_id, pushed=pushed)
+                         phase=phase, run_id=run_id, pushed=pushed,
+                         queue_pos=pos, queue_total=total)
 
         try:
             code = self.runner(config, self.runs_dir, on_phase, self.repo)
         except Exception as e:  # noqa: BLE001 - a launch failure must not kill the batch
-            self._status(state="error", branch=entry.branch, config=config, error=str(e))
+            self._status(state="error", branch=entry.branch, config=config, error=str(e),
+                         queue_pos=pos, queue_total=total)
             code = 1
 
         # Finalize: capture any straggler files so the tree is clean before the next
@@ -188,4 +201,5 @@ class Coordinator:
         marker = self.queue_done if code == 0 else self.queue_failed
         (marker / key).write_text(str(code))
         self._status(state=("done" if code == 0 else "failed"),
-                     branch=entry.branch, config=config, exit_code=code)
+                     branch=entry.branch, config=config, exit_code=code,
+                     queue_pos=pos, queue_total=total)

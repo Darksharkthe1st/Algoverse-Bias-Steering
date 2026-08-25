@@ -108,6 +108,24 @@ def test_coordinator_runs_commits_per_phase_and_marks_done():
         assert _git(repo, "ls-files", "runs").stdout.strip() != ""
 
 
+def test_coordinator_shows_queue_position():
+    # run-level banner "[i/total]" per queue item + queue_pos/queue_total in status.
+    import io
+    from contextlib import redirect_stdout
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _make_repo(tmp)
+        coord = _coordinator(repo, _good_runner, configs=("c1.py", "c2.py", "c3.py"))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            coord.run()
+        out = buf.getvalue()
+        assert "=== [1/3] exp / c1.py ===" in out
+        assert "=== [2/3] exp / c2.py ===" in out
+        assert "=== [3/3] exp / c3.py ===" in out
+        status = json.loads((repo / "_coordinator" / "status.json").read_text())
+        assert status["queue_pos"] == 3 and status["queue_total"] == 3
+
+
 def test_coordinator_batch_restart_skips_done():
     with tempfile.TemporaryDirectory() as tmp:
         repo = _make_repo(tmp)
