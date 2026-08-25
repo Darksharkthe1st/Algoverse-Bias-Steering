@@ -210,6 +210,37 @@ def test_cli_loads_config_file():
         assert cfg.label == "c" and cfg.models == ["qwen-7b"]
 
 
+def _rows_without_run_id(path):
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    for r in rows:
+        r.pop("run_id", None)          # timestamp-derived, legitimately differs per run
+    return rows
+
+
+def test_run_is_deterministic_under_same_config_and_code():
+    """Same config + same code + stub model/judge -> identical deterministic outputs.
+    Guards against accidental randomness (an unseeded random/torch call, dict-ordering
+    leakage) creeping in. Compares the stable artifacts only — not run_id / timestamps
+    / git SHA (arch: assert on sampled ids, split, ordering, verdicts)."""
+    _register_fakes()
+    with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
+        r1 = experiment.run(_fake_config(), backend=_fake_backend(), runs_dir=t1)[0]
+        r2 = experiment.run(_fake_config(), backend=_fake_backend(), runs_dir=t2)[0]
+
+        # frozen sampled subset + train/test split (row order encodes the split):
+        # byte-identical proves sample -> seeded shuffle -> positional split is stable.
+        assert (r1.dir / "examples.csv").read_text() == (r2.dir / "examples.csv").read_text()
+
+        # eval ordering + verdicts: identical once the run_id column is dropped.
+        assert _rows_without_run_id(r1.dir / "results.csv") == \
+               _rows_without_run_id(r2.dir / "results.csv")
+
+        # derived aggregates match too
+        assert r1.counts == r2.counts
+        assert r1.quality == r2.quality
+
+
 class _StubTensor:
     """A shape-only stand-in so the save-boundary asserts can be exercised without
     torch (both fire before any torch/safetensors import)."""
