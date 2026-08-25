@@ -22,9 +22,25 @@ from .schema import Example
 
 def _resolve(path: str) -> Path:
     """Resolve a config path: absolute as-is, else relative to the repo root
-    (so configs are portable across machines and cwds)."""
+    (so configs are portable across machines and cwds).
+
+    Fails loud and early if the resolved path doesn't exist. The ambiguity is
+    fundamental — a bare relative string can't distinguish "relative to root" from
+    "relative to root's parent" — so the natural mistake (a path that starts with the
+    repo dir name, e.g. copied from a file browser) silently doubles the repo name
+    (`<root>/Algoverse-Bias-Steering/...`) and would otherwise surface as an opaque
+    FileNotFoundError deep in a loader's open(), with no hint that resolution was the
+    culprit. We name the input, the resolved path, and the root instead of guessing."""
     p = Path(path)
-    return p if p.is_absolute() else get_repo_root() / p
+    resolved = p if p.is_absolute() else get_repo_root() / p
+    if not resolved.exists():
+        raise FileNotFoundError(
+            f"dataset path does not exist: {resolved}\n"
+            f"  (from config path {path!r}, resolved under repo root {get_repo_root()})\n"
+            f"  a bare parent-relative path like 'Algoverse-Bias-Steering/...' doubles "
+            f"the repo name — use a path relative to the repo root, or an absolute path."
+        )
+    return resolved
 
 
 @register(DATASETS, "bbq")

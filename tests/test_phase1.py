@@ -80,6 +80,29 @@ def test_bbq_loader_metadata_and_prompt_parity():
     assert exs[0].prompt == legacy[0], "BBQ prompt drifted from legacy format"
 
 
+def test_resolve_valid_path_and_fails_loud_on_missing():
+    from src.bias_steer.datasets import _resolve
+    from src.utils import get_repo_root
+
+    # a path that ships with the repo resolves under the root
+    good = _resolve("datasets/BBQ_Prompt_Sets/Age.jsonl")
+    assert good.exists() and good == get_repo_root() / "datasets/BBQ_Prompt_Sets/Age.jsonl"
+
+    # the natural mistake — a bare parent-relative path doubling the repo name — must
+    # fail loud at resolve time, naming both the doubled path and the repo root, not
+    # deep inside a loader's open()
+    bad = "Algoverse-Bias-Steering/datasets/BBQ_Prompt_Sets/Age.jsonl"
+    raised = False
+    try:
+        _resolve(bad)
+    except FileNotFoundError as e:
+        raised = True
+        msg = str(e)
+        assert "Algoverse-Bias-Steering" in msg          # names the doubled resolved path
+        assert str(get_repo_root()) in msg               # names the repo root
+    assert raised, "_resolve accepted a non-existent doubled path"
+
+
 def test_plain_loader():
     # any one-per-line file works; reuse a small dataset that ships with the repo
     exs = bs.datasets.load_plain(

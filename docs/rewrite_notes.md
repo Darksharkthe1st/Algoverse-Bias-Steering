@@ -123,6 +123,11 @@ validation on the hot path.
 
 ## 3. No load path for residuals — they're currently write-only
 
+**Status: deferred (2026-08-25).** Decision held until [[#9]] is settled: #9's
+running-sums option (3) would remove the per-example residuals artifact entirely,
+which is mutually exclusive with building a loader for it. Revisit the loader-vs-drop
+fork once the VRAM/memory direction is chosen — don't commit either way first.
+
 **Observation.** `residuals.safetensors` is *written* (`experiment.py:128` →
 `artifacts.save_residuals`) but never *read back*: there is a `load_vector` but no
 `load_residuals`, and nothing in `src/`, `analysis/`, or `tests/` loads the file.
@@ -152,6 +157,15 @@ into a reusable asset and makes `build` auditable offline.
 ---
 
 ## 4. `datasets._resolve`: fail loud on a non-existent resolved path
+
+**Status: done (2026-08-25).** `_resolve` now raises `FileNotFoundError` when the
+resolved path doesn't exist, naming the input, the resolved absolute path, and the repo
+root, and calling out the doubled-repo-name mistake explicitly. No fallback heuristic
+(per "explicitly not doing"). All current callers are read-loaders that `open()` the
+result, so requiring existence at resolve time is safe. `test_phase1::
+test_resolve_valid_path_and_fails_loud_on_missing` covers both the valid resolve and the
+bare parent-relative doubling case. (Wiring fakes register lambda loaders, so their
+`path="ignored"` never routes through `_resolve` — untouched.)
 
 **Observation.** `_resolve` has a binary model — absolute → use as-is; anything
 else → join under repo root. But "not absolute" ≠ "relative to root." A path
