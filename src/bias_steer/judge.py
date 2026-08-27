@@ -93,6 +93,7 @@ async def _judge_async(responses, examples, spec):
         ]
         async with sem:
             reply = await _call_with_retry(client, spec.model, messages,
+                                           seed=spec.seed, temperature=spec.temperature,
                                            transient=transient, stats=stats)
         return parse_verdict(reply, spec.labels) or UNMATCHED
 
@@ -106,8 +107,11 @@ async def _judge_async(responses, examples, spec):
     return verdicts
 
 
-async def _call_with_retry(client, model, messages, *, transient, stats):
+async def _call_with_retry(client, model, messages, *, seed, temperature, transient, stats):
     """One chat completion with exponential backoff on *transient* errors only.
+
+    `seed` + `temperature` are forwarded for best-effort determinism (OpenAI pins
+    sampling per `system_fingerprint`); everything else is unchanged.
 
     Transient errors (the `transient` tuple: rate-limit / timeout / network / 5xx)
     are retried up to `_MAX_RETRIES`, each logged and counted in `stats` for the
@@ -120,7 +124,8 @@ async def _call_with_retry(client, model, messages, *, transient, stats):
     item_counted = False
     for attempt in range(_MAX_RETRIES):
         try:
-            resp = await client.chat.completions.create(model=model, messages=messages)
+            resp = await client.chat.completions.create(
+                model=model, messages=messages, seed=seed, temperature=temperature)
             return resp.choices[0].message.content.strip()
         except transient as e:
             last_error = e

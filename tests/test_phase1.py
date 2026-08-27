@@ -235,7 +235,7 @@ def _stub_client(behaviour):
             self.calls = 0
             self.chat = types.SimpleNamespace(completions=self)
 
-        async def create(self, model, messages):
+        async def create(self, model, messages, seed=None, temperature=None):
             self.calls += 1
             return behaviour(self.calls)
     return _Stub()
@@ -254,7 +254,8 @@ def _run_retry(client, transient, stats):
     judge._backoff_seconds = lambda attempt: 0          # no real sleeps in tests
     try:
         return asyncio.run(
-            judge._call_with_retry(client, "m", [], transient=transient, stats=stats)
+            judge._call_with_retry(client, "m", [], seed=0, temperature=0.0,
+                                   transient=transient, stats=stats)
         )
     finally:
         judge._backoff_seconds = orig
