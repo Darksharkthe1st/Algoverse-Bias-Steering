@@ -1,0 +1,242 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fvoa · research control surface</title><style>
+:root{--bg:#0b0d10;--panel:#12161b;--line:#222a33;--ink:#e6edf3;--dim:#8b98a5;
+--acc:#5bc8af;--warn:#e3b341;--bad:#f0776c;--good:#3fb950;
+--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif}
+a{color:var(--acc)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1418,#0b0d10)}
+.status{display:flex;flex-wrap:wrap;gap:9px;padding:14px 0;font:12px/1 var(--mono)}
+.chip{border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--dim);white-space:nowrap}
+.chip b{color:var(--ink);font-weight:600}
+.chip.ok{border-color:#1d3d2a;color:var(--good)}
+.chip.warn{border-color:#4a3c14;color:var(--warn)}
+.chip.bad{border-color:#4a2320;color:var(--bad)}
+h1{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+margin:26px 0 10px;font-weight:600}
+.paper{font-size:25px;line-height:1.4;margin:0 0 10px;max-width:62ch;font-weight:600}
+.sub{color:var(--dim);max-width:74ch;margin:0 0 22px;font-size:14px}
+section{padding:32px 0;border-bottom:1px solid var(--line)}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.card h3{margin:0 0 8px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.card p{margin:0 0 8px;font-size:14px}
+.big{font:600 22px/1.2 var(--mono)}
+.mono{font-family:var(--mono);font-size:12.5px}
+.dim{color:var(--dim)}
+.gate{border-left:3px solid var(--bad);background:#181111}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;letter-spacing:.08em;
+text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid #191f26;vertical-align:top}
+.pill{display:inline-block;font:11px/1 var(--mono);padding:4px 7px;border-radius:5px;
+border:1px solid var(--line);color:var(--dim)}
+.pill.done{color:var(--good);border-color:#1d3d2a}
+.pill.run{color:var(--warn);border-color:#4a3c14}
+.tl{position:relative;padding-left:22px}
+.tl:before{content:'';position:absolute;left:6px;top:4px;bottom:4px;width:1px;background:var(--line)}
+.ev{position:relative;margin-bottom:15px}
+.ev:before{content:'';position:absolute;left:-19px;top:7px;width:7px;height:7px;border-radius:50%;
+background:var(--dim);box-shadow:0 0 0 3px var(--bg)}
+.ev.key:before{background:var(--acc)}
+.ev h4{margin:0 0 3px;font-size:14px}
+.ev .meta{font:11px var(--mono);color:var(--dim);margin-bottom:3px}
+.ev p{margin:0 0 3px;font-size:13.5px;color:#c5cfd9}
+.cut{display:inline-block;margin:0 7px 7px 0;padding:6px 11px;border-radius:6px;
+border:1px dashed #3a2a2a;color:#b98b86;font-size:13px;text-decoration:line-through}
+.foot{padding:26px 0 50px;color:var(--dim);font-size:12.5px}
+code{font-family:var(--mono);font-size:.92em;background:#171d24;padding:1px 5px;border-radius:4px}
+.hint{font-size:12.5px;color:var(--dim);margin-top:8px}
+.arch{background:#0e1216;border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:10px}
+details summary{cursor:pointer;color:var(--dim);font-size:13px;padding:6px 0}
+</style></head><body>
+<header><div class="wrap"><div class="status">
+<span class="chip"><b>freeze-2026-08-17-a1</b> · 0080940</span>
+<span class="chip ok">clean tree</span>
+<span class="chip ok">tests <b>122/122</b></span>
+<span class="chip">runs complete <b>12/16</b></span>
+<span class="chip bad">positive control <b>not satisfied</b></span>
+<span class="chip"><b>Fri 2026-08-28 AoE · numbers freeze Mon 2026-08-24 · red team Wed 2026-08-26</b></span>
+</div></div></header><div class="wrap">
+
+<section><h1>The paper</h1>
+<p class="paper">CoCoNot built contrastive counterparts for its refusal categories but explicitly not for indeterminate/subjective ones — we build that missing contrast set (benign comparative questions that do have a right answer) and test whether hedging on them is controlled by the same mechanism as harm refusal.</p>
+<p class="sub">Interpretability as a Science @ NeurIPS 2026 (Sydney), long track ≤9pp, non-archival</p>
+<h1>The experiment</h1>
+<div class="arch">
+<svg viewBox="0 0 620 250" width="100%" style="max-width:640px" role="img"
+     aria-label="Two ablation trajectories in logit space and the angle between them">
+  <defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+    <path d="M0,0 L7,3.2 L0,6.4 z" fill="#5bc8af"/></marker>
+  <marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+    <path d="M0,0 L7,3.2 L0,6.4 z" fill="#e3b341"/></marker></defs>
+  <line x1="70" y1="205" x2="290" y2="205" stroke="#2a333d"/>
+  <line x1="70" y1="205" x2="70" y2="30" stroke="#2a333d"/>
+  <line x1="360" y1="205" x2="580" y2="205" stroke="#2a333d"/>
+  <line x1="360" y1="205" x2="360" y2="30" stroke="#2a333d"/>
+  <text x="300" y="240" fill="#8b98a5" font-size="11.5" font-family="monospace"
+        text-anchor="middle">x: Δlogit P(named a side) on S2 · y: Δlogit P(refused) on harm</text>
+  <text x="70" y="22" fill="#5bc8af" font-size="12.5" font-weight="600">one shared control</text>
+  <line x1="70" y1="205" x2="250" y2="70" stroke="#5bc8af" stroke-width="2.5" marker-end="url(#a)"/>
+  <circle cx="130" cy="160" r="3.4" fill="#5bc8af"/><circle cx="190" cy="115" r="3.4" fill="#5bc8af"/>
+  <text x="255" y="66" fill="#5bc8af" font-size="12" font-family="monospace">r̂_harm</text>
+  <line x1="70" y1="205" x2="226" y2="88" stroke="#8fd9c8" stroke-width="2.5"
+        stroke-dasharray="5 3" marker-end="url(#a)"/>
+  <text x="196" y="112" fill="#8fd9c8" font-size="12" font-family="monospace">r̂_stance</text>
+  <path d="M128,168 A62,62 0 0,1 140,154" fill="none" stroke="#5bc8af" stroke-width="1.4"/>
+  <text x="146" y="168" fill="#5bc8af" font-size="12" font-family="monospace">θ &lt; 25°</text>
+  <text x="360" y="22" fill="#e3b341" font-size="12.5" font-weight="600">distinct controls</text>
+  <line x1="360" y1="205" x2="360" y2="65" stroke="#e3b341" stroke-width="2.5" marker-end="url(#b)"/>
+  <text x="368" y="62" fill="#e3b341" font-size="12" font-family="monospace">r̂_harm</text>
+  <line x1="360" y1="205" x2="545" y2="205" stroke="#c678dd" stroke-width="2.5"/>
+  <text x="452" y="196" fill="#c678dd" font-size="12" font-family="monospace">r̂_stance</text>
+  <path d="M360,175 A30,30 0 0,0 390,205" fill="none" stroke="#e3b341" stroke-width="1.4"/>
+  <text x="378" y="170" fill="#e3b341" font-size="12" font-family="monospace">θ large</text>
+  <text x="360" y="38" fill="#8b98a5" font-size="10.5">not claimable — every nuisance biases θ this way</text>
+</svg>
+
+<p class="hint">Partial directional ablation <code>x − λ(x·r̂)r̂</code> at λ ∈ {0, 0.5, 1}, for
+<code>r̂_stance</code>, <code>r̂_harm</code> and a covariance-matched <code>r̂_random</code>, on both
+batteries. <strong>θ</strong> is the angle between the two trajectories <strong>in logit space</strong>
+— under a shared knob the ratio of logit changes is constant across λ and across directions, and that
+invariant is what probability space destroys.</p></div>
+<div class="grid g2" style="margin-top:14px">
+<div class="card"><h3>What a small θ can establish</h3>
+<p>“Consistent with a shared-control model, within the resolution of this experiment.” Conditional on
+all four gates passing.</p></div>
+<div class="card"><h3>What it cannot</h3>
+<p>It does <strong>not</strong> establish a unique shared mechanism. And a <strong>large θ licenses
+nothing on its own</strong> — every identified nuisance biases θ toward “distinct”, none toward
+“shared”. Inference is deliberately asymmetric.</p></div></div></section>
+
+<section><h1>Current gate</h1><div class="card gate">
+<p>G1 is the only current gate, it is NOT satisfied, and it has never been run on a submission model. It is now evaluable on one, which it was not before.</p><p>G1 requires all three legs, on Qwen/Qwen3-8B @ b968826d9c46, computed from the model&#x27;s own activations (contract §12 A6, PREREG §7a): G1a the direction is estimable — split-half cosine beats its label-permutation null and clears 0.68; G1b full ablation cuts refusal by ≥ 0.15 on held-out harmful_test; G1c permuted and covariance-matched random directions each move it by &lt; 0.05 and sit ≥ 4 SE below r̂_harm. All three, or no claim.</p><p>Why it changed. The frozen form demanded a cosine and a baseline against Arditi&#x27;s reference. He publishes those for five models and Qwen3-8B is not one, so on the frozen primary both criteria were undefined — G1 could be neither passed nor failed. The gate was wrong, so the gate changed. We did not switch models to rescue it: letting a third-party file&#x27;s availability pick the submission model is how a project ends up reporting on whatever was convenient.</p><p>Blocked on hardware. transformer_lens is not importable outside the Lambda box, so G1 and every torch-touching change can only run there. That serialises the critical path onto whoever has box access — the single-engineer risk, now verified rather than assumed. Run it from docs/HANDOFF_G1.md.</p>
+</div></section>
+
+<section><h1>Evidence</h1><div class="grid g3">
+<div class="card"><h3>Test suite</h3><div class="big">122/122</div>
+<p class="dim mono">11 files &middot; pytest -q (normal collection) &middot; 1 skipped</p>
+</div>
+<div class="card"><h3>Run artifacts</h3><div class="big">12/16</div>
+<p class="dim mono">complete = results + summary + manifest + vector</p></div>
+<div class="card"><h3>Blocking packages</h3><div class="big">4/16</div>
+<p class="dim mono">done by evidence, not by report</p></div></div><div class="card" style="margin-top:14px">
+<h3>Positive control — mechanism yes, replication no</h3><table><tr><td class='mono'>harmful/baseline</td><td class='mono'>37/100 refused</td></tr><tr><td class='mono'>harmful/ablation</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmful/actadd</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmless/baseline</td><td class='mono'>0/100 refused</td></tr><tr><td class='mono'>harmless/actadd</td><td class='mono'>95/100 refused</td></tr></table>
+<p class="hint">Ablation collapses harmful refusal, so the operator works. But the run's own findings
+doc records <strong>“Not reproduced”</strong>: baseline 0.380 against the paper's 0.700, extraction
+cosine 0.90 against a 0.999 target — and on Qwen1.5-1.8B, not a submission model.
+<strong>G1 is not satisfied.</strong> Source: <code>runs/20260816-010402_refusal-repro_qwen-1.8b/logs/run.log</code></p></div><div class="card" style="margin-top:14px">
+<h3>The simulation that killed the selectivity statistic</h3>
+<p>Holding the world <strong>fixed at “one shared control”</strong> and varying only direction-estimate
+quality — which is unmeasurable — the previous <code>SEL ≥ 2</code> rule fired between
+<strong>1.8% and 64%</strong> of the time with no second mechanism present, and inverted sign at one
+setting. That is why the headline statistic changed.</p>
+<p class="hint">Reproduce: <code>python3 analysis/sim_lambda_identifiability.py</code></p></div>
+<details style="margin-top:14px"><summary>All committed runs (16)</summary>
+<table><tr><th>run</th><th>rows</th><th>artifacts</th></tr>
+<tr><td class='mono'>20260809-010713_parity-log103_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-012833_sweep-qwen18-c2_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-013300_sweep-qwen18-c6_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-013730_sweep-qwen18-c10_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-014201_sweep-qwen18-c14_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-014629_sweep-qwen18-c18_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-015046_sweep-qwen18-c24_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-015504_anchor-qwen-1.8b_qwen-1.8b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-015926_anchor-yi-6b_yi-6b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-020532_anchor-qwen-7b_qwen-7b</td><td class='mono'>300</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-021303_anchor-qwen-14b_qwen-14b</td><td class='mono'>&mdash;</td><td><span class='pill'>partial</span></td></tr><tr><td class='mono'>20260809-021510_crows-qwen-1.8b_qwen-1.8b</td><td class='mono'>450</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260809-022109_crows-qwen-7b_qwen-7b</td><td class='mono'>450</td><td><span class='pill done'>complete</span></td></tr><tr><td class='mono'>20260816-010402_refusal-repro_qwen-1.8b</td><td class='mono'>500</td><td><span class='pill'>partial</span></td></tr><tr><td class='mono'>20260816-011914_refusal-repro_qwen-1.8b</td><td class='mono'>500</td><td><span class='pill'>partial</span></td></tr><tr><td class='mono'>_validation</td><td class='mono'>&mdash;</td><td><span class='pill'>partial</span></td></tr></table></details></section>
+
+<section><h1>Why the paper changed</h1>
+<p class="sub">Each entry is an epistemic update with the evidence that forced it. Full text in
+<code>DECISION_LOG.md</code> — append-only, history rather than doctrine.</p><div class="tl"><div class="ev">
+<div class="meta">D-001 · 2025 (original cohort)</div><h4>The founding hypothesis</h4>
+<p>An LLM&#x27;s tendency to be neutral rather than opinionated on contested-but-benign prompts is mediated by a linear residual-stream direction, extractable by difference-in-means.</p><p class="dim">Original Algoverse cohort, Jun–Dec 2025. Paper never finished; Overleaf draft and Slack archive both lost.</p></div><div class="ev">
+<div class="meta">D-002 · 2026-08-04</div><h4>The asymmetry that founded the revival</h4>
+<p>Treat as the project&#x27;s central finding that the bias vector transferred to refusal data while the refusal vector did not transfer to bias data — implying bias is the more general construct.</p><p class="dim">Farhan, Aug 4 meeting, from memory: &quot;The refusal vector was not very useful for our bias data set. But the bias vector did work for the refusal data set.&quot; Coefficient behaviour: refusal gibberish above 1, bias usable at 10–15.</p></div><div class="ev">
+<div class="meta">D-003 · 2026-08-08</div><h4>Capability checks before claims</h4>
+<p>Run capability/coherence benchmarks early so steering cannot be shown to have lobotomised the model.</p><p class="dim">Aug 8 meeting. Edward argued against GSM8K as the only skill check.</p></div><div class="ev key">
+<div class="meta">D-004 · 2026-08-16</div><h4>The 2025 refusal arms are not evidence</h4>
+<p>Withdraw all 2025 refusal-arm results, including D-002&#x27;s asymmetry.</p><p class="dim">docs/REVIVAL_AUDIT.md: archived .pt files load as one-dimensional tensors, and layered_generation indexed them per layer — which on a 1-D tensor yields a scalar — then added that scalar uniformly across the residual width. A DC offset, not a direction. Audit verdict: &quot;a pipeline-failure case study, not intervention evidence.&quot; Separately, one headline run saved a Qwen-1_5-1_8B payload under a Llama</p></div><div class="ev">
+<div class="meta">D-005 · 2026-08-16</div><h4>Documentation had forked into two universes</h4>
+<p>Reconcile main and team-kit rather than continuing on both.</p><p class="dim">The branches had diverged 19 commits each way with disjoint docs/ trees. RUBRIC_v2.md — the canonical rubric — did not exist on the branch the pipeline owner worked from. The file marked &quot;This file is doctrine&quot; described a byte-fallback perturbation paper that no meeting had ever agreed; it was raised once on Aug 1, parked the same call, and never returned across four subsequent meetings.</p></div><div class="ev">
+<div class="meta">D-006 · 2026-08-16</div><h4>Independence in the annotation instrument</h4>
+<p>One tab per annotator instead of three visible label columns.</p><p class="dim">RUBRIC_v2.md requires independent labelling; three adjacent columns make peeking the default.</p></div><div class="ev">
+<div class="meta">D-007 · 2026-08-16</div><h4>Bibliography verified; one citation retracted</h4>
+<p>Remove Fafuła (arXiv:2607.17427) from the motivation.</p><p class="dim">19/19 inherited arXiv IDs are real — zero fabricated, control test 2607.99999 → 404. But Fafuła&#x27;s text contains no &quot;soft refusal&quot;, no &quot;neutrality&quot;, no &quot;benign&quot;, has no future-work section, and states its task (21,600 stock picks on 60 equities) elicits no refusals. The claim that it &quot;explicitly requests this experiment&quot; was false.</p></div><div class="ev">
+<div class="meta">D-008 · 2026-08-17</div><h4>Geometry is not sufficient evidence</h4>
+<p>Do not use cosine or principal angle between DiM directions as evidence of functional separation.</p><p class="dim">Wollschläger et al. (arXiv:2502.17420) define representational independence precisely because orthogonality does not imply independence under intervention. Joad et al. (arXiv:2602.02132) find eleven refusal categories geometrically distinct (cos 0.4–0.6) yet behaviourally collapsed onto &quot;a shared one-dimensional control knob.&quot;</p></div><div class="ev key">
+<div class="meta">D-009 · 2026-08-17</div><h4>The selectivity ratio cannot identify mechanisms</h4>
+<p>Drop the single-point full-ablation 2×2 and its SEL ≥ 2 rule.</p><p class="dim">analysis/sim_lambda_identifiability.py. Holding the world fixed at shared and varying only direction-estimate quality — which is unmeasurable — the rule fires with probability 1.8% → 64%, and at ρ_stance=0.85/ρ_harm=0.55 it silently inverts.</p></div><div class="ev">
+<div class="meta">D-010 · 2026-08-17</div><h4>The eight-way cascade fails as an instrument</h4>
+<p>Replace it with a ternary judgement (COMMITTED / ENGAGED-DID-NOT-COMMIT / UNUSABLE) plus a deterministic primary DV.</p><p class="dim">Simulation: five of eight categories have expected count &lt;7 at n=150; hard refusal has a 53% chance of landing below 5 items.</p></div><div class="ev key">
+<div class="meta">D-011 · 2026-08-17</div><h4>Logit space is the identification</h4>
+<p>Primary statistic is the angle between ablation trajectories in logit space, not probability space; λ ∈ {0, 0.5, 1}.</p><p class="dim">Under a shared knob, Δlogit P_harm / Δlogit P_stance is exactly constant across λ and across directions (2.250000 in simulation) — invariant to direction efficacy and to the differing thresholds and baselines that break the ratio rule. Probability space destroys the invariant: null bias 11.6° vs 3.6°, and 24.7° vs 8.2° under a 0.99 ceiling. Denser λ grids cost power at matched budget — {0,1} at n=</p></div><div class="ev key">
+<div class="meta">D-012 · 2026-08-17</div><h4>The battery is a three-way mixture</h4>
+<p>Stratify. S2 (privileged answer) is the primary battery; S3 is the appropriate-hedging control; S1 is excluded.</p><p class="dim">Of 296 items, 28 are first-person preference (CoCoNot</p></div><div class="ev key">
+<div class="meta">D-013 · 2026-08-17</div><h4>The identification claim is cut</h4>
+<p>Keep the machinery; reduce the headline to the measurement contribution plus a preregistered bound. Claim only the equivalence direction.</p><p class="dim">Three independent critics, each verified in code. 1.</p></div><div class="ev">
+<div class="meta">D-014 · 2026-08-17</div><h4>Two statistical defects fixed before any θ</h4>
+<p>Delete the axis whitening; make the bootstrap use the same map as the statistic.</p><p class="dim">Whitening ties the estimand to the benign/harm budget split — θ_eq calibrated at 1:1 becomes 33° at 14:1, inside the bound meant to exclude nested. Mismatched bootstrap maps give measured coverage 0.22 under nested, erring 78% toward falsely declaring &quot;shared&quot; — the paper&#x27;s own null.</p></div><div class="ev key">
+<div class="meta">D-015 · 2026-08-17</div><h4>The positive control is not yet satisfied</h4>
+<p>G1 requires a run on a submission model meeting three conditions, not just the effect size.</p><p class="dim">runs/20260816-011914_refusal-repro_qwen-1.8b shows harmful 38/100 → 0/100 under ablation. But the run&#x27;s own findings doc records &quot;Not reproduced&quot;: baseline 0.380 vs the paper&#x27;s 0.700 (Δ −0.32) and extraction cosine 0.90 against a 0.999 target.</p></div><div class="ev">
+<div class="meta">D-016 · 2026-08-17</div><h4>The campaign data was never lost</h4>
+<p>Do not re-run the Aug 9 campaign.</p><p class="dim">12 of 13 run directories appeared to hold only a 167-byte log. The artifacts were committed at phase boundaries (b95ded9 and siblings) and were later dropped from HEAD by a checkpoint commit. 67 artifacts across 12 runs recovered from history; results.csv files are 301 rows (100 items × 3 conditions). Only anchor-qwen-14b has no vector commit — it died before the vector phase, 14B, OOM the obvious</p></div><div class="ev">
+<div class="meta">D-017 · 2026-08-17</div><h4>Venue</h4>
+<p>Interpretability as a Science @ NeurIPS 2026, Sydney. ≤9pp long track, non-archival. Deadline 2026-08-28 AoE.</p><p class="dim">Verified from primary CFPs. Its scope is standards for measurement, causal claims and falsifiability — which is what this paper now is. The alternative, Interp4Discovery (Aug 29, ≤5pp), frames around domain knowledge discovery, which fits worse, and 5pp cannot hold the controls.</p></div><div class="ev">
+<div class="meta">D-018 · 2026-08-17</div><h4>Post-freeze pin, and the last text that disagreed with D-015</h4>
+<p>(a) Pin model revisions to immutable SHAs — contract Amendment</p><p class="dim"></p></div><div class="ev">
+<div class="meta">D-019 · 2026-08-17</div><h4>G1 was unevaluable on the model it gates</h4>
+<p>Redefine G1 model-internally (contract §12</p><p class="dim">G1 required extraction cosine ≥0.95 and baseline within ±0.05 of reference. Both references are Arditi per-model artifacts. third_party/refusal_direction/manifest.json ships 71 files for exactly five models — gemma-2b-it, llama-2-7b-chat-hf, meta-llama-3-8b-instruct, qwen-1_8b-chat, yi-6b-chat.</p></div></div></section><section><h1>Execution</h1>
+<p class="sub">Work packages, not personal agendas. Owner is metadata — a package keeps its meaning
+when it changes hands. A package is done when its <strong>evidence exists and validates</strong>.</p>
+<table><tr><th>ID</th><th>Objective</th><th>Status</th><th>Owner</th><th>Evidence required</th></tr><tr><td class="mono">WP-01</td><td>Merge the correctness + recovery branch into the working line</td>
+<td><span class="pill done">done</span></td><td class="mono dim">Claude</td>
+<td class="dim mono">fix/steering-shape-guard @ d2a79f8</td></tr><tr><td class="mono">WP-02</td><td>Reconcile main ← team-kit ← fk/init-refusal-rewrite</td>
+<td><span class="pill done">done</span></td><td class="mono dim">Claude</td>
+<td class="dim mono">Merge commit; suite still 31/31</td></tr><tr><td class="mono">WP-03</td><td>Partial λ on the existing apply_directional_ablation (~15 LOC; operator already on main)</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Aryaman</td>
+<td class="dim mono">src/bias_steer/steering.py diff + tests</td></tr><tr><td class="mono">WP-04</td><td>Extraction protocol implementation</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
+<td class="dim mono">Code diff + one direction file with metadata</td></tr><tr><td class="mono">WP-05</td><td>G1 — model-internal positive control on qwen3-8b (was: Arditi replication E0; redefined by contract §12 A6, because the reference-cosine form is undefined on the frozen primary)</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
+<td class="dim mono">Run dir with results.csv, summary.md, manifest.json carrying model_spe</td></tr><tr><td class="mono">WP-05a</td><td>G1 execution assets: pinned ModelSpec, config, statistic, handoff</td>
+<td><span class="pill done">done</span></td><td class="mono dim">Claude</td>
+<td class="dim mono">configs/g1_qwen3_8b.py, src/bias_steer/g1_stability.py, docs/HANDOFF_G</td></tr><tr><td class="mono">WP-05b</td><td>Wire G1a to the cached residuals at the selected cell (~20 LOC)</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
+<td class="dim mono">Diff + the report written into the run dir</td></tr><tr><td class="mono">WP-06</td><td>Primary DV extractor named_a_side</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Jeremiah</td>
+<td class="dim mono">scripts/extract_named_side.py + per-item output</td></tr><tr><td class="mono">WP-07</td><td>Validity instrument + blinded annotation</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Jeremiah</td>
+<td class="dim mono">Blinded pools, individual label files, agreement computation, frozen v</td></tr><tr><td class="mono">WP-08</td><td>λ-sweep, both directions × both batteries, k generations/item</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Farhan</td>
+<td class="dim mono">Raw generations + results + provenance per cell</td></tr><tr><td class="mono">WP-09</td><td>Controls: covariance-matched random direction, wrong-layer</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Aryaman</td>
+<td class="dim mono">Run dirs, same schema as WP-08</td></tr><tr><td class="mono">WP-10</td><td>Analysis + decision rule evaluation</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Jeremiah</td>
+<td class="dim mono">analysis/ script + committed outputs</td></tr><tr><td class="mono">WP-11</td><td>Preregistration filled and hash-committed</td>
+<td><span class="pill">not started</span></td><td class="mono dim">—</td>
+<td class="dim mono">Commit hash in the contract</td></tr><tr><td class="mono">WP-25</td><td>Stratify the battery (S1/S2/S3)</td>
+<td><span class="pill">not started</span></td><td class="mono dim">—</td>
+<td class="dim mono">Committed CSV + adjudication notes</td></tr><tr><td class="mono">WP-13</td><td>Final adversarial freeze review</td>
+<td><span class="pill done">done</span></td><td class="mono dim">Claude</td>
+<td class="dim mono">Critic reports + resolutions in contract §12</td></tr><tr><td class="mono">WP-12</td><td>Judge pinning + k≥3 with majority</td>
+<td><span class="pill">not started</span></td><td class="mono dim">Aryaman</td>
+<td class="dim mono">Config diff + judge agreement file</td></tr></table><div class="grid g2" style="margin-top:16px">
+<div class="card"><h3>Blocks submission</h3><p>G1 on the submission model (needs the Lambda box) · partial-λ on the existing ablation operator (~15 LOC — the operator itself already exists) · fp32 projection · stratum labels on the 293 items · DV extractor + ternary audit (n=120, 2 annotators) · preregistration hash · the two statistical fixes (delete whitening; match bootstrap map).</p></div>
+<div class="card"><h3>Does not block</h3><p class="dim">Second model · S3 appropriate-hedging arm · post-training trajectory · SAEs · ACE/cone/gradient methods · bias taxonomy · the forensic reconstruction of the 2025 scalar-broadcast bug · dashboard.</p></div>
+</div></section>
+
+<section><h1>Not this paper</h1>
+<p class="sub">Deliberately cut. Resurrecting any of these needs a dated amendment to
+<code>RESEARCH_CONTRACT.md</code> §12 — “this would be more interesting” is not a reopen condition.</p>
+<span class="cut">post-training trajectory</span><span class="cut">SAE cross-checks</span><span class="cut">ACE/cone/gradient methods</span><span class="cut">conditional steering</span><span class="cut">bias taxonomy</span><span class="cut">the eight-way cascade</span><span class="cut">the selectivity-ratio rule</span><span class="cut">the byte-fallback perturbation arm</span><span class="cut">&quot;soft refusal&quot; as a coinage</span></section>
+
+<section><h1>Archive</h1>
+<p class="sub">Superseded framings are kept for provenance in <code>docs/superseded/</code>, each
+carrying a banner. 2025 results are <strong>not</strong> current evidence — the archived refusal arms
+were invalidated by a one-dimensional tensor broadcast, documented in
+<code>docs/REVIVAL_AUDIT.md</code>. Nothing there is a paper claim.</p></section>
+
+<div class="foot">Projection of <code>main</code> @ <code>0080940</code> · tag
+<code>freeze-2026-08-17-a1</code> · 696 commits · built
+2026-08-21 01:09 UTC.<br>
+Generated from <code>PROJECT_STATE.md</code>, <code>RESEARCH_CONTRACT.md</code>,
+<code>WORK_LEDGER.md</code>, <code>DECISION_LOG.md</code>, <code>runs/</code>, git and the live test
+suite. A projection, never a source of truth — if this page disagrees with the repo, the repo wins.
+</div></div></body></html>

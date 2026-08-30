@@ -42,12 +42,17 @@ def load_model(spec: ModelSpec, device: str | None = None) -> LoadedModel:
     from transformer_lens import HookedTransformer
 
     device = device or get_device()
+    # Pin the weights when the spec names an immutable revision. Passed through
+    # to the HF fetch, so the run loads the exact commit PREREG §3b froze rather
+    # than whatever the branch points at today.
+    extra = {"revision": spec.revision} if spec.revision else {}
     model = HookedTransformer.from_pretrained_no_processing(
         spec.hf_id,
         device=device,
         dtype=torch.float16,
         default_padding_side="left",
         output_hidden_states=True,
+        **extra,
     )
     model.eval()
     model.to(device)
@@ -62,18 +67,32 @@ def build_chat_messages(system: str, user: str) -> list[dict]:
     ]
 
 
-def render_prompts(loaded: LoadedModel, prompts, system_prompt):
+def render_prompts(loaded: LoadedModel, prompts, system_prompt, *, template=None):
     """Return (token_lists, prompt_strs). Chat models get the system+user chat
     template; base models (`chat_template=False`) get the raw prompt.
 
     NOTE: this mirrors the notebook, where gemma/llama-3 ran with
     `apply_chat_template=False` (no system instruction). Revisit per-model if that
     turns out to matter — it's one `ModelSpec.chat_template` flag.
+
+    `template` overrides both branches with a literal format string containing
+    `{instruction}`, rendered verbatim with NO system turn. The refusal repro
+    (arXiv:2406.11717) needs this: the paper formats with the model's raw chat
+    template and no system turn, and neither branch above reproduces that for
+    Qwen — `build_chat_messages` emits an *empty* system turn
+    (`<|im_start|>system\\n<|im_end|>`, 20 tok), while dropping the system message
+    makes HF inject its default "You are a helpful assistant." (26 tok). The
+    paper's own string is 15 tok. That gap moved harmful/baseline refusal by
+    -0.33 (see docs/05-refusal-repro.md §3).
     """
     tok = loaded.tokenizer
     token_lists, strs = [], []
     for p in prompts:
-        if loaded.spec.chat_template:
+        if template is not None:
+            s = template.format(instruction=p)
+            token_lists.append(tok(s).input_ids)
+            strs.append(s)
+        elif loaded.spec.chat_template:
             msg = build_chat_messages(system_prompt, p)
             token_lists.append(tok.apply_chat_template(msg, tokenize=True, add_generation_prompt=True))
             strs.append(tok.apply_chat_template(msg, tokenize=False, add_generation_prompt=True))
@@ -83,37 +102,78 @@ def render_prompts(loaded: LoadedModel, prompts, system_prompt):
     return token_lists, strs
 
 
-def _strip(loaded: LoadedModel, out_strs, prompt_strs):
-    """Drop the prompt + BOS prefix from each generated string (notebook behavior;
-    guards against a None BOS token, which the notebook did not)."""
-    bos = loaded.tokenizer.bos_token or ""
-    return [s[len(prompt_strs[i]) + len(bos):] for i, s in enumerate(out_strs)]
+def _strip(loaded: LoadedModel, out_tokens, n_input: int) -> list[str]:
+    """Decode only the newly generated tokens of each row.
+
+    Replaces the notebook's character-based slice
+    (``s[len(prompt_str) + len(bos):]``), which is wrong under left padding: a
+    batch is padded to its longest member, so the decoded string is
+    ``<pad>... <bos> <prompt> <response>`` and cutting `len(prompt)` *characters*
+    off the front lands in the middle of the padding, leaving prompt tail and
+    chat-template markup (``<|im_end|><|im_start|>assistant``) glued to the front
+    of every response. Measured on the Log_103 anchor before this fix: 0/8
+    responses shared even a single leading character with the archive
+    (docs/04-parity.md, rung 2).
+
+    Slicing by token index is exact instead of approximate: left padding makes the
+    prompt occupy the same width `n_input` in *every* row, so `row[n_input:]` is
+    precisely the generated continuation regardless of prompt length.
+    """
+    return [
+        loaded.tokenizer.decode(row[n_input:], skip_special_tokens=True)
+        for row in out_tokens
+    ]
 
 
-def generate(loaded: LoadedModel, prompts, max_new_tokens, system_prompt) -> list[str]:
+def generate(loaded: LoadedModel, prompts, max_new_tokens, system_prompt, *, template=None) -> list[str]:
     """Greedy generation. Ports notebook `normal_generation`."""
-    _, strs = render_prompts(loaded, prompts, system_prompt)
-    out = loaded.model.generate(strs, max_new_tokens=max_new_tokens, do_sample=False, return_type="tokens")
-    return _strip(loaded, loaded.model.to_string(out), strs)
+    _, strs = render_prompts(loaded, prompts, system_prompt, template=template)
+    tokens = loaded.model.to_tokens(strs)  # left-padded to a uniform width
+    out = loaded.model.generate(tokens, max_new_tokens=max_new_tokens,
+                                do_sample=False, return_type="tokens")
+    return _strip(loaded, out, tokens.shape[1])
 
 
-def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_prompt):
+def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_prompt,
+                        capture_names=None):
     """Return (responses, caches). The cache is taken over the *response* text —
     faithful to the notebook, where `batch_resids` calls `run_with_cache` on the
-    stripped output. Feed each cache to `steering.capture_*`."""
+    stripped output. Feed each cache to `steering.capture_*`.
+
+    `capture_names` is the list of hook points to retain. It matters a lot: an
+    unfiltered `run_with_cache` keeps *every* hook point at every layer (~15x the
+    tensors actually read) for every example in a batch simultaneously, which is
+    what the notebook did and why it could not scale past small models. Filtering
+    to the handful of names `capture` reads cuts both memory and time by an order
+    of magnitude and is what lets a 14B model run at a usable batch size.
+
+    Defaults to the `resid_pre` names used by `capture_mean` / `capture_last`; a
+    method reading other hook points passes its own (see `SteeringMethod.names`).
+    """
     responses = generate(loaded, prompts, max_new_tokens, system_prompt)
-    caches = [loaded.model.run_with_cache(r)[1] for r in responses]
+    if capture_names is None:
+        n_layers = loaded.model.cfg.n_layers
+        capture_names = [f"blocks.{i}.hook_resid_pre" for i in range(n_layers)]
+    wanted = set(capture_names)
+    caches = [
+        loaded.model.run_with_cache(r, names_filter=lambda n: n in wanted)[1]
+        for r in responses
+    ]
     return responses, caches
 
 
-def generate_with_hooks(loaded: LoadedModel, prompts, fwd_hooks, max_new_tokens, system_prompt) -> list[str]:
+def generate_with_hooks(loaded: LoadedModel, prompts, fwd_hooks, max_new_tokens, system_prompt,
+                        *, template=None) -> list[str]:
     """Steered generation under `fwd_hooks` (build them with `steering.apply_*`).
     Ports notebook `batched_generation`."""
-    _, strs = render_prompts(loaded, prompts, system_prompt)
+    _, strs = render_prompts(loaded, prompts, system_prompt, template=template)
     tokens = loaded.model.to_tokens(strs)
     with loaded.model.hooks(fwd_hooks):
+        # temperature=0 is greedy: sample_logits early-returns argmax on 0.0, so
+        # this matches `generate`'s do_sample=False. Verified against
+        # transformer_lens 3.7 (docs/04-parity.md).
         out = loaded.model.generate(tokens, max_new_tokens=max_new_tokens, temperature=0)
-    return _strip(loaded, loaded.model.to_string(out), strs)
+    return _strip(loaded, out, tokens.shape[1])
 
 
 # Catalog of known models (pure data). Adding a HookedTransformer model = one
@@ -126,6 +186,16 @@ MODEL_CATALOG = {
     "gemma-2b":  ModelSpec("gemma-2b", "google/gemma-2b-it", False, "2B"),
     "gemma-7b":  ModelSpec("gemma-7b", "google/gemma-7b-it", False, "7B"),
     "llama3-8b": ModelSpec("llama3-8b", "meta-llama/Meta-Llama-3-8B-Instruct", False, "8B"),
+    # Added for the refusal-direction repro (arXiv:2406.11717); not used by the
+    # legacy bias runs. chat_template=True because the refusal direction is defined
+    # at post-instruction template positions (see src/bias_steer/refusal.py).
+    "llama-2-7b": ModelSpec("llama-2-7b", "meta-llama/Llama-2-7b-chat-hf", True, "7B"),
+    # The frozen submission model (docs/PREREG.md §3b; contract §12 A4). Arditi
+    # ships no per-model artifact for it, which is exactly why G1 is defined
+    # model-internally (contract §12 A6): the only thing G1 needs from
+    # third_party/ is the prompt splits, and those are model-independent.
+    "qwen3-8b": ModelSpec("qwen3-8b", "Qwen/Qwen3-8B", True, "8B", ["qwen"],
+                          revision="b968826d9c46"),
 }
 
 for _name, _spec in MODEL_CATALOG.items():

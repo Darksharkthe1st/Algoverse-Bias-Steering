@@ -69,30 +69,44 @@ def test_config_structural_validation():
 
 
 def test_registry_register_and_validate():
-    # isolate the module-level registries for this test
-    for reg in (registry.DATASETS, registry.MODELS, registry.METHODS, registry.JUDGES):
-        reg.clear()
+    # Isolate the module-level registries for this test *and give them back*.
+    #
+    # These are process-global dicts populated at import time. Clearing them
+    # without restoring poisons every test collected afterwards: the suite
+    # passed file-by-file and failed 17 of 110 under a normal `pytest -q`,
+    # because later files looked up models/methods this test had wiped.
+    # Snapshot and restore in a finally, so it holds under pytest and under
+    # `_main()` alike, and on the failing path as well as the passing one.
+    regs = (registry.DATASETS, registry.MODELS, registry.METHODS, registry.JUDGES)
+    saved = [dict(reg) for reg in regs]
+    try:
+        for reg in regs:
+            reg.clear()
 
-    cfg = _make_config()
-    # nothing registered yet -> validate lists every missing component
-    err = _expect(KeyError, lambda: registry.validate(cfg))
-    for token in ("model 'qwen-7b'", "dataset 'crows'", "method 'mean_diff'", "judge 'neutrality'"):
-        assert token in str(err), f"missing component not reported: {token}"
+        cfg = _make_config()
+        # nothing registered yet -> validate lists every missing component
+        err = _expect(KeyError, lambda: registry.validate(cfg))
+        for token in ("model 'qwen-7b'", "dataset 'crows'", "method 'mean_diff'", "judge 'neutrality'"):
+            assert token in str(err), f"missing component not reported: {token}"
 
-    # decorator form
-    @registry.register(registry.DATASETS, "crows")
-    def _load(spec):
-        return []
+        # decorator form
+        @registry.register(registry.DATASETS, "crows")
+        def _load(spec):
+            return []
 
-    # direct form (for specs)
-    registry.register(registry.MODELS, "qwen-7b", ModelSpec("qwen-7b", "Qwen/Qwen1.5-7B-Chat", True, "7B"))
-    registry.register(registry.METHODS, "mean_diff", object())
-    registry.register(registry.JUDGES, "neutrality", lambda resp, ex, spec: [])
+        # direct form (for specs)
+        registry.register(registry.MODELS, "qwen-7b", ModelSpec("qwen-7b", "Qwen/Qwen1.5-7B-Chat", True, "7B"))
+        registry.register(registry.METHODS, "mean_diff", object())
+        registry.register(registry.JUDGES, "neutrality", lambda resp, ex, spec: [])
 
-    registry.validate(cfg)  # now fully registered -> no raise
+        registry.validate(cfg)  # now fully registered -> no raise
 
-    # double registration is rejected
-    _expect(ValueError, lambda: registry.register(registry.DATASETS, "crows", _load))
+        # double registration is rejected
+        _expect(ValueError, lambda: registry.register(registry.DATASETS, "crows", _load))
+    finally:
+        for reg, snapshot in zip(regs, saved):
+            reg.clear()
+            reg.update(snapshot)
 
 
 def test_make_run_id_is_readable_and_deterministic():
@@ -120,6 +134,23 @@ def test_open_run_writes_manifest():
         assert "sha" in manifest["git"] and "dirty" in manifest["git"]
         # the manifest's config round-trips back to an equal ExperimentConfig
         assert from_dict(manifest["config"]) == cfg
+        # the short handle is a repo-local nickname, so what was actually loaded
+        # has to be resolved into the record too (PREREG §3b)
+        assert "model_spec" in manifest, "manifest must record what it loaded"
+        assert set(manifest["model_spec"]) == {"name", "hf_id", "revision"}
+
+
+def test_manifest_carries_the_pinned_revision_for_the_submission_model():
+    """PREREG §3b: a run whose manifest carries a bare model name is not
+    reproducible and does not count as evidence. G1's manifest must therefore
+    show the immutable revision, not just 'qwen3-8b'."""
+    cfg = _make_config()
+    cfg.models = ["qwen3-8b"]
+    with tempfile.TemporaryDirectory() as tmp:
+        handle = tracking.open_run(cfg, model="qwen3-8b", runs_dir=tmp, when="20260101-120000")
+        spec = json.loads((handle.dir / "manifest.json").read_text())["model_spec"]
+    assert spec["hf_id"] == "Qwen/Qwen3-8B"
+    assert spec["revision"] == "b968826d9c46"
 
 
 def test_append_index_creates_header_then_appends():

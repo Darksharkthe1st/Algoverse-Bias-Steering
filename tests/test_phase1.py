@@ -403,6 +403,76 @@ def test_capture_and_build_math():
     assert torch.allclose(vec, torch.ones(n_layers, d_model) * 2)
 
 
+class _FakeCfg:
+    def __init__(self, n_layers, d_model):
+        self.n_layers = n_layers
+        self.d_model = d_model
+
+
+class _FakeModel:
+    def __init__(self, n_layers, d_model):
+        self.cfg = _FakeCfg(n_layers, d_model)
+
+
+def test_apply_rejects_1d_vector_the_2025_bug():
+    """A 1-D archived vector must raise, not silently broadcast a scalar.
+
+    Regression test for the failure in docs/REVIVAL_AUDIT.md: `vector[layer]` on
+    a 1-D tensor yields a scalar, and the hook then adds a uniform DC offset
+    across the residual width instead of steering along a direction. Nothing
+    raised, so the 2025 refusal runs produced plausible numbers that tested
+    nothing. Without this test the bug returns the first time anyone loads an
+    archived .pt.
+    """
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    n_layers, d_model = 4, 8
+    model = _FakeModel(n_layers, d_model)
+
+    # The exact shape the archived .pt files load as.
+    err = _expect(
+        steering.SteeringShapeError,
+        lambda: steering.apply_resid_pre_add(model, torch.ones(d_model), coeff=1.0),
+    )
+    assert "1-D" in str(err)
+
+    # Transposed and wrong-width stacks are rejected too.
+    _expect(
+        steering.SteeringShapeError,
+        lambda: steering.apply_resid_pre_add(model, torch.ones(d_model, n_layers), coeff=1.0),
+    )
+    _expect(
+        steering.SteeringShapeError,
+        lambda: steering.apply_resid_pre_add(model, torch.ones(n_layers, d_model + 1), coeff=1.0),
+    )
+
+
+def test_apply_accepts_correct_shape_and_steers_every_coordinate():
+    """The good path still works, and adds a direction rather than a scalar."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    n_layers, d_model = 4, 8
+    model = _FakeModel(n_layers, d_model)
+    hooks = steering.apply_resid_pre_add(model, torch.ones(n_layers, d_model), coeff=2.0)
+
+    assert len(hooks) == n_layers
+    assert [h[0] for h in hooks] == steering.resid_pre_hook_names(n_layers)
+
+    # Applying the first hook to a zero residual must move every coordinate by
+    # coeff/n_layers — i.e. a (d_model,) direction was added, not a scalar.
+    value = torch.zeros(1, 3, d_model)
+    _, fn = hooks[0]
+    out = fn(value, hook=None)
+    assert out.shape == (1, 3, d_model)
+    assert torch.allclose(out, torch.full((1, 3, d_model), 2.0 / n_layers))
+
+
 def _expect(exc_type, fn):
     try:
         fn()

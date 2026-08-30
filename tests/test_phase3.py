@@ -113,6 +113,9 @@ class _FakeMethod:
     def apply(self, model, vector, coeff):
         return [("sign", 1 if coeff >= 0 else -1)]
 
+    def names(self, n_layers):
+        return [f"blocks.{i}.hook_resid_pre" for i in range(n_layers)]
+
 
 def _fake_backend():
     def load(spec):
@@ -121,7 +124,7 @@ def _fake_backend():
             tokenizer=None, spec=spec, device="cpu",
         )
 
-    def generate_with_cache(loaded, prompts, mnt, sysp):
+    def generate_with_cache(loaded, prompts, mnt, sysp, capture_names=None):
         return (["opinionated" if i % 2 == 0 else "neutral" for i in range(len(prompts))],
                 [None] * len(prompts))
 

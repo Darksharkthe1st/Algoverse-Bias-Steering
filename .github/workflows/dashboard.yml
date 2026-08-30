@@ -1,0 +1,62 @@
+name: Rebuild dashboard
+
+on:
+  push:
+    # Branches only. A tag push (e.g. a freeze tag) would otherwise trigger a
+    # build on a detached ref, which cannot push its result and fails red at
+    # exactly the moment someone cuts a freeze.
+    branches:
+      - main
+    paths:
+      # The site is a projection of canonical state. Rebuild when that state moves.
+      - 'PROJECT_STATE.md'
+      - 'RESEARCH_CONTRACT.md'
+      - 'WORK_LEDGER.md'
+      - 'DECISION_LOG.md'
+      - 'docs/PREREG.md'
+      - 'runs/**'
+      - 'tests/**'
+      - 'scripts/build_dashboard.py'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The dashboard derives the freeze marker from
+          # `git describe --match 'freeze-*'` and the commit count from history.
+          # The default shallow, tagless clone makes both unavailable, so CI was
+          # republishing the page with "(untagged) · 1 commits" and overwriting
+          # the correct locally-built marker. Full history + tags.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        # Without it build_dashboard falls back to invoking each test file in
+        # its own process — the exact mode that hid the registry leak, because
+        # a fresh process restores global state for free. The fallback labels
+        # itself on the page, but the page should not need the excuse.
+        run: python3 -m pip install --quiet pytest
+
+      - name: Rebuild dashboard
+        run: python3 scripts/build_dashboard.py --out dashboard/index.html
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dashboard/index.html
+          if git diff --cached --quiet; then
+            echo "No dashboard changes."
+          else
+            git commit -m "ci: auto-rebuild dashboard [skip ci]"
+            git push
+          fi

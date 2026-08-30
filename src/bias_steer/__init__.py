@@ -34,14 +34,23 @@ from .steering import SteeringMethod
 from .models import LoadedModel, load_model
 from .judge import parse_verdict
 
+# Refusal-direction repro (arXiv:2406.11717): loaders for the paper's published
+# steering vectors. Import-safe without torch (lazy-imported at load time).
+from . import refusal
+from .refusal import RefusalDirection, load_refusal_direction
+from . import refusal_extract
+
 # Phase 2: wiring + persistence.
 from . import artifacts
 from . import logs
 from . import metrics
 from . import experiment
+from . import experiment_refusal
+from . import refusal_compare
 from . import cli
 from . import coordinator
 from .experiment import run, Backend, RunResult
+from .experiment_refusal import run_refusal, RefusalBackend, RefusalRunResult
 from .coordinator import Coordinator, RouteEntry, GitOps
 
 __all__ = [
@@ -53,9 +62,14 @@ __all__ = [
     # science
     "datasets", "models", "steering", "judge",
     "sample", "SteeringMethod", "LoadedModel", "load_model", "parse_verdict",
+    "refusal", "RefusalDirection", "load_refusal_direction",
+    "refusal_extract",
     # wiring + persistence
     "artifacts", "logs", "metrics", "experiment", "cli",
     "run", "Backend", "RunResult",
+    # refusal-direction repro (arXiv:2406.11717)
+    "experiment_refusal", "run_refusal", "RefusalBackend", "RefusalRunResult",
+    "refusal_compare",
     # batch coordinator
     "coordinator", "Coordinator", "RouteEntry", "GitOps",
     # infra modules

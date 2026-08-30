@@ -1,0 +1,14 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+loading qwen-1.8b ...
+Loaded pretrained model Qwen/Qwen1.5-1.8B-Chat into HookedTransformer
+Moving model to device:  cuda
+candidates grid (5, 24, 2048)  (source: their mean_diffs.pt)
+  pos -5 done
+  pos -4 done
+  pos -3 done
+  pos -2 done
+  pos -1 done
+
+selected: position=-1, layer=15  (refusal=-6.7426, steering=1.1752, kl=0.0670)
+published: position=-2, layer=15
+MISMATCH — investigate (metric ties, filtering, dtype)

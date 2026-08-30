@@ -47,6 +47,11 @@ class ModelSpec:
     size: str = ""       # e.g. "7B" — for the results table
     quirks: list = field(default_factory=list)  # e.g. ["qwen"]; replaces is_qwen hack
     backend: str = "transformer_lens"           # escape hatch for a future API model
+    # Immutable HuggingFace commit SHA. A tag or bare repo name is not
+    # provenance: the upstream can move under it, and `docs/PREREG.md` §3b says
+    # a run whose manifest carries a bare model name does not count as evidence.
+    # Appended last so the existing positional ModelSpec(...) calls still work.
+    revision: str = ""
 
 
 @dataclass
@@ -56,6 +61,12 @@ class DatasetSpec:
     name: str                 # key into the DATASETS registry
     path: str = ""            # path to the raw data (loader-specific)
     train_split: float = 0.5  # fraction used to build the steering vector
+    shuffle: bool = True      # shuffle (seeded) before the train/test split?
+
+    # `shuffle=False` takes the first `train_split` fraction in dataset order,
+    # which is what the notebook did (`prompts[:int(len*train_split)]`). Needed to
+    # reproduce an archived run's exact split; leave it True for new experiments,
+    # where an unshuffled split risks correlating the split with file order.
 
 
 @dataclass

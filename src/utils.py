@@ -4,11 +4,13 @@ from datetime import datetime
 def get_repo_root() -> Path:
     """Obtains the path to the root of the github repository.
 
-    Walks parents (closest first) until one contains a `.git` entry. We check
-    for existence rather than a directory specifically: in a linked git worktree
-    the worktree root holds a `.git` *file* (a gitdir pointer), not a directory,
-    so an `.is_dir()` check would skip it and wrongly resolve to the main
-    checkout's root.
+    Walks up the parents until an entry named `.git` is found.
+
+    `.git` is tested with `exists()` rather than `is_dir()` on purpose. In a
+    linked worktree (`git worktree add`) and in a submodule, `.git` is a *file*
+    holding a `gitdir:` pointer, not a directory. Requiring a directory made this
+    raise inside every worktree, which took out 7 of 29 tests — including the
+    end-to-end pipeline test — for anyone running from one.
 
     Returns:
         pathlib.Path: The path to the repository root.

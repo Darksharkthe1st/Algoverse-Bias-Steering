@@ -207,6 +207,7 @@ def _register_p4_fakes():
             capture=lambda cache, n: ("r", n),
             build=lambda rbl, contrast: fake_vec,
             apply=lambda model, vec, coeff: [("sign", 1 if coeff >= 0 else -1)],
+            names=lambda n: [f"blocks.{i}.hook_resid_pre" for i in range(n)],
         )
         registry.register(registry.METHODS, "p4method", m)
     if "p4judge" not in registry.JUDGES:
@@ -219,7 +220,7 @@ def _p4_backend():
             model=types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4)),
             tokenizer=None, spec=spec, device="cpu"),
         generate=lambda l, p, m, s: ["opinionated"] * len(p),
-        generate_with_cache=lambda l, p, m, s: (
+        generate_with_cache=lambda l, p, m, s, capture_names=None: (
             ["opinionated" if i % 2 == 0 else "neutral" for i in range(len(p))], [None] * len(p)),
         generate_with_hooks=lambda l, p, h, m, s: [
             ("opinionated" if (h and h[0][1] > 0) else "neutral")] * len(p),

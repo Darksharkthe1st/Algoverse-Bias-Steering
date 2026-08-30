@@ -85,10 +85,21 @@ def open_run(
     (run_dir / "logs").mkdir(parents=True, exist_ok=True)
 
     sha, dirty = git_sha(repo_dir)
+    # Resolve the short handle to what will actually be loaded. `model` on its
+    # own is a repo-local nickname; PREREG §3b requires the hf_id and the
+    # immutable revision to be in the record, or the run does not count as
+    # evidence. Tolerant of unregistered handles so test doubles still open.
+    from .registry import MODELS
+    _spec = MODELS.get(model)
     manifest = {
         "run_id": run_id,
         "label": cfg.label,
         "model": model,
+        "model_spec": {
+            "name": getattr(_spec, "name", model),
+            "hf_id": getattr(_spec, "hf_id", None),
+            "revision": getattr(_spec, "revision", "") or None,
+        },
         "timestamp": when,
         "git": {"sha": sha, "dirty": dirty},
         "config": cfg.to_dict(),

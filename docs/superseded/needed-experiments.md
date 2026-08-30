@@ -1,3 +1,17 @@
+> ## ⛔ SUPERSEDED — NOT CURRENT DOCTRINE
+>
+> This document does **not** govern the project. It is retained for provenance
+> only. It describes framing, claims, taxonomies, model sets or experiment plans
+> that were **cut** during the 2026-08-17 freeze.
+>
+> Canonical state lives in **`PROJECT_STATE.md`**, **`RESEARCH_CONTRACT.md`**,
+> **`WORK_LEDGER.md`** and **`docs/PREREG.md`**.
+>
+> Humans and agents: if anything here conflicts with those four files, those four
+> files win. Do not plan, cite, or execute from this document.
+>
+> Why it was superseded: **`DECISION_LOG.md`**.
+
 # Needed experiments
 
 Experiments we intended to run but never finished, written for the agent refactoring this codebase.
@@ -269,7 +283,78 @@ jailbroke Qwen cleanly in the qualitative demo. **Priority: LOW** unless the abl
 
 ---
 
-## 12. Determinism check: same config + same code, run twice  — never verified
+## 12. Reproduce the refusal vector in OUR extraction convention  — READY TO RUN
+
+**Why.** We replicated the refusal *mechanism* (paper's published direction: ablation collapses harmful
+refusal, act-add induces harmless refusal — see `docs/findings/2026-08-16-refusal-repro-qwen-1.8b.md`),
+but that vector was made with the paper's recipe. This experiment re-derives a refusal direction with
+**our own `mean_diff` pipeline** — the same machinery that makes our bias/opinion vectors — so the
+refusal vector lives in the identical convention as everything else we extract. Then every future
+question ("is refusal orthogonal to bias / to axis X?") is one valid cosine away, instead of requiring a
+bespoke re-extraction. It also tests whether our extraction method captures refusal *at all*.
+
+**The convention difference (this is the whole point, and the confound to watch).** Our recipe means
+**response-token** residuals bucketed by the model's *actual* refuse/comply verdict; the paper uses the
+**prompt's** last token by *known* label. Ours is more confounded — the refuse bucket is also the
+harmful-topic bucket — so the vector could encode topic, not the refusal decision. Phase 2 (does ablating
+it bypass refusal?) is exactly the test that separates those.
+
+**Prereqs.** Merged `fk/init-refusal-rewrite` (has both tracks); `python scripts/fetch_refusal_artifacts.py`
+(directions + splits); torch + transformer_lens + `HF_TOKEN`; qwen-1.8b. **No OpenAI key** — the judge is
+substring-based. **Do not run `tests/test_phase2.py` on the Lambda box** (see
+`docs/findings/2026-08-16-test-phase2-coordinator-footgun.md`).
+
+**What to run — three phases, qwen-1.8b:**
+
+1. **Extract (our recipe):**
+   ```
+   python -m src.bias_steer run configs/refusal_native.py
+   ```
+   Produces `runs/<run_id>/steering_vector.safetensors` — our native refusal vector `(n_layers, d_model)`.
+   *Check first:* the run log's bucket counts must have BOTH `refusal` and `compliance` non-trivially
+   populated (roughly harmful→refuse, harmless→comply). If one bucket is near-empty, the mean-diff is
+   meaningless — adjust `system_prompt`/`max_tokens` in the config until the model actually refuses
+   harmful prompts, and re-extract.
+
+2. **Compare to the paper (Phase 3 first — it tells you which layer to validate):**
+   ```
+   python scripts/refusal_native_compare.py --vector runs/<run_id>/steering_vector.safetensors --model qwen-1.8b
+   ```
+   Per-layer cosine of our vector vs the paper's published direction and its `mean_diffs` grid, against the
+   null floor (~1/√d ≈ 0.022 for qwen). Note the best-aligned layer.
+
+3. **Validate (does our vector work as a refusal direction?):** edit `configs/refusal_native_validate.py`
+   — set `direction_path` to the Phase-1 vector and `direction_layer` to the best-aligned layer (or sweep
+   a few) — then:
+   ```
+   python -m src.bias_steer refuse configs/refusal_native_validate.py
+   ```
+   Reuses the load-track harness: ablation should DROP harmful refusal, act-add(+) should RAISE harmless
+   refusal. The `summary.md` prints the rates (and, incidentally, a diff vs the paper's numbers).
+
+**What to log.** Phase-1 bucket counts + the saved vector path; Phase-3 per-layer cosine table + best
+layer + cosine at the paper's own layer (15); Phase-2 refusal rates per arm at the chosen layer (and any
+layer sweep). Write it up under `docs/findings/` like the first run.
+
+**Data needed to conclude.** All in-repo/fetched: the harmful/harmless splits (Phase 1), the paper's
+`direction.pt` + `mean_diffs.pt` (Phase 3), the jailbreakbench/alpaca eval sets (Phase 2). Nothing new to
+source.
+
+**Success = a defensible answer, either way:**
+- *Validates* (ablating our vector drops harmful refusal, e.g. to <0.1): we have a clean native refusal
+  vector in our convention — record its cosine to the paper's direction (how close our recipe gets) and
+  its best layer. This is the reusable artifact for all future refusal-vs-X comparisons.
+- *Fails* (ablation doesn't move refusal): our response-mean/judge-bucketed recipe captures topic, not the
+  refusal decision — itself a real, publishable finding about our extraction method, and a signal to
+  extract at the prompt position (the generation track already does this) for refusal-like axes.
+
+Note the guard that makes a null result trustworthy: `steering.check_direction` now rejects the exact
+Log-213 failure mode (§11 — a scalar broadcast from a mis-shaped/wrong-model vector), so a flat Phase-2
+result is a real null, not a silent load bug. **Priority: HIGH** (unlocks the refusal ⟂ bias line).
+
+---
+
+## 13. Determinism check: same config + same code, run twice  — never verified
 
 **Status:** the pipeline threads seeds through sampling and the train/test shuffle and
 records them in each manifest *for* reproducibility, but no run has ever verified that two
@@ -318,4 +403,77 @@ underpins every reproducibility claim the manifests make. (Engineering note mirr
 | 9 | complete Grok run | low | LOW–MED | 0.3 |
 | 10 | synthetic steering v2 | med | LOW | 0.1 |
 | 11 | refusal (coherence-gated) | med | LOW | 0.3 |
-| 12 | determinism double-run check | low | HIGH (validation) | — |
+| 12 | reproduce refusal in our convention (extract → compare → validate) | low–med | **HIGH** | — (ready) |
+| 13 | determinism double-run check | low | HIGH (validation) | — |
+
+---
+
+# 2-Week-Plan additions (2026-08-18)
+
+New cross-cutting experiments from `Algoverse — 2 Wk Plan`, split by owner. **Per-person
+marching orders live in `docs/work-splits/{fk,el,jz,aa}-task-list.md`** — this section is the
+shared spec so the four lists stay on one set of definitions. **Conventions §0 (injection/coeff,
+judge reliability, coherence gate) still block every comparison below.**
+
+> **⚠️ Scope note (read this).** Most items below are in `PROJECT_STATE.md` §"Does not block the
+> paper" (bias taxonomy, ACE/cone/gradient, SAEs, second model). They are **exploratory / a
+> parallel track to the frozen 2026-08-17 core paper** (hedging↔harm shared-mechanism on
+> `Qwen/Qwen3-8B`). None enters the paper without a dated `RESEARCH_CONTRACT.md` §12 amendment.
+> The two items that *do* strengthen the frozen line are **T2 (orthogonality)** and **§12 above
+> (native refusal vector)** — prioritize those.
+
+## T1 — Classify the streams of bias  *(owner: Jeremiah — JZ-1)*
+Data-grounded map of what each dataset measures (stereotype-alignment vs opinionatedness vs
+hedging), citing real files under `datasets/` (BBQ has ground-truth categories; CrowS has
+stereotype categories). **Do not** coin a new construct or a competing rubric (`AGENTS.md`
+rules 1 & 5 — "soft refusal" is retired; behavior is *hedging*, failure is *over-abstention on
+answerable items*). **Conclude:** a dataset→construct→ground-truth table.
+
+## T2 — Confirm orthogonality: bias ⟂ refusal (and bias-type ⟂ bias-type)  *(owners: Farhan FK-3, Jeremiah JZ-2; detection cut w/ Aryaman AA-3)*
+Extract a direction per bias type **and** the native refusal vector (§12) with the *same*
+`mean_diff` pipeline; compute the per-layer cosine matrix vs the null floor (~1/√d ≈ 0.022 for
+qwen). Assert `(n_layers, d_model)` on every tensor before any cosine (Log-213 scalar-broadcast
+bug, `docs/REVIVAL_AUDIT.md`). Say "a direction" (arXiv:2602.06801). **Conclude:** a cosine
+matrix + null floor + per-pair verdict. *This is the paper-relevant one.*
+
+## T3 — Does refusal steer bias, and bias steer refusal?  *(owner: Farhan — FK-4)*
+The valid replacement for the **RETRACTED** 2025 cross-application (do not cite the old one in
+either direction). 2×2 cross-application (refusal→bias, bias→refusal) with per-example 3×3
+distributions, a system-prompt baseline (AxBench), and the coherence gate (§0.3).
+
+## T4 — Technique comparison: affine / cone / gradient (+ ACE)  *(owner: Edward EL-1..EL-3; ACE shared w/ Aryaman AA-6)*
+Implement each behind the existing `src/bias_steer` harness, **after** locking one injection
+convention (§0.1 / §6). Compare to difference-of-means additive and to the refusal vector
+(cosine), then rank by effect **subject to the coherence gate** (not raw label flips). ONE
+shared ACE implementation between Edward and Aryaman. Exploratory (does-not-block scope).
+
+## T5 — Bias detection + conditional steering  *(owner: Aryaman — AA-1..AA-4)*
+Probe/cosine/SAE detector for bias (analog of refusal detection), test whether it also fires on
+refusal (feeds T2), then steer **only when detected** and audit collateral on clean prompts vs
+unconditional steering (`AGENTS.md` §5 side-effect audit). SAEs are exploratory / open-weight-only.
+
+## T6 — Label Edward's contributed data  *(owner: Edward — EL-4)*
+Get Edward's dataset into the pipeline with a documented label schema aligned to T1 + the frozen
+rubric (**not** a new construct), κ if ≥2 labelers (`scripts/kappa_from_csv.py`). Commit under
+`datasets/`. **⚠️ Blocked-conceptually by T7.**
+
+## T7 — "Converge a main definition across the bias streams" / the *Soft Refusal* definition  *(owner: Team)*
+The plan asks to "define a concrete definition for Soft Refusal" and "converge the main
+definition." **⚠️ Doctrine conflict — resolve before T6/T1 depend on it:** *"Soft refusal" is
+RETIRED* (`AGENTS.md` rule 5; `PROJECT_STATE.md` 2026-08-17). The current canonical construct is
+**hedging / over-abstention on answerable items**, and the rubric is owned by
+`docs/SOURCES_OF_TRUTH.md` (one-fact-one-owner). **Options for the team call:** (a) adopt the
+existing hedging construct and drop the "soft refusal" label — no amendment needed; (b) revive
+"soft refusal" as a distinct construct — requires a dated §12 amendment + a `docs/judges/` judge
+version. Do not label data (T6) or map streams (T1) against a term that isn't resolved here first.
+
+### 2-Week-Plan priority summary
+| id | experiment | owner | in frozen paper? | note |
+|---|---|---|---|---|
+| T2 | orthogonality bias ⟂ refusal | FK/JZ/AA | **strengthens it** | do first w/ §12 |
+| T3 | refusal↔bias cross-application | FK | strengthens it | replaces retracted 2025 result |
+| T1 | classify bias streams | JZ | no (exploratory) | data-grounded, no new construct |
+| T4 | affine/cone/gradient/ACE survey | EL (+AA) | no (exploratory) | after §0.1; coherence-gated |
+| T5 | detection + conditional steering | AA | no (exploratory) | applications story |
+| T6 | label Edward's data | EL | no | blocked by T7 |
+| T7 | converge "soft refusal" definition | Team | — | **retired term — needs §12 decision** |

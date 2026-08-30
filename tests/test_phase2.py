@@ -66,13 +66,16 @@ class _FakeMethod:
     def apply(self, model, vector, coeff):
         return [("sign", 1 if coeff >= 0 else -1)]       # encode direction for the fake generator
 
+    def names(self, n_layers):
+        return [f"blocks.{i}.hook_resid_pre" for i in range(n_layers)]
+
 
 def _fake_backend():
     def load(spec):
         model = types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4))
         return types.SimpleNamespace(model=model, tokenizer=None, spec=spec, device="cpu")
 
-    def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt):
+    def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt, capture_names=None):
         # alternate verdicts so both contrast buckets fill during training
         responses = ["opinionated" if i % 2 == 0 else "neutral" for i in range(len(prompts))]
         return responses, [None] * len(prompts)
@@ -284,6 +287,42 @@ def test_cli_queue_requires_a_route_file():
     # --queue is implemented (Phase 4); without _coordinator/route.json it must
     # exit cleanly (2), not raise. (The repo has no route file by default.)
     assert cli.main(["run", "--queue"]) == 2
+
+
+
+def test_assert_run_artifacts_rejects_a_hollow_run():
+    """A run that logged 'done' but wrote nothing must not be indexed as done.
+
+    Regression for the Aug-9 campaign: 13 runs logged "done", 12 held only a
+    167-byte run.log. Nothing in the pipeline noticed.
+    """
+    import tempfile, os
+    def _expect(exc_type, fn):
+        try:
+            fn()
+        except exc_type as e:
+            return e
+        raise AssertionError(f"expected {exc_type.__name__}")
+    from src.bias_steer.experiment import (
+        assert_run_artifacts, IncompleteRunError, REQUIRED_RUN_ARTIFACTS,
+    )
+    with tempfile.TemporaryDirectory() as d:
+        os.makedirs(os.path.join(d, "logs"), exist_ok=True)
+        with open(os.path.join(d, "logs", "run.log"), "w") as f:
+            f.write("[t] done\n")          # the hollow run's only output
+        err = _expect(IncompleteRunError, lambda: assert_run_artifacts(d))
+        assert "results.csv" in str(err)
+
+        # empty files do not count as evidence either
+        for name in REQUIRED_RUN_ARTIFACTS:
+            open(os.path.join(d, name), "w").close()
+        _expect(IncompleteRunError, lambda: assert_run_artifacts(d))
+
+        # non-empty everywhere -> passes
+        for name in REQUIRED_RUN_ARTIFACTS:
+            with open(os.path.join(d, name), "w") as f:
+                f.write("x")
+        assert_run_artifacts(d)
 
 
 def _main():
