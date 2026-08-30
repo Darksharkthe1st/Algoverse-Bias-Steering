@@ -150,12 +150,22 @@ def main(argv=None) -> int:
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     blob = json.dumps(man, indent=2, sort_keys=True)
-    with open(args.out, "w", encoding="utf-8") as f:
+    # newline="" so the file is byte-identical on Windows and Linux. Without it
+    # Python rewrites "\n" as "\r\n" here and the hash printed below --- taken
+    # from the in-memory string --- does not match the hash anyone else computes
+    # from the file. A pre-registration hash that does not reproduce is worthless,
+    # and the whole point of this file is that a reader can check the split was
+    # not chosen after the fact.
+    with open(args.out, "w", encoding="utf-8", newline="") as f:
         f.write(blob)
-    digest = hashlib.sha256(blob.encode()).hexdigest()[:16]
+
+    with open(args.out, "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()[:16]
     print(f"\nwrote {args.out}")
     print(f"manifest sha256[:16] = {digest}")
     print("Record that hash in the run report. If it changes, the split changed.")
+    print(f"Verify with:  python -c \"import hashlib,pathlib;"
+          f"print(hashlib.sha256(pathlib.Path('{args.out}').read_bytes()).hexdigest()[:16])\"")
     return 0
 
 
