@@ -5,10 +5,21 @@
 
 | | |
 |---|---|
-| **As of** | **Thu 2026-08-20** · 8 days to deadline |
+| **As of** | **Sun 2026-08-30** · 2 days to the extended deadline |
 | **Venue** | Interpretability as a Science @ NeurIPS 2026 (Sydney), long track ≤9pp, non-archival |
-| **Deadline** | **Fri 2026-08-28 AoE** · numbers freeze **Mon 2026-08-24** · red team **Wed 2026-08-26** |
-| **Next decision** | **Sat 2026-08-22** (team call, all four) — G1 status on the submission model, and ratify the 2026-08-20 ownership handover (Edward away from 2026-08-23; new owners in `WORK_LEDGER.md`). Contract is frozen; only §12 reopens it |
+| **Deadline** | **EXTENDED to Mon 2026-09-01 AoE** (contract §12 **A7**; original Fri 2026-08-28 AoE was missed with G1 unrun) |
+| **Next decision** | Ratify **A7** (this PR): the submission this cycle is the bias-taxonomy measurement study, drafted as *The Extraction Floor* on the team Overleaf. Then submit on OpenReview by the deadline and name a reciprocal reviewer (review window Sep 3–17) |
+
+## What changed 2026-08-30 (A7 — read it, this is the pivot)
+
+G1 was never run: the Lambda box was terminated 2026-08-22 and the executor was
+unavailable through the extension window. The hedging paper stays frozen and
+ungated; nothing in its science moved. The team instead submits the completed
+JZ bias-taxonomy study. Facts, claims and bounds live in the manuscript and
+contract §12 A7 — not here. Evidence: `results/writeups/`, `runs/`, and
+`scripts/recount_taxonomy_paper.py` (every manuscript number recounts from
+artifacts; exit 0 = clean). Hardening runs for camera-ready are staged in
+`docs/HANDOFF_GPU_HARDENING.md`.
 
 ## The paper, in one sentence
 
@@ -109,8 +120,11 @@ no achievable n rescues the identification question and we publish the bound.
 
 ## Running now
 
-Nothing. The freeze review is complete and its verdict is in the contract (§0,
-amendments A1–A5). **Execute, validate, write.**
+The InterpScience submission (A7). Draft complete and pushed to the team
+Overleaf; numbers verified by `scripts/recount_taxonomy_paper.py`. Open before
+the deadline: OpenReview submission, reciprocal-reviewer commitment, and the
+optional pre-deadline GPU hardening runs (`docs/HANDOFF_GPU_HARDENING.md`).
+The hedging paper is paused at its G1 gate, unchanged.
 
 ## Blocks the paper
 
