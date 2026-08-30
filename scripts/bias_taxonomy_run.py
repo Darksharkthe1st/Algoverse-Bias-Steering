@@ -53,6 +53,16 @@ def say(msg):
     print(f"\n=== {msg}", flush=True)
 
 
+def _git_sha():
+    """Commit this run executed from, or None outside a repo."""
+    import subprocess
+    try:
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True,
+                                       stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return None
+
+
 def _extract(args, resid, marg, n_layers, d_model, cat):
     """One direction from residuals + margins, by whichever method is selected."""
     if args.method == "probe":
@@ -60,13 +70,18 @@ def _extract(args, resid, marg, n_layers, d_model, cat):
             return np.zeros((n_layers, d_model))
         return bt.probe_direction(resid, marg, alpha=args.alpha)
 
-    order = np.argsort(marg)
-    k = max(1, int(len(order) * args.quintile))
-    top, bot = order[-k:], order[:k]
+    if args.tail_trim > 0:
+        top, bot = bt.trimmed_extremes(list(marg), quintile=args.quintile,
+                                       trim=args.tail_trim)
+    else:
+        # historical behaviour, byte-for-byte: argsort then quintile
+        order = np.argsort(marg)
+        k = max(1, int(len(order) * args.quintile))
+        top, bot = order[-k:], order[:k]
     if len(top) == 0 or len(bot) == 0:
         return np.zeros((n_layers, d_model))
     return bt.assert_direction(
-        resid[top].mean(axis=0) - resid[bot].mean(axis=0), name=cat)
+        resid[list(top)].mean(axis=0) - resid[list(bot)].mean(axis=0), name=cat)
 
 
 def main() -> int:
@@ -83,6 +98,20 @@ def main() -> int:
                          "uses every item and every gradation instead of "
                          "discarding 60%% of them and binarising the rest.")
     ap.add_argument("--alpha", type=float, default=1.0, help="ridge penalty")
+    ap.add_argument("--tail-trim", type=float, default=0.0,
+                    help="extremes only: drop this fraction of items at EACH "
+                         "margin extreme before taking quintiles (heavy-tail "
+                         "robustness check; 0 = historical behaviour)")
+    ap.add_argument("--winsorise", type=float, default=0.0,
+                    help="probe only: clip margin targets at the q / 1-q "
+                         "quantiles before fitting (0 = off). Deliberately a "
+                         "no-op for extremes, whose selection is rank-based - "
+                         "use --tail-trim there.")
+    ap.add_argument("--save-residuals", action="store_true",
+                    help="persist each category's captured residual tensor as "
+                         "fp16 npz in the run dir (~250 MB/category at 14B "
+                         "scale). Never commit these; checkpoint them off-box "
+                         "so follow-up analyses stay CPU-only.")
     ap.add_argument("--margins-cache", default=None,
                     help="dir for cached per-item margins (default runs/_margins_cache)")
     ap.add_argument("--refresh-margins", action="store_true",
@@ -200,19 +229,48 @@ def main() -> int:
     # ---------------- stage 3: extract ----------------
     say(f"STAGE 3 - extract a direction per category  (method: {args.method})")
     report["method"] = args.method
+    # Provenance: every choice that produced these numbers, recorded at run
+    # time so no future audit has to reconstruct it from folder names and logs
+    # (that reconstruction is exactly what 09-open-questions Q2-Q6 had to do).
+    report["estimator_params"] = {
+        "method": args.method,
+        "alpha": args.alpha if args.method == "probe" else None,
+        "quintile": args.quintile if args.method == "extremes" else None,
+        "tail_trim": args.tail_trim if args.method == "extremes" else None,
+        "winsorise": args.winsorise if args.method == "probe" else None,
+    }
+    report["sampling"] = {
+        "ambig_limit": args.ambig_limit, "control_limit": args.control_limit,
+        "seed": args.seed, "floor_splits": args.floor_splits,
+        "permutations": args.permutations,
+    }
+    report["code_version"] = _git_sha()
     directions, cat_resid, cat_margin = {}, {}, {}
     for cat in usable:
         ms = msets[cat]
         if args.method == "probe":
             # every item, so the probe sees the full gradation
             idx = list(range(len(ms.items)))
+        elif args.tail_trim > 0:
+            top_i, bot_i = bt.trimmed_extremes(ms.margins,
+                                               quintile=args.quintile,
+                                               trim=args.tail_trim)
+            idx = list(top_i) + list(bot_i)
         else:
             top_i, bot_i = ms.extremes(args.quintile)
             idx = list(top_i) + list(bot_i)
         prompts = [bs.bare_prompt(ms.items[i][0]) for i in idx]
         resid = bs.capture_prompt_residuals(loaded, prompts, DEFAULT_SYS)
         marg = np.asarray([ms.margins[i] for i in idx])
+        if args.method == "probe" and args.winsorise > 0:
+            marg = bt.winsorise(marg, args.winsorise)
         cat_resid[cat], cat_margin[cat] = resid, marg
+        if args.save_residuals:
+            man = bt.save_residuals(out_dir / f"residuals_{cat}.npz", resid,
+                                    [ms.items[i][0].id for i in idx], marg)
+            report["categories"][cat]["residuals"] = man
+            print(f"  {cat:<22} residuals -> {man['path']} "
+                  f"({man['bytes'] / 1e6:.0f} MB)")
 
         d = _extract(args, resid, marg, n_layers, d_model, cat)
         directions[cat] = d

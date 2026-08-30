@@ -418,3 +418,39 @@ doc, on a non-submission model, and A5 stands.
 *A6 changes no hypothesis, no primary statistic (θ), no threshold (θ_eq=25°), no
 model set, and no item stratification. It changes how the positive control is
 verified, on the only model where the frozen form has no referent.*
+
+**2026-08-30 — A7. Deadline extended; the frozen paper cannot be evidenced by
+it; the team's submission this cycle is the bias-taxonomy measurement study.
+Non-scientific: nothing in §1–§11 changes.**
+
+Facts recorded:
+
+1. **The venue extended its submission deadline** to 2026-09-01 AoE (CFP:
+   September 2, 11:59 UTC). The header's original dates (2026-08-28 AoE,
+   numbers freeze 2026-08-24) are superseded for the venue deadline only.
+2. **G1 was not run before the extension and cannot be run with integrity
+   before the new deadline.** The Lambda box was terminated on 2026-08-22; the
+   G1 executor was unavailable through the extension window (recorded in the
+   team channel, 2026-08-26 and 2026-08-30); no active member has a
+   torch-capable machine. This is an execution failure, not a stop-rule event
+   under §12.1–.5. G1 stands as written in A6, unrun. The hedging paper's
+   science stays frozen; its next action remains `docs/HANDOFF_G1.md`.
+3. **What the team submits this cycle** is the bias-taxonomy measurement study
+   from the JZ workstream (§11 listed it as future work; it ran as its own
+   experiment and is complete): evidence on the `jz/bias-taxonomy` branch
+   lineage, writeups in `results/writeups/`, manuscript "The Extraction Floor:
+   Measurement Validity for Linear Social-Bias Directions in Language Models"
+   (team Overleaf). Every number in the manuscript recounts from committed
+   artifacts via `scripts/recount_taxonomy_paper.py` (exit 0 = clean).
+4. **This amendment does not reopen the hedging paper's scope.** §12's
+   "may not reopen scope" bars adding scope to *that* paper; nothing is added
+   to it. The submission is a different, completed study with its own claim
+   set, bounded in its own §5–§6 (what is and is not licensed). Its known
+   fragilities (probe-α selection, threshold calibration gap, heavy tails)
+   are declared in the manuscript and staged as hardening runs in
+   `docs/HANDOFF_GPU_HARDENING.md`; camera-ready (due 2026-11-15) folds in
+   whatever those runs show, honestly, including any weakening.
+
+*A7 changes no hypothesis, statistic, threshold, gate, model set, or
+stratification of the hedging paper. It records a venue fact and a submission
+decision. Ratified by review of the PR that carries it.*

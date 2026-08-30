@@ -55,10 +55,27 @@ def main() -> int:
                              "Religion:Age",
                              "Nationality:Sexual_orientation"])
     ap.add_argument("--items", type=int, default=160)
+    ap.add_argument("--method", choices=["extremes", "probe"], default="extremes",
+                    help="extremes = mean-difference between the two topics' "
+                         "residuals (the historical control). probe = per-layer "
+                         "ridge regression on a +1/-1 topic label. The 0.50 "
+                         "usability bar was calibrated against the extremes "
+                         "control only; running this with --method probe is "
+                         "what closes that calibration gap (audit Q1).")
+    ap.add_argument("--alphas", nargs="+", type=float, default=[1e6],
+                    help="probe only: ridge penalties to evaluate. Residuals "
+                         "are captured once and reused across alphas.")
     ap.add_argument("--floor-splits", type=int, default=10)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--out", default="runs/_extraction_positive_control.json")
+    ap.add_argument("--out", default=None,
+                    help="default: runs/_extraction_positive_control.json for "
+                         "extremes, runs/_extraction_control_probe_<model>.json "
+                         "for probe")
     args = ap.parse_args()
+    if args.out is None:
+        args.out = ("runs/_extraction_positive_control.json"
+                    if args.method == "extremes"
+                    else f"runs/_extraction_control_probe_{args.model}.json")
 
     from src.bias_steer import models
     from src.bias_steer.config import DEFAULT_SYS
@@ -71,7 +88,9 @@ def main() -> int:
     print(f"random-direction floor (1/sqrt d) = {bt.random_floor(d_model):.4f}\n")
 
     report = {"model": args.model, "n_layers": n_layers, "d_model": d_model,
-              "random_floor": bt.random_floor(d_model), "pairs": {}}
+              "random_floor": bt.random_floor(d_model), "pairs": {},
+              "method": args.method,
+              "alphas": args.alphas if args.method == "probe" else None}
 
     print(f"{'topic contrast':<42}{'n':>6}{'floor q05':>11}{'median':>9}   verdict")
     print("-" * 82)
@@ -89,25 +108,48 @@ def main() -> int:
         r_b = bs.capture_prompt_residuals(
             loaded, [bs.bare_prompt(e) for e, _ in b_items], DEFAULT_SYS)
 
-        def extract(idx_pairs, _ra=r_a, _rb=r_b):
-            ai = [i for k, i in idx_pairs if k == "a"]
-            bi = [i for k, i in idx_pairs if k == "b"]
-            if not ai or not bi:
-                return np.zeros((n_layers, d_model))
-            return _ra[ai].mean(axis=0) - _rb[bi].mean(axis=0)
-
         pool = ([("a", i) for i in range(len(r_a))]
                 + [("b", i) for i in range(len(r_b))])
-        floor = bt.extraction_floor(pool, extract, n_splits=args.floor_splits,
-                                    seed=args.seed)
+
+        def make_extract(alpha, _ra=r_a, _rb=r_b):
+            def extract(idx_pairs):
+                ai = [i for k, i in idx_pairs if k == "a"]
+                bi = [i for k, i in idx_pairs if k == "b"]
+                if not ai or not bi:
+                    return np.zeros((n_layers, d_model))
+                if args.method == "extremes":
+                    return _ra[ai].mean(axis=0) - _rb[bi].mean(axis=0)
+                # probe: same estimator the bias runs use, on a +/-1 topic
+                # label. This is the control that calibrates the 0.50 bar FOR
+                # THE PROBE, which the extremes-only control could not do.
+                resid = np.concatenate([_ra[ai], _rb[bi]], axis=0)
+                targets = np.array([1.0] * len(ai) + [-1.0] * len(bi))
+                return bt.probe_direction(resid, targets, alpha=alpha)
+            return extract
 
         # A topic direction should be strongly reproducible. If this is near the
         # random floor the machinery, not the hypothesis, is at fault.
-        ok = floor["q05"] >= 0.50
-        print(f"{a_cat + ' vs ' + b_cat:<42}{floor['n_items']:>6}"
-              f"{floor['q05']:>11.3f}{floor['median']:>9.3f}   "
-              f"{'REPRODUCIBLE' if ok else 'NOT reproducible — machinery suspect'}")
-        report["pairs"][pair] = {"floor": floor, "reproducible": bool(ok)}
+        if args.method == "extremes":
+            floor = bt.extraction_floor(pool, make_extract(None),
+                                        n_splits=args.floor_splits,
+                                        seed=args.seed)
+            ok = floor["q05"] >= 0.50
+            print(f"{a_cat + ' vs ' + b_cat:<42}{floor['n_items']:>6}"
+                  f"{floor['q05']:>11.3f}{floor['median']:>9.3f}   "
+                  f"{'REPRODUCIBLE' if ok else 'NOT reproducible — machinery suspect'}")
+            report["pairs"][pair] = {"floor": floor, "reproducible": bool(ok)}
+        else:
+            per_alpha = {}
+            for a in args.alphas:
+                floor = bt.extraction_floor(pool, make_extract(a),
+                                            n_splits=args.floor_splits,
+                                            seed=args.seed)
+                ok = floor["q05"] >= 0.50
+                print(f"{a_cat + ' vs ' + b_cat:<33} a={a:>7.0e}{floor['n_items']:>6}"
+                      f"{floor['q05']:>11.3f}{floor['median']:>9.3f}   "
+                      f"{'REPRODUCIBLE' if ok else 'NOT reproducible'}")
+                per_alpha[f"{a:g}"] = {"floor": floor, "reproducible": bool(ok)}
+            report["pairs"][pair] = {"alphas": per_alpha}
 
     print("\nCompare against the bias-margin floors from the full run:")
     print("  Age 0.423 | Race_x_gender 0.138 | Nationality 0.057 | Race_x_SES 0.017")

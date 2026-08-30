@@ -249,3 +249,7 @@ experiments/community_methods/HARVEST_SUMMARY.json
 
 # Annotation pools contain model text + sealed arm keys — local only
 experiments/annotation_pools/
+
+# GPU-captured residual tensors (~250MB/category) - checkpoint off-box, never commit
+runs/_residuals/
+runs/**/residuals_*.npz
