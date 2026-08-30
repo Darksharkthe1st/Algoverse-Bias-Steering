@@ -952,3 +952,85 @@ class TaxonomyReport:
                     f"one global floor; compare each pair against the floors of "
                     f"the categories in it.")
         return msg
+
+
+# --------------------------------------------------------------------------- #
+# 4. Tail robustness + residual persistence (WP-43 hardening; torch-free)
+# --------------------------------------------------------------------------- #
+
+def trimmed_extremes(margins, *, quintile: float = 0.20,
+                     trim: float = 0.0) -> tuple[list, list]:
+    """(top, bottom) item indices by margin, optionally dropping the tails first.
+
+    With `trim=0` this is exactly the historical extremes selection: sort by
+    margin, take the top and bottom `quintile` fractions. With `trim>0`, the
+    `trim` fraction of items at EACH end is dropped before the quintiles are
+    taken, so the contrast is built from the 5th..25th percentile band instead
+    of the 0th..20th (at trim=0.05, quintile=0.20).
+
+    Why this exists: on qwen-14b, Physical_appearance and Age margins have
+    excess kurtosis ~+3.9 and the top 5% of items carry about half the
+    variance. The plain extremes contrast selects exactly those items, so a
+    reproducible floor could rest on a handful of outliers. If the floor
+    survives trimming, the tail concern is closed; if it collapses, the
+    caveat was a finding. Winsorising (clipping VALUES) is the wrong tool for
+    a rank-based selector — clipping preserves ranks, so it changes nothing
+    here; see `winsorise` for the probe-side counterpart.
+    """
+    if not 0.0 <= trim < 0.5:
+        raise ValueError(f"trim must be in [0, 0.5); got {trim}")
+    if not 0.0 < quintile <= 0.5:
+        raise ValueError(f"quintile must be in (0, 0.5]; got {quintile}")
+    order = sorted(range(len(margins)), key=lambda i: margins[i])
+    n = len(order)
+    n_trim = int(n * trim)
+    kept = order[n_trim:n - n_trim] if n_trim else order
+    if len(kept) < 2:
+        raise ValueError(f"trim={trim} leaves {len(kept)} of {n} items")
+    k = max(1, int(len(kept) * quintile))
+    return kept[-k:], kept[:k]
+
+
+def winsorise(values, q: float):
+    """Clip values at the q and 1-q quantiles. For PROBE targets only.
+
+    Winsorising the regression target bounds the influence any single
+    heavy-tailed item has on the fitted direction. It is deliberately a no-op
+    for the extremes estimator, whose selection is rank-based — use
+    `trimmed_extremes` there instead. `q=0` returns the input unchanged.
+    """
+    v = np.asarray(values, dtype=np.float64)
+    if q == 0:
+        return v
+    if not 0.0 < q < 0.5:
+        raise ValueError(f"q must be in [0, 0.5); got {q}")
+    lo, hi = np.quantile(v, q), np.quantile(v, 1.0 - q)
+    return np.clip(v, lo, hi)
+
+
+def save_residuals(path, residuals, ids, margins) -> dict:
+    """Persist a category's captured residual tensor for CPU-only re-analysis.
+
+    The 2026-08-21 session never wrote residuals to disk, so every follow-up
+    (alpha extension, probe calibration, trim checks) needed the GPU again.
+    This writes `(n, n_layers, d_model)` as fp16 `npz` alongside the item ids
+    and margins it was captured with, so alignment is checkable at load time.
+
+    ~250 MB per category at 14B scale. NEVER commit these — checkpoint to
+    Drive / HF / a scratch bucket. Returns a small manifest dict (shape,
+    dtype, bytes) for the run report.
+    """
+    r = np.asarray(residuals)
+    if r.ndim != 3:
+        raise ValueError(f"residuals must be (n, n_layers, d_model); got {r.shape}")
+    if r.shape[0] != len(ids) or r.shape[0] != len(margins):
+        raise ValueError(f"{r.shape[0]} residual rows vs {len(ids)} ids / "
+                         f"{len(margins)} margins")
+    from pathlib import Path as _P
+    p = _P(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(p, resid=r.astype(np.float16),
+                        ids=np.asarray(ids, dtype=object),
+                        margins=np.asarray(margins, dtype=np.float64))
+    return {"path": str(p), "shape": list(r.shape), "dtype": "float16",
+            "bytes": p.stat().st_size}

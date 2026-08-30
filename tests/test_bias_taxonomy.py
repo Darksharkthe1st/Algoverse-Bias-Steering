@@ -892,3 +892,66 @@ def test_config_rejects_an_unknown_category():
     spec.loader.exec_module(mod)
     with pytest.raises(ValueError, match="unknown BBQ category"):
         mod.make_config("Politics")
+
+
+# --------------------------------------------------------------------------- #
+# WP-43 hardening helpers: tail trim, winsorise, residual persistence
+# --------------------------------------------------------------------------- #
+
+def test_trimmed_extremes_with_zero_trim_matches_the_historical_selection():
+    rng = np.random.default_rng(0)
+    margins = rng.normal(size=100).tolist()
+    top, bot = bt.trimmed_extremes(margins, quintile=0.20, trim=0.0)
+    order = sorted(range(len(margins)), key=lambda i: margins[i])
+    k = max(1, int(len(order) * 0.20))
+    assert top == order[-k:]
+    assert bot == order[:k]
+
+
+def test_trimmed_extremes_drops_exactly_the_tail_items():
+    margins = list(range(100))  # item i has margin i
+    top, bot = bt.trimmed_extremes(margins, quintile=0.20, trim=0.05)
+    # 5 items dropped per end -> band is 5..94; quintile of the 90 kept is 18
+    assert len(top) == len(bot) == 18
+    assert max(top) == 94 and min(bot) == 5
+    assert not set(top) & set(bot)
+
+
+def test_trimmed_extremes_rejects_a_trim_that_empties_the_pool():
+    with pytest.raises(ValueError, match="trim"):
+        bt.trimmed_extremes([1.0, 2.0, 3.0], quintile=0.2, trim=0.49)
+
+
+def test_winsorise_clips_values_but_preserves_ranks():
+    rng = np.random.default_rng(1)
+    v = rng.standard_t(df=2, size=500)  # heavy-tailed on purpose
+    w = bt.winsorise(v, 0.05)
+    lo, hi = np.quantile(v, 0.05), np.quantile(v, 0.95)
+    assert w.min() >= lo - 1e-12 and w.max() <= hi + 1e-12
+    # clipping is monotone: un-clipped values are untouched, so the middle
+    # band keeps its exact order; the tails collapse to ties at the bounds
+    mid = (v > lo) & (v < hi)
+    assert (w[mid] == v[mid]).all()
+    assert (w[v <= lo] == lo).all() and (w[v >= hi] == hi).all()
+
+
+def test_winsorise_with_q_zero_is_the_identity():
+    v = np.array([5.0, -3.0, 100.0])
+    assert (bt.winsorise(v, 0.0) == v).all()
+
+
+def test_save_residuals_roundtrips_and_asserts_shape(tmp_path):
+    rng = np.random.default_rng(2)
+    resid = rng.normal(size=(6, N_LAYERS, D_MODEL))
+    ids = [f"item{i}" for i in range(6)]
+    margins = rng.normal(size=6)
+    manifest = bt.save_residuals(tmp_path / "r.npz", resid, ids, margins)
+    assert manifest["shape"] == [6, N_LAYERS, D_MODEL]
+    blob = np.load(tmp_path / "r.npz", allow_pickle=True)
+    assert blob["resid"].dtype == np.float16
+    assert np.allclose(blob["resid"].astype(np.float64), resid, atol=2e-3)
+    assert list(blob["ids"]) == ids
+    with pytest.raises(ValueError, match="residuals must be"):
+        bt.save_residuals(tmp_path / "bad.npz", resid[:, 0, :], ids, margins)
+    with pytest.raises(ValueError, match="rows"):
+        bt.save_residuals(tmp_path / "bad2.npz", resid, ids[:3], margins)

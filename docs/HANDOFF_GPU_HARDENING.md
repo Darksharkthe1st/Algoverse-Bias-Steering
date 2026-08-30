@@ -1,100 +1,142 @@
 # HANDOFF — GPU hardening runs for the InterpScience submission (WP-43)
 
-**For:** Jeremiah (holds Lambda team-account access; SSH key `~/.ssh/lambda_jeremiah`)
-**Governs:** contract §12 **A7** · ledger **WP-43** · manuscript: *The Extraction Floor*
-**Budget:** ~\$300 Lambda credits remain (per team channel 2026-08-21). Everything
-below fits in well under \$40 at \$2/hr on 1× A100 40GB.
+**For:** Jeremiah, running with his agent. **All code is already written and
+tested on this branch** (`el/interpscience-taxonomy-paper`, PR #8). Nothing
+below requires writing code; every task is a command plus a checkpoint step.
+**Governs:** contract §12 **A7** · ledger **WP-43** · manuscript *The
+Extraction Floor* (team Overleaf).
 
-None of these runs block the 2026-09-01 submission. Any that finish before it
-get folded in; all of them are required for camera-ready (2026-11-15), because
-the manuscript's Limitations section promises them. Each run either hardens a
-declared-fragile number or honestly kills it. Both outcomes go in the paper.
+None of these runs block the 2026-09-01 submission. Anything that finishes
+before it gets folded in; all of it is required for camera-ready (2026-11-15),
+because the manuscript's Method and Limitations sections promise it. Each run
+either hardens a declared-fragile number or honestly kills it. Both outcomes go
+in the paper.
 
-## Box bring-up (from the 2026-08-21 session notes, verified then)
+## Step 0 — get a machine (Algoverse A100 cluster, not Lambda)
 
-1x A100 40GB SXM4, Lambda Stack 22.04, no filesystem, default firewall. Avoid
-the GH200 (ARM64). Then, in this order, before anything else:
+Request form: **https://slack.algoverseairesearch.org/a100/** · live
+availability: **https://slack.algoverseairesearch.org/a100/status** (10 of 16
+machines free as of 2026-08-30 morning).
 
-```bash
-pip install 'numpy<2'        # Lambda Stack torch is compiled against numpy 1.x
-pip install 'pillow>=9.1'    # system PIL predates Image.Resampling
-pip install 'jinja2>=3.1'    # apply_chat_template needs it
-```
+How it works: you submit the form, an admin approves, and your **JupyterHub**
+login is emailed to you; the window starts then, and the machine is **shut down
+and wiped automatically at expiry**. There is no SSH — plan around the Jupyter
+terminal, and checkpoint continuously (Step 2).
 
-Clone the repo, check out `el/interpscience-taxonomy-paper` (carries the run
-artifacts and the recount script). `export HF_TOKEN=...` with your **rotated**
-token (the old one leaked into a transcript on 2026-08-21 — rotate first at
-huggingface.co/settings/tokens if you have not already).
+Filling the form:
 
-## The four runs, in priority order
+- Team name: `lovkush-fvoa` · team code `fvoa`
+- Your email; add Edward's under teammates
+- Workload type: **inference** (forward passes only, no training)
+- Why an A100 (their form asks why not a T4/L4): residual-stream activation
+  capture requires white-box access to the loaded model, so hosted APIs cannot
+  do it, and Qwen1.5-14B in fp16 is ~28 GB of weights before activations — it
+  does not fit an L4's 24 GB. The smaller models ride along in the same window.
+- AWS credit status: paste your team's actual console line — it is a required
+  field and they check it.
+- Duration: **24 hours (~20h usable)**. P0+P1 alone fit in a 12h slot if
+  that's all that's available; the full list wants 24.
 
-### P0 — topic-identity control through the probe (closes the calibration gap)
+Fallback: the Lambda team account still has ~\$300 of credits, but it is
+Farhan's account and he is unreachable this week; treat it as unavailable.
 
-The 0.50 usability bar was calibrated against the extremes estimator only.
-Until the topic control runs through the probe, every probe-derived count and
-both clustering p-values are provisional (manuscript §6; audit Q1).
-
-`scripts/extraction_positive_control.py` currently hard-codes the extremes
-path. Add `--method probe --alpha A` passthrough mirroring `_extract()` in
-`scripts/bias_taxonomy_run.py` (~20 LOC), then:
-
-```bash
-python scripts/extraction_positive_control.py --model qwen-14b --method probe \
-    --alpha 1e6 --out runs/_extraction_control_probe_qwen14b_a1e6.json
-# repeat for alpha in 1 1e2 1e3 1e4 1e5 1e6 (residuals are re-captured per call;
-# if time is tight, 1e6 alone answers the load-bearing question)
-```
-
-Read: if the topic control reproduces ≥ 0.85 under the probe at 1e6, the 0.50
-bar transfers and the probe results stand. If it lands materially lower, 0.50
-means different things per estimator and the paper's probe numbers get
-re-thresholded against the probe's own control.
-
-### P1 — extend the α sweep past its boundary, and persist residuals
-
-qwen-14b's optimum sat at the sweep boundary (1e6) and was still climbing.
+## Step 1 — bring-up (Jupyter terminal, ~10 min)
 
 ```bash
-python scripts/probe_alpha_sweep.py --model qwen-14b \
-    --alphas 1e6 1e7 1e8 1e9 1e10 --out runs/_probe_alpha_sweep_qwen-14b_ext.json
+pip install 'numpy<2' 'pillow>=9.1' 'jinja2>=3.1'   # known stack collisions, in this order
+git clone https://github.com/Darksharkthe1st/Algoverse-Bias-Steering.git
+cd Algoverse-Bias-Steering && git checkout el/interpscience-taxonomy-paper
+pip install -r requirements.txt 2>/dev/null || pip install torch transformer_lens transformers accelerate scipy scikit-learn
+export HF_TOKEN=...   # your ROTATED token (the old one leaked into a transcript 2026-08-21 — rotate first)
+python3 -m pytest tests/test_bias_taxonomy.py -q   # expect 98 passed before spending GPU time
 ```
 
-Also persist the captured residual tensors this time (one `.npz` per category,
-`(n, L, d)`), so every future analysis in this family is CPU-only. That is a
-small change in `bbq_score` residual capture: `np.savez_compressed` next to the
-margins cache. 600 × 40 × 5120 fp16 ≈ 250 MB per category; keep them on the box
-or push to a scratch bucket, do not commit them.
+The per-item margins are already committed (`runs/_margins_cache/`, seed 0,
+n=600) for qwen-14b, qwen-7b, gemma-2b, yi-6b — the runs below skip margin
+scoring and go straight to residual capture.
 
-### P2 — winsorised re-extraction (the heavy-tail check)
+## Step 2 — checkpoint discipline (the machine WILL be wiped)
 
-Physical_appearance and Age on qwen-14b have excess kurtosis ≈ +3.9; the top 5%
-of items carry about half the variance, and the extremes contrast selects
-exactly those tails. Clip margins at the 5th/95th percentile before the
-quintile split (small change in `_extract()`), re-run:
+Work on a branch `jz/gpu-hardening-<date>`. After **every** finished run:
 
 ```bash
-python scripts/bias_taxonomy_run.py --model qwen-14b --method extremes \
-    --winsorise 0.05 --out-dir runs/full_qwen14b_winsorised
+git add runs/ && git commit -m "hardening: <run name>" && git push -u origin jz/gpu-hardening-<date>
 ```
 
-Read: floors survive → the two heavy-tailed positives are solid. Floors
-collapse → the paper's Table 2 keeps them but the caveat becomes a finding.
+`residuals_*.npz` files are gitignored-by-size intent — do NOT commit them;
+upload them to Drive or HF at the end of the session instead. Everything else
+(json reports, direction `.npy`, logs) commits.
 
-### P3 — race split by stereotyped group (the most interesting open lead)
+## Step 3 — the runs, in priority order
 
-Race_ethnicity pools nine distinct stereotyped-group sets. Extract a direction
-for single-group subsets (e.g. Black-targeted items only) through the same
-pipeline. If single-group subsets reproduce where the pooled category does not,
-heterogeneity returns as the explanation at the right granularity, and the
-paper's negative gets its mechanism. Requires a dataset filter on
-`Known_stereotyped_groups` (see `third_party/bbq/additional_metadata.csv`);
-mind the smaller n per subset — report the floor's n alongside it.
+### P0 — topic-identity control through the probe (~40 min GPU)
+
+Closes the calibration gap: the 0.50 bar was calibrated against the extremes
+control only (audit Q1). Code is done; one command:
+
+```bash
+python3 scripts/extraction_positive_control.py --model qwen-14b --method probe \
+    --alphas 1 1e2 1e3 1e4 1e5 1e6
+# writes runs/_extraction_control_probe_qwen-14b.json (residuals captured once, reused per alpha)
+```
+
+Read: topic floor ≥ 0.85 at α=1e6 → the bar transfers, probe results stand.
+Materially lower → 0.50 means different things per estimator; the probe counts
+and both clustering p-values get re-read against the probe's own control.
+
+### P1 — extend the α sweep past its boundary, persist residuals (~30 min GPU)
+
+```bash
+python3 scripts/probe_alpha_sweep.py --model qwen-14b \
+    --alphas 1e6 1e7 1e8 1e9 1e10 --save-residuals \
+    --out runs/_probe_alpha_sweep_qwen-14b_ext.json
+```
+
+Read: does Disability's floor plateau or keep climbing, and does inter-category
+similarity keep rising (the collapse concern in the manuscript's Limitations)?
+`--save-residuals` writes fp16 tensors under `runs/_residuals/` (~250 MB per
+category, ~2.5 GB total) so every future α/threshold analysis is CPU-only.
+Upload that directory to Drive/HF before the machine expires.
+
+### P2 — depth-unified + tail-trimmed extremes re-run (~1.5 h GPU)
+
+The manuscript discloses that the campaign's extremes runs used two different
+contrast depths (120/pole on qwen-14b and qwen-1.8b, 48/pole on the others),
+and promises a depth-unified re-run. This also settles the heavy-tail caveat:
+
+```bash
+for M in qwen-14b qwen-7b gemma-2b yi-6b; do
+  python3 scripts/bias_taxonomy_run.py --model $M --ambig-limit 600 \
+      --method extremes --cluster-usable-only --margins-cache runs/_margins_cache \
+      --out-dir runs/full_${M}_unified
+  python3 scripts/bias_taxonomy_run.py --model $M --ambig-limit 600 \
+      --method extremes --tail-trim 0.05 --cluster-usable-only \
+      --margins-cache runs/_margins_cache --out-dir runs/full_${M}_trim05
+done
+```
+
+Read, per model: unified vs the committed run (does the depth change any
+verdict?), and trim05 vs unified (do Physical_appearance and Age survive
+de-tailing?). New reports record `estimator_params` and `code_version`
+automatically now — no backfilling needed for these.
+
+### P3 — race split by stereotyped group (agent task, ~2 h incl. GPU)
+
+The one item needing new code, for your agent: filter Race_ethnicity items by
+`Known_stereotyped_groups` (`third_party/bbq/additional_metadata.csv`, keyed by
+`category` + `example_id`), then run the same extraction per single-group
+subset (largest groups first; report each floor with its n — subsets are
+small, so floors are only comparable against `floor_vs_n` at matched n, which
+`scripts/bias_taxonomy_run.py` stage 6 already computes). If single-group
+subsets reproduce where the pooled category does not, heterogeneity comes back
+as the explanation at the right granularity, and the paper's race negative
+gets its mechanism.
 
 ## Rules that bind these runs
 
-- Push run dirs to a branch as raw artifacts, no hand-edited conclusions.
-- Record `method`, `alpha`, seeds and denominators in the run dir (the report
-  schema backfill is WP-44; new runs must not need backfilling).
+- Raw artifacts to a branch; no hand-edited conclusions.
 - A run is done when its artifact exists and validates, not when it ran.
-- Update `scripts/recount_taxonomy_paper.py` in the same PR that quotes any new
-  number in the manuscript.
+- Any new number that enters the manuscript gets a check added to
+  `scripts/recount_taxonomy_paper.py` in the same PR.
+- If a run kills a number, it still goes in the paper. Honest negatives stay
+  honest.

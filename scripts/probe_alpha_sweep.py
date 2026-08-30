@@ -43,6 +43,12 @@ def main() -> int:
     ap.add_argument("--floor-splits", type=int, default=8)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--margins-cache", default="runs/_margins_cache")
+    ap.add_argument("--save-residuals", action="store_true",
+                    help="persist each category's captured residual tensor as "
+                         "fp16 npz under runs/_residuals/ (~250 MB/category at "
+                         "14B). The 2026-08-21 sweep never persisted them, so "
+                         "every extension needed the GPU again. Never commit "
+                         "these; checkpoint them off-box.")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -77,6 +83,12 @@ def main() -> int:
 
         resid = bs.capture_prompt_residuals(
             loaded, [bs.bare_prompt(e) for e, _ in items], DEFAULT_SYS)
+        if args.save_residuals:
+            man = bt.save_residuals(
+                Path("runs/_residuals") / f"{args.model}_{cat}.npz",
+                resid, blob["ids"], marg)
+            print(f"{'':<24}residuals -> {man['path']} "
+                  f"({man['bytes'] / 1e6:.0f} MB)")
 
         row, per_alpha = "", {}
         for a in args.alphas:
