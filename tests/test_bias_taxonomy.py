@@ -1106,3 +1106,101 @@ def test_n6_mirror_pairs_must_reach_the_declared_bar():
     a plain test as part of the parser fix; it is the acceptance criterion."""
     assert n6_mirror_pair_score(bt.parse_choice) >= 0.90
 
+
+
+# --------------------------------------------------------------------------- #
+# WP-43 P3 — the stereotyped-group split
+#
+# The hypothesis is that Race_ethnicity's negative is about the unit of
+# analysis: a pooled direction averages over nine annotated group sets. These
+# tests pin the two properties the design depends on — that a subset is a STRICT
+# SUBSET of the pooled sample (so cached margins can be sliced rather than
+# rescored) and that co-occurring labels collapse to one subset rather than
+# being counted twice.
+# --------------------------------------------------------------------------- #
+
+def _bbq_available():
+    import os
+    return os.path.isdir("datasets/BBQ_Prompt_Sets")
+
+
+needs_bbq = pytest.mark.skipif(not _bbq_available(), reason="BBQ files not present")
+
+
+@needs_bbq
+def test_subset_is_a_strict_subset_of_the_pooled_sample():
+    """The whole efficiency argument rests on this.
+
+    The group filter is applied AFTER sampling, so every subset item is already
+    in the pooled run at the same (limit, seed). That is what lets a subset run
+    slice the pooled margins cache instead of paying three forward passes per
+    item again. If this ever stops holding, P3 silently becomes a GPU job.
+    """
+    from src.bias_steer import bbq_score as bs
+
+    pooled = bs.load_scoreable("Race_ethnicity", "ambig", 600, 0)
+    subset = bs.load_scoreable("Race_ethnicity", "ambig", 600, 0,
+                               stereotyped_group="black")
+    pooled_ids = {e.id for e, _ in pooled}
+    subset_ids = [e.id for e, _ in subset]
+
+    assert subset_ids, "the black-targeted subset is empty"
+    assert len(subset_ids) < len(pooled_ids)
+    assert set(subset_ids) <= pooled_ids
+    assert len(set(subset_ids)) == len(subset_ids)
+
+
+@needs_bbq
+def test_group_filter_is_case_and_whitespace_insensitive():
+    """A subset silently missing half its items because of a stray capital is
+    exactly the class of defect this campaign keeps finding."""
+    from src.bias_steer import bbq_score as bs
+
+    a = bs.load_scoreable("Race_ethnicity", "ambig", 600, 0, stereotyped_group="black")
+    b = bs.load_scoreable("Race_ethnicity", "ambig", 600, 0, stereotyped_group="  BLACK ")
+    assert [e.id for e, _ in a] == [e.id for e, _ in b]
+    assert len(a) > 0
+
+
+@needs_bbq
+def test_co_occurring_group_labels_collapse_to_one_subset():
+    """BBQ annotates "Black" and "African American" on the same items. Treating
+    them as two subsets would run the same extraction twice under two names and
+    double the multiple-comparison burden for nothing."""
+    from src.bias_steer import bbq_score as bs
+
+    sets = bs.stereotyped_group_sets("Race_ethnicity", "ambig", 600, 0)
+    labels = set(sets)
+    assert not ({"black", "african american"} <= labels), \
+        "co-extensive labels were not collapsed"
+
+    kept = [k for k in sets if "african american" in k or "black" in k]
+    assert len(kept) == 1
+    entry = sets[kept[0]]
+    assert entry["n"] == 344
+    assert "black" in entry["aliases"] or kept[0] == "black"
+
+
+@needs_bbq
+def test_every_manifest_subset_clears_32_items_per_pole():
+    """The inclusion rule is 32 items per pole at quintile 0.20 — the standard
+    unit from Arditi et al. / Joad et al. Anything the manifest marks `tested`
+    must actually satisfy it, or a null result cannot be told apart from
+    insufficient data."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "p3man", "scripts/p3_subgroup_manifest.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    man = mod.build(limit=600, seed=0)
+    tested = [r for c in man["categories"].values() for r in c["groups"] if r["tested"]]
+    assert tested, "the manifest tests nothing"
+    for r in tested:
+        assert r["n"] >= mod.MIN_SUBSET_N
+        assert r["poles_at_quintile"] >= mod.MIN_ITEMS_PER_POLE
+    # and nothing above the bar was quietly left out
+    for c in man["categories"].values():
+        for r in c["groups"]:
+            assert r["tested"] == (r["n"] >= mod.MIN_SUBSET_N)

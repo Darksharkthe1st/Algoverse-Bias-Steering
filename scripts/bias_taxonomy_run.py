@@ -84,6 +84,21 @@ def _extract(args, resid, marg, n_layers, d_model, cat):
         resid[list(top)].mean(axis=0) - resid[list(bot)].mean(axis=0), name=cat)
 
 
+def _p3_manifest_sha():
+    """Hash of the frozen P3 subset list, or None if this is not a subset run.
+
+    A subset floor is only interpretable against the subset list that was fixed
+    before any floor was seen. Recording the hash is what lets a reader check
+    that the split was not chosen after the fact.
+    """
+    import hashlib
+    import pathlib
+    p = pathlib.Path("runs/_p3_manifest.json")
+    if not p.exists():
+        return None
+    return hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="qwen-1.8b")
@@ -112,6 +127,14 @@ def main() -> int:
                          "fp16 npz in the run dir (~250 MB/category at 14B "
                          "scale). Never commit these; checkpoint them off-box "
                          "so follow-up analyses stay CPU-only.")
+    ap.add_argument("--stereotyped-group", default=None,
+                    help="WP-43 P3: restrict to items whose BBQ-annotated "
+                         "stereotyped_groups contains this label (e.g. 'black'). "
+                         "Applied AFTER sampling, so the subset is a strict "
+                         "subset of the pooled run at the same --ambig-limit "
+                         "and --seed, and reuses its cached margins. Subsets "
+                         "must come from runs/_p3_manifest.json, which fixes "
+                         "the list before any floor is computed.")
     ap.add_argument("--margins-cache", default=None,
                     help="dir for cached per-item margins (default runs/_margins_cache)")
     ap.add_argument("--refresh-margins", action="store_true",
@@ -191,13 +214,17 @@ def main() -> int:
     print("-" * 74)
     msets = {}
     for cat in usable:
-        key = f"{args.model}_{cat}_{args.ambig_limit}_{args.seed}.json"
+        key = (f"{args.model}_{cat}_{args.ambig_limit}_{args.seed}.json"
+               if not args.stereotyped_group else
+               f"{args.model}_{cat}_{args.ambig_limit}_{args.seed}"
+               f"_grp-{args.stereotyped_group.replace(' ', '-')}.json")
         cpath = cache_dir / key
         ms = None
         if cpath.exists() and not args.refresh_margins:
             try:
                 blob = json.loads(cpath.read_text())
-                items = bs.load_scoreable(cat, "ambig", args.ambig_limit, args.seed)
+                items = bs.load_scoreable(cat, "ambig", args.ambig_limit, args.seed,
+                                          stereotyped_group=args.stereotyped_group)
                 if len(items) == len(blob["margins"]) and \
                         [e.id for e, _ in items] == blob["ids"]:
                     ms = bs.MarginSet(category=cat, items=items,
@@ -206,9 +233,38 @@ def main() -> int:
                     print(f"  (cached) ", end="")
             except Exception:
                 ms = None
+        # A P3 subset is a strict subset of the pooled run at the same
+        # (limit, seed), so the pooled run's cached margins already contain
+        # every item this subset needs. Slice them rather than paying three
+        # forward passes per item again -- this is what makes P3 cost no GPU
+        # time on top of the pooled run.
+        if ms is None and args.stereotyped_group:
+            pooled = cache_dir / f"{args.model}_{cat}_{args.ambig_limit}_{args.seed}.json"
+            if pooled.exists():
+                blob = json.loads(pooled.read_text())
+                pos = {i: k for k, i in enumerate(blob["ids"])}
+                items = bs.load_scoreable(cat, "ambig", args.ambig_limit, args.seed,
+                                          stereotyped_group=args.stereotyped_group)
+                missing = [e.id for e, _ in items if e.id not in pos]
+                if missing:
+                    print(f"  (pooled cache missing {len(missing)} subset items; rescoring)")
+                else:
+                    idx = [pos[e.id] for e, _ in items]
+                    ms = bs.MarginSet(
+                        category=cat, items=items,
+                        margins=[blob["margins"][i] for i in idx],
+                        abstention=[blob["abstention"][i] for i in idx])
+                    cpath.write_text(json.dumps({
+                        "ids": [e.id for e, _ in items],
+                        "margins": ms.margins, "abstention": ms.abstention,
+                        "sliced_from": pooled.name}))
+                    print(f"  (sliced {len(idx)} of {len(blob['ids'])} from pooled cache) ",
+                          end="")
+
         if ms is None:
             ms = bs.margins(loaded, cat, DEFAULT_SYS,
-                            limit=args.ambig_limit, seed=args.seed)
+                            limit=args.ambig_limit, seed=args.seed,
+                            stereotyped_group=args.stereotyped_group)
             cpath.write_text(json.dumps({
                 "ids": [e.id for e, _ in ms.items],
                 "margins": ms.margins, "abstention": ms.abstention}))
@@ -243,6 +299,8 @@ def main() -> int:
         "ambig_limit": args.ambig_limit, "control_limit": args.control_limit,
         "seed": args.seed, "floor_splits": args.floor_splits,
         "permutations": args.permutations,
+        "stereotyped_group": args.stereotyped_group,
+        "p3_manifest_sha256": _p3_manifest_sha(),
     }
     report["code_version"] = _git_sha()
     directions, cat_resid, cat_margin = {}, {}, {}
