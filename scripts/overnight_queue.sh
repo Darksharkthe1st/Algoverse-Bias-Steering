@@ -1,15 +1,37 @@
 #!/usr/bin/env bash
-# Overnight queue for the bias-taxonomy hardening runs (WP-43 P0-P3).
+# Overnight queue: REDO Experiment 1, then run the WP-43 diagnostics.
 #
 #   bash scripts/overnight_queue.sh 2>&1 | tee runs/_logs/overnight.log
 #
-# Start it, watch it clear preflight, go to bed. Every run is independent, so
-# one failing does not stop the rest -- but nothing starts at all if preflight
-# fails, because spending a night on a broken environment is the one outcome
-# worth preventing.
+# Start it, watch it clear preflight, go to bed. ~4-5 h wall clock.
 #
-# Total wall clock ~3-4 h. Everything here is Edward's docs/HANDOFF_GPU_HARDENING.md
-# plus the P3 split; nothing new is decided while it runs.
+# ORDER, AND WHY
+# --------------
+# R1 runs FIRST because it is the actual redo. notes/17 concluded that run 1's
+# floors collapsed because the CONTRAST was labelled by the model's own
+# behaviour: items were ranked by their stereotype margin and the extremes taken
+# as poles. Joad et al. get within-category floors of 0.95-0.99 from 32 items
+# per class using DATASET ANNOTATIONS; run 1 used 240-600 and got -0.45 to +0.82.
+# Sample size cannot explain that. The contrast can, and it is the only thing
+# left that differs. R1 replaces it with `context_condition`, a label BBQ ships
+# and the model never sees.
+#
+# P0-P3 run SECOND. They are not "hardening numbers we think are wrong" -- three
+# of the four are tests that can kill a number, which is why they are still
+# worth the machine time:
+#   P0 tests whether the 0.50 bar transfers to the probe at all (defect S4). If
+#      it does not, both clustering p-values are thresholded against the wrong
+#      reference and the paper loses that section.
+#   P1 tests whether alpha ever plateaus (defect S3, where the same category's
+#      direction at alpha=1 and alpha=1e6 agree at only 0.10-0.21) and persists
+#      the residuals that make every later analysis CPU-only (defect S5).
+#   P2 tests whether the two heavy-tailed positives survive de-tailing (M2).
+#   P3 asks whether the race negative is about the unit of analysis.
+# What none of them do is touch the contrast, which is why they are second.
+#
+# Every run is independent and a failure does not stop the queue. Nothing starts
+# at all if preflight fails, because spending a night on a broken environment is
+# the one outcome worth preventing -- it is what incident I-10 was.
 
 set -uo pipefail          # deliberately NOT -e: a failed run must not kill the queue
 
@@ -57,6 +79,46 @@ run () {
         && note "       committed" || note "       (nothing new to commit)"
     return 0
 }
+
+# --------------------------------------------------------------------------- #
+# R1 — THE REDO. Annotation-derived contrast, all five models. ~45 min total.
+#
+#   direction_C = mean(resid | category C, ambiguous)
+#               - mean(resid | category C, disambiguated)
+#
+# matched on the full BBQ scenario key. `context_condition` ships with the
+# dataset and never consults the model, which is what closes defect M1 -- the
+# floor/tilt confound measured at +0.66 to +0.77 across all five models.
+#
+# No generation, no judge, no margins: residual capture only, ~4,000 forward
+# passes per model.
+#
+# CAPTURE INDEX: the script REFUSES to run without an explicit --capture-index
+# and prints the last six chat-template tokens before capturing anything. -1 is
+# the final prompt token. notes/19 6.1 records that the spec asks for -2 and the
+# existing loader uses -1, and that the two may be the same position depending
+# on the template. It does not matter for THIS comparison, because both
+# contrasts are measured at the same site -- but it is recorded per model in
+# capture_site.json so the choice is never implicit.
+#
+# KNOWN RISK, flagged before running: the disambiguated context is literally the
+# ambiguous one plus a sentence, in 100% of 25,814 pairs, making it 2.0-2.3x
+# longer. The direction may encode "read one more sentence" rather than bias.
+# The analyse step runs a specificity control for exactly this and it may fail.
+# --------------------------------------------------------------------------- #
+for M in qwen-14b qwen-7b gemma-2b yi-6b qwen-1.8b; do
+    run "R1_annotation_${M}" \
+        python3 -m scripts.run2_annotation_contrast capture \
+            --model "$M" --capture-index -1 --n-per-arm 200 \
+            --out "runs/r1_annotation_${M}"
+done
+
+# The analysis is CPU-only and reads the cached residuals R1 just wrote.
+for M in qwen-14b qwen-7b gemma-2b yi-6b qwen-1.8b; do
+    run "R1_analyse_${M}" \
+        python3 -m scripts.run2_annotation_contrast analyse \
+            --out "runs/r1_annotation_${M}" --n-splits 400 --n-per-arm 200
+done
 
 # --------------------------------------------------------------------------- #
 # P0 — topic control through the probe. ~40 min.
@@ -132,6 +194,10 @@ done
 say "DONE"
 note ""
 note "queue finished $(date -Is)"
+note ""
+note "THE NUMBER THAT MATTERS: R1_analyse_* reports how many categories beat"
+note "their own negative control under the ANNOTATION contrast. Run 1 cleared"
+note "0.50 in 10 of 46 model-category cells under the behavioural one."
 note ""
 note "IN THE MORNING, IN THIS ORDER:"
 note "  1. git push          — the box can be reclaimed at any time"
