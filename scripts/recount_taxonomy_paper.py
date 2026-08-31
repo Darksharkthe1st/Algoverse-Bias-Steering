@@ -368,3 +368,16 @@ if FAILURES:
     for f in FAILURES: print("  -", f)
     sys.exit(1)
 print("AUDIT ADDENDA CLEAN")
+
+print("\n== prereg 24-B behavioural alignment (2026-08-31) ==")
+al = load("runs/_r1_audit/qwen-1.8b_axis_alignment.json")
+a = al["shared_axis_vs_abstention"]; r = al["residual_vs_stereotype_margin"]
+check("axis-vs-abstention median |rho|", a["median_abs_rho"], 0.110, tol=0.002)
+check("residual-vs-margin median |rho|", r["median_abs_rho"], 0.030, tol=0.002)
+if a["aligned_per_prereg"] or r["aligned_per_prereg"]:
+    FAILURES.append("alignment flags disagree with recorded verdicts")
+if FAILURES:
+    print("RECOUNT FAILED after alignment addenda")
+    for f in FAILURES: print("  -", f)
+    sys.exit(1)
+print("ALIGNMENT ADDENDA CLEAN")

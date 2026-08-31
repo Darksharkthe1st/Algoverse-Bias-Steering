@@ -82,3 +82,26 @@ execution. Prereg hash for 24: commit `1d6694b`.
 
 No paper edits. No steering. No cross-model claims (prereg 24 §A runs as
 models land). No naming of the shared axis ahead of the alignment test.
+
+## 5. Pre-registered behavioural tests — both NEGATIVE (added same day)
+
+`runs/_r1_audit/qwen-1.8b_axis_alignment.json`, statistics frozen in
+writeup 24 §B before running:
+
+- **Shared axis vs abstention margin: median |Spearman| = 0.110
+  [0.077, 0.195].** Below the 0.30 bar. The axis separates the two arms
+  nearly perfectly (LOCO AUC 0.92–0.99) yet does not grade the model's
+  abstention propensity WITHIN the ambiguous arm. It behaves as a categorical
+  input-property separator (context resolved vs not), not as a graded
+  answerability signal. Per prereg, the axis stays unnamed.
+- **Category-specific residual vs stereotype margin: median |Spearman| =
+  0.030 [0.030, 0.112].** The residues do not track item-level stereotype
+  behaviour. "Category-specific geometry" is supported; "category-specific
+  BIAS geometry" is not licensed by this test.
+
+Reading: R1 establishes reliability (reproducible, transferable, controlled),
+and these two nulls establish that reliability has not bought behavioural
+identification. Reliability and validity separate cleanly in this data, which
+is itself the measurement-science point. Power caveat: within-category
+item-level margins are noisy; the tests bound alignment at roughly |rho| <=
+0.2, they do not prove zero.
