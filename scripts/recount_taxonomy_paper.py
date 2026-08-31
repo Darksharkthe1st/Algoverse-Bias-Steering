@@ -269,3 +269,25 @@ if FAILURES:
     print(f"RECOUNT FAILED after addenda: {len(FAILURES)}")
     sys.exit(1)
 print("ADDENDA CLEAN")
+
+print("\n== reanalysis addenda (2026-08-31): F/A/B/C ==")
+ra = load("runs/_reanalysis/run1_reanalysis.json")
+F = ra["F_statistic_sensitivity"]
+for stat in ("min", "q05", "median", "mean", "ci_lo"):
+    cats = set(F["by_statistic"][stat]["categories"])
+    if not {"Disability_status", "Physical_appearance"} <= cats:
+        FAILURES.append(f"F: {stat} does not keep the two headline categories")
+check("F race max (most permissive stat)", max(F["race_max"].values()), 0.384, tol=0.002)
+yi = [r for r in ra["A_bootstrap_floors"]
+      if r["model"] == "yi-6b" and r["category"] == "Disability_status"][0]
+check("A yi-6b Disability flip prob", yi["flip_prob"], 0.27, tol=0.02)
+B = ra["B_floor_vs_n"]
+check("B Religion delta mean", B["qwen-14b"]["delta_mean"], 0.163, tol=0.002)
+check("B Race_ethnicity delta mean", B["qwen-1.8b"]["delta_mean"], 0.002, tol=0.002)
+check("C ci halfwidth at 10 splits (x2 ~ 0.26)", ra["C_power"]["ci_halfwidth_at_10"], 0.131, tol=0.003)
+
+if FAILURES:
+    print(f"RECOUNT FAILED after reanalysis addenda: {len(FAILURES)}")
+    for f in FAILURES: print("  -", f)
+    sys.exit(1)
+print("REANALYSIS ADDENDA CLEAN")

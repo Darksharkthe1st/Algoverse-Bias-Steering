@@ -32,7 +32,11 @@ import statistics
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RUNS = os.path.join(os.path.dirname(ROOT), "runs")
+# Two layouts exist: the original outer-project one (runs/ beside repo/) and
+# the in-repo one (runs/ inside the repo, which is what the branch carries).
+RUNS = (os.path.join(ROOT, "runs")
+        if os.path.isdir(os.path.join(ROOT, "runs"))
+        else os.path.join(os.path.dirname(ROOT), "runs"))
 
 
 def boot_ci(vals, n_boot=20000, seed=0, alpha=0.05):
