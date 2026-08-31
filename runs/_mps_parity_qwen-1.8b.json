@@ -1,0 +1,25 @@
+{
+  "model": "qwen-1.8b",
+  "n_prompts": 12,
+  "torch": "2.13.0",
+  "backend_mps32_vs_cpu32": {
+    "resid_cos_min": 0.9999998211860657,
+    "resid_cos_median": 1.0,
+    "direction_cos_median": 1.0,
+    "direction_cos_min": 0.9999998807907104
+  },
+  "dtype_mps16_vs_mps32": {
+    "resid_cos_min": 0.9999989867210388,
+    "resid_cos_median": 0.9999995827674866,
+    "direction_cos_median": 0.9999895095825195,
+    "direction_cos_min": 0.9999367594718933
+  },
+  "end_to_end_mps16_vs_cpu32": {
+    "resid_cos_min": 0.9999991059303284,
+    "resid_cos_median": 0.9999995827674866,
+    "direction_cos_median": 0.99998939037323,
+    "direction_cos_min": 0.9999367594718933
+  },
+  "pass": true,
+  "criterion": "backend direction_cos_median >= 0.999 and resid_cos_min >= 0.995"
+}
