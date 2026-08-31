@@ -431,3 +431,50 @@ check("LOCO AUC max", max(v["auc_norm_weighted"] for v in loco2.values()), 0.990
 if FAILURES:
     print("RECOUNT FAILED after manuscript-v2 addenda"); [print("  -", f) for f in FAILURES]; sys.exit(1)
 print("MANUSCRIPT-V2 ADDENDA CLEAN")
+
+print("\n== three-model replication (2026-09-01) ==")
+for m, flo, fhi in (("qwen-7b", 0.985, 0.990), ("yi-6b", 0.934, 0.961)):
+    r = load(f"runs/r1_annotation_{m}/report_annotation_contrast.json")
+    fl = [v["mean"] for v in r["observed_floor"].values()]
+    check(f"{m} R1 floor min", min(fl), flo); check(f"{m} R1 floor max", max(fl), fhi)
+    if sum(v == "YES" for v in r["reproduces"].values()) != 10:
+        FAILURES.append(f"{m}: not 10/10 YES")
+ISL = {"qwen-7b": ("Disability_status", 0.689, "Physical_appearance", 0.695, 0.389),
+       "yi-6b": ("Disability_status", 0.743, "Physical_appearance", 0.579, 0.214)}
+for m, (c1, v1, c2, v2, mx) in ISL.items():
+    mb = load(f"runs/_r1_audit/{m}_matched_behaviour_arm.json")["per_category"]
+    check(f"{m} island {c1}", mb[c1]["behaviour_quintile"]["mean"], v1)
+    check(f"{m} island {c2}", mb[c2]["behaviour_quintile"]["mean"], v2)
+    others = max(v["behaviour_quintile"]["mean"] for c, v in mb.items() if c not in (c1, c2))
+    check(f"{m} island max-other", others, mx, tol=0.002)
+CRIT = {"qwen-7b": (0.223, 0.0005, 0.083, 0.0315), "yi-6b": (0.094, 0.0100, 0.052, 0.4003)}
+for m, (a, pa, r_, pr) in CRIT.items():
+    al = load(f"runs/_r1_audit/{m}_axis_alignment.json")
+    check(f"{m} abstention rho", al["shared_axis_vs_abstention"]["median_abs_rho"], a)
+    check(f"{m} abstention p", al["null_calibration"]["shared_axis_vs_abstention"]["p_perm_onesided"], pa, tol=0.0015)
+    check(f"{m} residual rho", al["residual_vs_stereotype_margin"]["median_abs_rho"], r_)
+    check(f"{m} residual p", al["null_calibration"]["residual_vs_stereotype_margin"]["p_perm_onesided"], pr, tol=0.03)
+XM = load("runs/_r1_audit/cross_model_structure.json")["pairs"]
+XR = load("runs/_r1_audit/cross_model_structure_residual.json")["pairs"]
+for pair, raw, rp, res, resp in (("qwen-1.8b|qwen-7b", 0.822, 0.0001, 0.910, 0.0001),
+                                 ("qwen-1.8b|yi-6b", 0.509, 0.0011, 0.745, 0.0001),
+                                 ("qwen-7b|yi-6b", 0.359, 0.0189, 0.648, 0.0006)):
+    check(f"xmodel raw {pair}", XM[pair]["spearman"], raw)
+    check(f"xmodel raw p {pair}", XM[pair]["p_perm_onesided"], rp, tol=0.003)
+    check(f"xmodel resid {pair}", XR[pair]["spearman"], res)
+    check(f"xmodel resid p {pair}", XR[pair]["p_perm_onesided"], resp, tol=0.003)
+AUDR = {"qwen-7b": (0.885, 0.959, 0.849, 0.946, 0.928, 0.991),
+        "yi-6b": (0.558, 0.827, 0.733, 0.861, 0.932, 0.991)}
+for m, (t1, t2, r1_, r2, l1, l2) in AUDR.items():
+    a2 = load(f"runs/_r1_audit/{m}.json")
+    td = [v["floor_template_disjoint_split"]["mean"] for v in a2["leakage"].values()]
+    rf = [v["residual_floor"]["mean"] for v in a2["decomposition"].values()]
+    lo = [v["auc_norm_weighted"] for v in a2["loco_transfer"].values()]
+    check(f"{m} tmpl-disj min", min(td), t1); check(f"{m} tmpl-disj max", max(td), t2)
+    check(f"{m} residual min", min(rf), r1_); check(f"{m} residual max", max(rf), r2)
+    check(f"{m} LOCO min", min(lo), l1, tol=0.002); check(f"{m} LOCO max", max(lo), l2, tol=0.002)
+if FAILURES:
+    print(f"RECOUNT FAILED after replication addenda: {len(FAILURES)}")
+    for f in FAILURES: print("  -", f)
+    sys.exit(1)
+print("REPLICATION ADDENDA CLEAN")
