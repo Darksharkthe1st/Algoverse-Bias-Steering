@@ -326,6 +326,97 @@ def cmd_analyse(args):
     return 0
 
 
+def cmd_control(args):
+    """Topic-identity POSITIVE control, through the IDENTICAL pipeline.
+
+    Without this a null result is uninterpretable: you cannot tell "the
+    annotation contrast does not recover a direction" from "our code is broken."
+
+    Run 1 had this control and notes/11 calls it the single most valuable
+    artifact of that session -- but it validated the OLD pipeline. This runs it
+    through the new one: same capture site, same split-by-pair, same bootstrap,
+    same negative control, same decision rule.
+
+    The contrast is two different BBQ CATEGORIES rather than two arms of one
+    scenario -- race-themed prompts against gender-themed prompts. Topic identity
+    is linearly present if anything is, so this direction has to reproduce. If it
+    does not, stop: nothing downstream can be read.
+    """
+    hf_id = MODELS[args.model]
+    os.makedirs(args.out, exist_ok=True)
+    tok, model = _load(hf_id, args.device)
+
+    report = {
+        "model": args.model, "hf_id": hf_id,
+        "capture_index": args.capture_index,
+        "purpose": "topic-identity positive control through the R1 pipeline",
+        "n_splits": args.n_splits,
+        "pairs": {},
+    }
+
+    hdr = "{:<40}{:>7}{:>9}{:>18}{:>10}  verdict".format(
+        "topic contrast", "n/arm", "floor", "95% CI", "control")
+    print("\n" + hdr)
+    print("-" * 94)
+
+    for spec in args.pairs:
+        a_cat, b_cat = spec.split(":")
+        a_rows = [p.a for p in pairing.load_pilot_categories(
+            [a_cat], limit_pairs=args.n_per_arm)[0].pairs]
+        b_rows = [p.a for p in pairing.load_pilot_categories(
+            [b_cat], limit_pairs=args.n_per_arm)[0].pairs]
+        n = min(len(a_rows), len(b_rows))
+        a_rows, b_rows = a_rows[:n], b_rows[:n]
+
+        ra = capture_arm(tok, model, a_rows, capture_index=args.capture_index,
+                         system_prompt=args.system_prompt)
+        rb = capture_arm(tok, model, b_rows, capture_index=args.capture_index,
+                         system_prompt=args.system_prompt)
+
+        # Reuse the R1 machinery exactly: one synthetic Pair per index, so the
+        # same split-by-pair, floor and negative-control code runs unchanged.
+        pairs = [pairing.Pair(key=(i,), category=spec, a=a_rows[i], b=b_rows[i])
+                 for i in range(n)]
+        # Key by ITEM ONLY, never by item+arm. negative_control_floor swaps the
+        # two members of a pair, so a row that started in arm A is looked up as
+        # arm B on the shuffled pass -- an arm-qualified key raises KeyError
+        # there. The two arms come from different BBQ categories, so item_key
+        # ("<category>:<example_id>") is already unique across them.
+        store = {}
+        for i in range(n):
+            store[pairing.item_key(a_rows[i])] = ra[i]
+            store[pairing.item_key(b_rows[i])] = rb[i]
+
+        def cap(rows, arm_sign=1.0, _s=store):
+            return np.stack([_s[pairing.item_key(r)] for r in rows])
+
+        fl = analysis.floor(pairs, cap, n_splits=args.n_splits, seed=0)
+        ng = analysis.negative_control_floor(pairs, cap,
+                                             n_splits=args.n_splits, seed=0)
+        verdict = analysis.reproduces(fl, ng)
+        report["pairs"][spec] = {"n_per_arm": n, "floor": fl,
+                                 "negative_control": ng, "reproduces": verdict}
+        ci = "[{:+.3f},{:+.3f}]".format(fl["ci_lo"], fl["ci_hi"])
+        print("{:<40}{:>7}{:>+9.3f}{:>18}{:>+10.3f}  {}".format(
+            spec, n, fl["mean"], ci, ng["mean"], verdict))
+
+    path = os.path.join(args.out, "positive_control.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+    print("\nwrote " + path)
+
+    ok = [v for v in report["pairs"].values() if v["reproduces"] == "YES"]
+    print("{}/{} topic contrasts reproduce.".format(len(ok), len(report["pairs"])))
+    if len(ok) < len(report["pairs"]):
+        print("")
+        print("  *** STOP. The pipeline failed to recover a direction that must")
+        print("  *** exist. Do not read any bias result until this passes.")
+        return 1
+    print("  The pipeline recovers a direction that must exist, so bias nulls")
+    print("  measured below this line are interpretable.")
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -344,6 +435,23 @@ def main(argv=None):
     cap.add_argument("--system-prompt", default=DEFAULT_SYS)
     cap.add_argument("--force", action="store_true")
     cap.set_defaults(func=cmd_capture)
+
+    ct = sub.add_parser(
+        "control",
+        help="GPU: topic-identity POSITIVE control through the same pipeline")
+    ct.add_argument("--model", required=True, choices=sorted(MODELS))
+    ct.add_argument("--capture-index", type=int, required=True)
+    ct.add_argument("--out", required=True)
+    ct.add_argument("--pairs", nargs="+",
+                    default=["Race_ethnicity:Gender_identity",
+                             "Religion:Age",
+                             "Nationality:Sexual_orientation"],
+                    help="topic contrasts as CategoryA:CategoryB")
+    ct.add_argument("--n-per-arm", type=int, default=200)
+    ct.add_argument("--n-splits", type=int, default=100)
+    ct.add_argument("--device", default="cuda")
+    ct.add_argument("--system-prompt", default=DEFAULT_SYS)
+    ct.set_defaults(func=cmd_control)
 
     an = sub.add_parser("analyse", help="CPU: floors and controls from cached residuals")
     an.add_argument("--out", required=True)

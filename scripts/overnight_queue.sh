@@ -6,6 +6,9 @@
 # Start it, watch it clear preflight, go to bed.
 #
 # TIMING, measured rather than guessed:
+#   GATE 1  smoke test, qwen-1.8b, 1 cat    ~2 min    <- proves capture runs
+#   GATE 2  positive control, qwen-1.8b     ~10 min   <- proves it can find
+#                                                        a direction at all
 #   R1a  qwen-14b capture + fast read   25-70 min   <- the decisive answer
 #   R1b  the other four models          1-2 h
 #   R1c  n_splits=400 analysis, all 5   ~37 min CPU
@@ -118,6 +121,71 @@ run () {
 # longer. The direction may encode "read one more sentence" rather than bias.
 # The analyse step runs a specificity control for exactly this and it may fail.
 # --------------------------------------------------------------------------- #
+# ============================================================================ #
+# GATE 1 — SMOKE TEST. Smallest model, one category, ~2 minutes.
+#
+# The capture path has never been executed anywhere: this project's laptop has
+# no GPU, so `capture` has run zero times, on zero models. Everything downstream
+# of the residuals is tested (260 tests, and a pilot that validates each control
+# against planted ground truth) but the forward pass itself is unexercised code.
+#
+# So prove it on the cheapest model before spending an hour on the 14B. This
+# exercises every line the big runs use: chat template, tokenizer padding,
+# run_with_cache, the capture index, and persistence.
+# ============================================================================ #
+say "GATE 1 — smoke test (qwen-1.8b, one category, ~2 min)"
+if ! python3 -m scripts.run2_annotation_contrast capture \
+        --model qwen-1.8b --capture-index -1 --n-per-arm 40 \
+        --categories Disability_status \
+        --out runs/_smoke_r1 2>&1 | tee "$LOGDIR/gate1_smoke_${STAMP}.log"; then
+    note "GATE 1 FAILED — the capture path is broken. Nothing else was run."
+    note "Read $LOGDIR/gate1_smoke_${STAMP}.log. This is the failure worth catching."
+    exit 1
+fi
+python3 - <<'PY' || { note "GATE 1 FAILED — residuals are malformed."; exit 1; }
+import json, pathlib, sys
+import numpy as np
+d = pathlib.Path("runs/_smoke_r1/residuals")
+npys = sorted(d.glob("*.npy")) if d.is_dir() else []
+if len(npys) != 2:
+    print(f"  expected 2 residual files (one per arm), found {len(npys)}"); sys.exit(1)
+for f in npys:
+    a = np.load(f, mmap_mode="r")
+    meta = json.loads(f.with_suffix(".json").read_text(encoding="utf-8"))
+    print(f"  {f.name}: shape={a.shape} dtype={a.dtype} ids={len(meta['item_ids'])}")
+    if a.ndim != 3 or a.shape[0] != len(meta["item_ids"]):
+        print("  shape/id mismatch"); sys.exit(1)
+    if not np.isfinite(np.asarray(a[0])).all():
+        print("  non-finite values in the first row"); sys.exit(1)
+print("  capture path works.")
+PY
+note "gate 1 (smoke): OK"
+
+# ============================================================================ #
+# GATE 2 — POSITIVE CONTROL. ~10 min on qwen-1.8b.
+#
+# Topic identity through the IDENTICAL pipeline. Without it a null result is
+# uninterpretable: you cannot tell "the annotation contrast recovers nothing"
+# from "our code is broken". Run 1 had this control and notes/11 calls it the
+# single most valuable artifact of that session -- but it validated the OLD
+# pipeline, so it has to be re-run through this one.
+#
+# It exits non-zero if any topic contrast fails to reproduce, and the queue
+# stops there. That is the intended behaviour: a bias null measured with a
+# pipeline that cannot find topic is not a finding.
+# ============================================================================ #
+say "GATE 2 — positive control (topic identity, qwen-1.8b)"
+if ! python3 -m scripts.run2_annotation_contrast control \
+        --model qwen-1.8b --capture-index -1 --n-per-arm 200 --n-splits 100 \
+        --out runs/_control_r1_qwen-1.8b 2>&1 \
+        | tee "$LOGDIR/gate2_control_${STAMP}.log"; then
+    note "GATE 2 FAILED — the pipeline cannot recover a direction that must exist."
+    note "STOP. Do not read any bias number until this passes."
+    note "Read $LOGDIR/gate2_control_${STAMP}.log"
+    exit 1
+fi
+note "gate 2 (positive control): OK — bias nulls below this line are interpretable"
+
 # --- R1a: qwen-14b alone, fast read. 25-70 min. --------------------------- #
 # One model answers the question. qwen-14b is the strongest and produced the
 # most reproducible categories in run 1, so if the annotation contrast works
