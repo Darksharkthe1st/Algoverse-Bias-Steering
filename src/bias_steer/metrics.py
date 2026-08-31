@@ -36,9 +36,10 @@ def tidy_rows(results, *, run_id, model, dataset, opin_coeff, neut_coeff) -> lis
     ]
 
 
-def write_csv(path, rows, columns) -> None:
+def write_rows(path, rows, columns) -> None:
     """Write tidy `rows` to `path` with exactly `columns` as the header. Extra keys
-    in a row are dropped (`extrasaction="ignore"`), so callers can pass richer dicts."""
+    in a row are dropped (`extrasaction="ignore"`), so callers can pass richer dicts.
+    Generic backbone for `write_csv`."""
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
         writer.writeheader()
@@ -53,7 +54,7 @@ def write_examples_csv(path, examples, *, dataset) -> None:
 
     `metadata` is JSON-encoded into one column so nested fields (e.g. BBQ's `answers`)
     survive losslessly; `category` is also lifted to its own column to match
-    results.csv and keep groupbys cheap. Delegates to `write_csv`."""
+    results.csv and keep groupbys cheap. Delegates to `write_rows`."""
     rows = [
         {
             "example_id": ex.id, "dataset": dataset, "prompt": ex.prompt,
@@ -62,7 +63,8 @@ def write_examples_csv(path, examples, *, dataset) -> None:
         }
         for ex in examples
     ]
-    write_csv(path, rows, EXAMPLE_COLUMNS)
+    write_rows(path, rows, EXAMPLE_COLUMNS)
+
 
 def write_csv(path, rows) -> None:
     write_rows(path, rows, RESULT_COLUMNS)

@@ -207,7 +207,7 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
         opin_coeff=config.coeffs.opinion, neut_coeff=config.coeffs.neutral,
     )
     results_csv = handle.dir / "results.csv"
-    metrics.write_csv(results_csv, rows, metrics.RESULT_COLUMNS)
+    metrics.write_csv(results_csv, rows)
     # Snapshot the frozen subset this run used, so the folder holds its own inputs.
     metrics.write_examples_csv(handle.dir / "examples.csv", train + test,
                                dataset=config.dataset.name)
