@@ -124,8 +124,17 @@ def verify(out_dir: str, *, manifest_name: str = "queue_manifest.json") -> Check
                  f"pre-registration field (notes/11 §4, incident I-5)")
 
     # --- prompts and responses were persisted verbatim --------------------- #
-    for name, why in (("prompts.jsonl", "notes/13 §13 — every prompt, verbatim"),
-                      ("responses.jsonl", "notes/18 — N6 is why this is non-negotiable")):
+    # N6 (notes/18) requires raw RESPONSE text to be saved because the
+    # generation-era misparse rate became unmeasurable without it. A
+    # capture-only run (run2_annotation_contrast) generates no text at all,
+    # so there is nothing N6 could apply to: capture_site.json marks such
+    # runs, and responses.jsonl is required only when it is absent.
+    capture_only = os.path.exists(os.path.join(out_dir, "capture_site.json"))
+    required = [("prompts.jsonl", "notes/13 §13 — every prompt, verbatim")]
+    if not capture_only:
+        required.append(("responses.jsonl",
+                         "notes/18 — N6 is why this is non-negotiable"))
+    for name, why in required:
         path = os.path.join(out_dir, name)
         if c.ok(os.path.exists(path), f"missing {name} ({why})"):
             n = sum(1 for line in open(path, encoding="utf-8") if line.strip())
