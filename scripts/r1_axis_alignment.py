@@ -184,9 +184,87 @@ def main():
     s.add_argument("--device", default="mps"); s.set_defaults(fn=cmd_score)
     t = sub.add_parser("test"); t.add_argument("--model", default="qwen-1.8b")
     t.set_defaults(fn=cmd_test)
+    c = sub.add_parser("calibrate"); c.add_argument("--model", default="qwen-1.8b")
+    c.set_defaults(fn=cmd_calibrate)
     args = ap.parse_args()
     return args.fn(args)
 
+
+
+
+def cmd_calibrate(args):
+    """Permutation calibration of the two median-|rho| statistics.
+
+    Added after the prereg tests ran, with the procedure fixed before running
+    it: |rho| medians are positively biased under the null (E|rho_hat| ~ 0.8/
+    sqrt(n) at rho=0), so 'not aligned' is only a licensed reading against a
+    calibrated zero-reference. 2000 within-category permutations of the
+    behavioural variable, seed 0, one-sided p for observed >= null. Applied
+    to BOTH tests symmetrically, whatever it shows.
+    """
+    import numpy as np
+    run_dir = f"runs/r1_annotation_{args.model}"
+    marg = json.load(open(f"runs/_r1_audit/{args.model}_margins.json"))["items"]
+    rep = json.load(open(f"runs/_r1_audit/{args.model}_axis_alignment.json"))
+
+    cats = sorted({f.split("__")[0]
+                   for f in os.listdir(os.path.join(run_dir, "residuals"))
+                   if f.endswith("__a.npy")})
+    resid, ids, dirs = {}, {}, {}
+    for c in cats:
+        a = np.load(os.path.join(run_dir, "residuals", f"{c}__a.npy")).astype(np.float64)
+        b = np.load(os.path.join(run_dir, "residuals", f"{c}__b.npy")).astype(np.float64)
+        side = json.load(open(os.path.join(run_dir, "residuals", f"{c}__a.json")))
+        resid[c], ids[c] = a, side["item_ids"]
+        dirs[c] = a.mean(axis=0) - b.mean(axis=0)
+    shared_all = np.mean(np.stack([unitize(dirs[c]) for c in cats], axis=0), axis=0)
+    u_shared = unitize(shared_all)
+
+    per = {}
+    for c in cats:
+        keep = [i for i, iid in enumerate(ids[c]) if iid in marg]
+        m = np.array([marg[ids[c][i]]["margin"] for i in keep])
+        ab = np.array([marg[ids[c][i]]["abstention"] for i in keep])
+        r_items = resid[c][keep]
+        ps = np.median(np.einsum("nld,ld->nl", r_items, u_shared), axis=1)
+        loco = np.mean(np.stack([unitize(dirs[o]) for o in cats if o != c],
+                                axis=0), axis=0)
+        u_l = unitize(loco)
+        coef = np.einsum("ld,ld->l", dirs[c], u_l)
+        r_C = dirs[c] - coef[:, None] * u_l
+        pr = np.median(np.einsum("nld,ld->nl", r_items, unitize(r_C)), axis=1)
+        per[c] = (ps, ab, pr, m)
+
+    rng = np.random.default_rng(0)
+    N_PERM = 2000
+    out = {}
+    for label, which, obs in (
+            ("shared_axis_vs_abstention", "abst",
+             rep["shared_axis_vs_abstention"]["median_abs_rho"]),
+            ("residual_vs_stereotype_margin", "resid",
+             rep["residual_vs_stereotype_margin"]["median_abs_rho"])):
+        null = []
+        for _ in range(N_PERM):
+            meds = []
+            for c, (ps, ab, pr, m) in per.items():
+                y = ab if which == "abst" else m
+                yp = y[rng.permutation(len(y))]
+                x = ps if which == "abst" else pr
+                meds.append(abs(spearman(x, yp)))
+            null.append(float(np.median(meds)))
+        null = np.array(null)
+        p = float((1 + np.sum(null >= obs)) / (N_PERM + 1))
+        out[label] = {"observed": obs, "null_median": float(np.median(null)),
+                      "null_q95": float(np.quantile(null, 0.95)),
+                      "p_perm_onesided": p, "n_perm": N_PERM}
+        print(f"{label}: obs {obs:.3f} vs null med {np.median(null):.3f} "
+              f"q95 {np.quantile(null, 0.95):.3f} -> p = {p:.4f}")
+
+    rep["null_calibration"] = out
+    Path(f"runs/_r1_audit/{args.model}_axis_alignment.json").write_text(
+        json.dumps(rep, indent=1))
+    print("artifact updated")
+    return 0
 
 if __name__ == "__main__":
     raise SystemExit(main())

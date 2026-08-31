@@ -65,5 +65,21 @@
   "ci_lo": 0.030457033512101172,
   "ci_hi": 0.11232298919669699,
   "aligned_per_prereg": false
+ },
+ "null_calibration": {
+  "shared_axis_vs_abstention": {
+   "observed": 0.10988374709367735,
+   "null_median": 0.04815157878946974,
+   "null_q95": 0.07829286943676024,
+   "p_perm_onesided": 0.0009995002498750624,
+   "n_perm": 2000
+  },
+  "residual_vs_stereotype_margin": {
+   "observed": 0.03043284743902197,
+   "null_median": 0.048021059740758876,
+   "null_q95": 0.07836898402559059,
+   "p_perm_onesided": 0.8800599700149925,
+   "n_perm": 2000
+  }
  }
 }

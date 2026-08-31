@@ -105,3 +105,42 @@ identification. Reliability and validity separate cleanly in this data, which
 is itself the measurement-science point. Power caveat: within-category
 item-level margins are noisy; the tests bound alignment at roughly |rho| <=
 0.2, they do not prove zero.
+
+## 6. Null calibration of the behavioural tests (procedure fixed before running)
+
+A median of ABSOLUTE correlations is positively biased under the null, so §5's
+readings needed a calibrated zero-reference: 2000 within-category permutations
+of the behavioural variable, seed 0, applied to both tests symmetrically
+(`null_calibration` in the artifact).
+
+- Shared axis vs abstention: observed 0.110 against null median 0.048
+  (q95 0.078), **p = 0.001**. The axis is weakly but reliably related to
+  abstention behaviour — real signal, at about a third of the pre-registered
+  alignment bar. It is not behaviourally inert; it is not nameable either.
+- Residual vs stereotype margin: observed 0.030 against null median 0.048,
+  **p = 0.88**. No detectable relation; the point estimate sits below what
+  chance alone produces.
+
+## 7. Strongest claim licensed by the experiments, as of this audit
+
+Tier 1 (specific, one R1 model so far): on the same model, dataset files,
+capture site, and estimator family, a behaviour-derived contrast yields
+directions that mostly fail to reproduce (best race-related cell 0.384 under
+the most permissive statistic), while an annotation-derived contrast yields
+directions that reproduce at 0.974–0.984, survive template-disjoint splitting
+(0.804–0.931), transfer to held-out categories (AUC 0.924–0.990), and retain
+reproducible category-specific residues (0.836–0.930) after leave-one-out
+shared-axis removal — and whose behavioural anchoring is nonetheless thin:
+the shared axis relates weakly but reliably to abstention (median |ρ| 0.110,
+calibrated p = 0.001) and the residues show no detectable relation to
+stereotype behaviour (p = 0.88).
+
+Tier 2 (the general statement Tier 1 licenses): reliability and behavioural
+validity dissociated under both recipes — behavioural provenance did not buy
+reliability (run 1), and reliability did not buy behavioural identification
+(R1). Neither check alone licenses calling something a bias direction.
+
+Not licensed: any name for the shared axis; "category-specific BIAS
+geometry"; "only the contrast labels changed" (use §1's exact formulation);
+cross-model structure claims before prereg 24 §A fires; any causal or
+steering claim.

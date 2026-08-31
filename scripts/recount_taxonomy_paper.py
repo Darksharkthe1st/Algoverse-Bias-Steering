@@ -381,3 +381,12 @@ if FAILURES:
     for f in FAILURES: print("  -", f)
     sys.exit(1)
 print("ALIGNMENT ADDENDA CLEAN")
+
+print("\n== alignment null calibration (2026-08-31) ==")
+al2 = load("runs/_r1_audit/qwen-1.8b_axis_alignment.json")["null_calibration"]
+check("abstention p_perm", al2["shared_axis_vs_abstention"]["p_perm_onesided"], 0.001, tol=0.002)
+check("resid-margin p_perm", al2["residual_vs_stereotype_margin"]["p_perm_onesided"], 0.88, tol=0.03)
+check("null median (both)", al2["shared_axis_vs_abstention"]["null_median"], 0.048, tol=0.005)
+if FAILURES:
+    print("RECOUNT FAILED after calibration addenda"); [print("  -", f) for f in FAILURES]; sys.exit(1)
+print("CALIBRATION ADDENDA CLEAN")
