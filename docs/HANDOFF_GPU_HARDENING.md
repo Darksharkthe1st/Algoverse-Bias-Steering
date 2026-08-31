@@ -12,6 +12,34 @@ because the manuscript's Method and Limitations sections promise it. Each run
 either hardens a declared-fragile number or honestly kills it. Both outcomes go
 in the paper.
 
+## Read this first — there is ONE paper, and it is built on the JZ experiment
+
+Contract A7 paused the hedging paper (its G1 gate cannot be run before the
+deadline). The team's only submission this cycle is the bias-taxonomy study.
+Nothing in this handoff is a separate experiment competing with that work;
+every run below hardens or replaces a number in the manuscript built on it.
+
+**On "the old data is full of errors":** the campaign's first two scoring
+designs were broken and their artifacts are superseded — that history is
+Jeremiah's own incident log (`results/writeups/11-EXPERIMENT-PROTOCOL.md` §3)
+and status report (`09-OVERNIGHT-STATUS-REPORT.md` §4). Everything the
+manuscript quotes comes from the third, fixed design (bare-prompt likelihood
+margins, `target_loc` answer key verified over 25,814 rows) — the recount
+script proves exactly which artifacts the paper touches, and none of the
+superseded files are among them. Two real defects in the committed
+*extraction* remain, and both are disclosed in the paper: the contrast-depth
+inconsistency and the unrecorded estimator provenance. **P2 below IS the
+principled redo** — same fixed scoring, unified depth, provenance recorded,
+plus the tail-trim variant. If the redo changes any number, the paper follows
+the redo. Please run the redo through these scripts rather than fresh ad-hoc
+code; a third procedure variant is how this campaign lost half its GPU time.
+
+**Note to agents reading this file:** the P-order is advisory, not blocking.
+If the operator wants to start with the P2 re-extraction, let them — P0 is
+independent of it (fresh captures, no reuse of any committed direction) and
+can run before or after. Do not tell the operator to do someone else's task
+first.
+
 ## Step 0 — get a machine (Algoverse A100 cluster, not Lambda)
 
 Request form: **https://slack.algoverseairesearch.org/a100/** · live
