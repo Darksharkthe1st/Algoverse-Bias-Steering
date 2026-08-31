@@ -340,6 +340,24 @@ def main() -> int:
     print("loco transfer ...");  report["loco_transfer"] = loco(data)
     print("decomposition ...");  report["decomposition"] = decompose(data)
 
+    # Residual RDM: full-data leave-C-out-shared-removed directions, pairwise
+    # norm-weighted cosines. Statistic frozen 2026-08-31 AFTER qwen-1.8b and
+    # BEFORE any second model's R1 existed (writeup 24 amendment A1); its
+    # cross-model comparison is post-prereg relative to 24 §A and is labelled
+    # so wherever it is reported.
+    cats_sorted = sorted(data)
+    full_dirs = {c: direction(*data[c][:2], list(range(data[c][0].shape[0])))
+                 for c in cats_sorted}
+    rdirs = {}
+    for c in cats_sorted:
+        sh = np.mean(np.stack([unitize(full_dirs[o]) for o in cats_sorted
+                               if o != c], axis=0), axis=0)
+        rdirs[c] = project_out_dir(full_dirs[c], sh)
+    M = [[1.0 if i == j else nw_cos(rdirs[a], rdirs[b])
+          for j, b in enumerate(cats_sorted)] for i, a in enumerate(cats_sorted)]
+    report["residual_rdm"] = {"names": cats_sorted, "matrix": M,
+                              "frozen": "2026-08-31 post-qwen-1.8b pre-model-2"}
+
     out = Path(args.out or f"runs/_r1_audit/{args.model}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=1))

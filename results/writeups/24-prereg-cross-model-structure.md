@@ -71,3 +71,14 @@ the axis with one measured alignment, in either direction.
 Steering or ablation along any R1 direction (needs the controls listed in
 the manuscript §3), the matched-items behaviour-arm comparison (17 §5.4, a
 GPU pass run 2 does not include), and any SAE analysis. Camera-ready scope.
+
+## Amendment A1 — residual cross-model geometry (2026-08-31)
+
+Frozen after the qwen-1.8b R1 result and audit existed, and before any second
+model's R1 ran. Statistic: identical to §A (Spearman on the shared-subset
+upper triangle, joint category-label permutation null, 10,000 draws, seed 0,
+one-sided), applied to the RESIDUAL RDM: pairwise norm-weighted cosines of
+each category's direction after its leave-one-out shared axis is projected
+out (computed by `scripts/r1_audit.py`, key `residual_rdm`). This is NOT part
+of the original pre-registration; wherever it is reported it carries the
+label "frozen post-qwen-1.8b, pre-model-2". The raw §A statistic is untouched.

@@ -390,3 +390,19 @@ check("null median (both)", al2["shared_axis_vs_abstention"]["null_median"], 0.0
 if FAILURES:
     print("RECOUNT FAILED after calibration addenda"); [print("  -", f) for f in FAILURES]; sys.exit(1)
 print("CALIBRATION ADDENDA CLEAN")
+
+print("\n== matched behaviour arm (P0, 2026-08-31) ==")
+mb = load("runs/_r1_audit/qwen-1.8b_matched_behaviour_arm.json")["per_category"]
+MB = {"Age": 0.318, "Disability_status": 0.735, "Gender_identity": -0.093,
+      "Nationality": 0.132, "Physical_appearance": 0.617,
+      "Race_ethnicity": 0.022, "Race_x_SES": 0.127, "Race_x_gender": 0.191,
+      "Religion": -0.114, "Sexual_orientation": 0.216}
+for c, exp in MB.items():
+    check(f"matched-arm quintile {c}", mb[c]["behaviour_quintile"]["mean"], exp)
+    if abs(mb[c]["behaviour_control_independent"]["mean"]) > 0.02:
+        FAILURES.append(f"matched-arm {c}: independent control not ~0")
+    check(f"matched-arm annot ref {c}", mb[c]["annotation_floor_mean"],
+          load("runs/r1_annotation_qwen-1.8b/report_annotation_contrast.json")["observed_floor"][c]["mean"], tol=1e-9)
+if FAILURES:
+    print("RECOUNT FAILED after matched-arm addenda"); [print("  -", f) for f in FAILURES]; sys.exit(1)
+print("MATCHED-ARM ADDENDA CLEAN")

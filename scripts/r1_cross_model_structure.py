@@ -26,9 +26,13 @@ N_PERM = 10_000
 SEED = 0
 
 
-def load_matrix(model):
-    rep = json.load(open(f"runs/r1_annotation_{model}/report_annotation_contrast.json"))
-    cc = rep["cross_category"]
+def load_matrix(model, which="raw"):
+    if which == "residual":
+        rep = json.load(open(f"runs/_r1_audit/{model}.json"))
+        cc = rep["residual_rdm"]
+    else:
+        rep = json.load(open(f"runs/r1_annotation_{model}/report_annotation_contrast.json"))
+        cc = rep["cross_category"]
     return cc["names"], np.array(cc["matrix"], dtype=np.float64)
 
 
@@ -41,17 +45,25 @@ def upper(m, idx=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--models", nargs="+", required=True)
+    ap.add_argument("--which", choices=["raw", "residual"], default="raw",
+                    help="raw = prereg 24 §A (frozen 1d6694b). residual = the "
+                         "leave-one-out-shared-removed RDM, statistic frozen "
+                         "2026-08-31 post-qwen-1.8b pre-model-2; label its "
+                         "prereg status accordingly wherever reported.")
     args = ap.parse_args()
 
     mats = {}
     for m in args.models:
         try:
-            mats[m] = load_matrix(m)
+            mats[m] = load_matrix(m, args.which)
         except FileNotFoundError:
             print(f"{m}: no R1 report yet, skipped")
 
-    out = {"prereg": "results/writeups/24 §A @ 1d6694b", "n_perm": N_PERM,
-           "pairs": {}}
+    out = {"which": args.which,
+           "prereg": ("results/writeups/24 §A @ 1d6694b" if args.which == "raw"
+                      else "frozen 2026-08-31 post-qwen-1.8b pre-model-2 "
+                           "(writeup 24 amendment A1); NOT in the original prereg"),
+           "n_perm": N_PERM, "pairs": {}}
     rng = np.random.default_rng(SEED)
     for m1, m2 in itertools.combinations(sorted(mats), 2):
         n1, M1 = mats[m1]
@@ -82,7 +94,7 @@ def main():
         print(f"{m1} vs {m2} (k={len(shared)}): spearman {rho:+.3f} "
               f"p={pval:.4f} (null med {np.median(null):+.3f})")
 
-    path = Path("runs/_r1_audit/cross_model_structure.json")
+    path = Path(f"runs/_r1_audit/cross_model_structure{'' if args.which == 'raw' else '_residual'}.json")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(out, indent=1))
     print(f"written {path}")

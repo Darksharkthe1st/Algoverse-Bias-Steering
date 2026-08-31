@@ -116,10 +116,11 @@ of the behavioural variable, seed 0, applied to both tests symmetrically
 - Shared axis vs abstention: observed 0.110 against null median 0.048
   (q95 0.078), **p = 0.001**. The axis is weakly but reliably related to
   abstention behaviour — real signal, at about a third of the pre-registered
-  alignment bar. It is not behaviourally inert; it is not nameable either.
+  alignment bar. Licensed phrasing: a shared component weakly associated
+  with abstention. Not licensed: any name implying construct identity.
 - Residual vs stereotype margin: observed 0.030 against null median 0.048,
-  **p = 0.88**. No detectable relation; the point estimate sits below what
-  chance alone produces.
+  **p = 0.88**. No detectable relationship under the tested behavioural
+  statistic; the point estimate sits below what chance alone produces.
 
 ## 7. Strongest claim licensed by the experiments, as of this audit
 
@@ -144,3 +145,65 @@ Not licensed: any name for the shared axis; "category-specific BIAS
 geometry"; "only the contrast labels changed" (use §1's exact formulation);
 cross-model structure claims before prereg 24 §A fires; any causal or
 steering claim.
+
+## 8. P0 — the matched behaviour-derived arm (17 §5.4), now run
+
+`runs/_r1_audit/qwen-1.8b_matched_behaviour_arm.json`,
+`scripts/r1_matched_behaviour_arm.py` (all choices frozen in its docstring
+before first run). Same 200 ambiguous items per category, same captured
+activations, the same 400 split assignments, same layer aggregation and
+reporting statistic as the annotation arm. Margins for these exact items were
+scored on this machine with the run-1 scoring code.
+
+| category | annotation | behaviour (quintile) | behaviour (median split) | ctrl fixed | ctrl indep |
+|---|---|---|---|---|---|
+| Age | 0.983 | 0.318 | 0.060 | −0.092 | 0.002 |
+| Disability_status | 0.979 | 0.735 | 0.691 | 0.247 | −0.010 |
+| Gender_identity | 0.980 | −0.093 | −0.035 | −0.180 | −0.003 |
+| Nationality | 0.975 | 0.132 | 0.062 | 0.001 | 0.002 |
+| Physical_appearance | 0.983 | 0.617 | 0.499 | −0.015 | −0.008 |
+| Race_ethnicity | 0.976 | 0.022 | 0.002 | 0.097 | −0.003 |
+| Race_x_SES | 0.982 | 0.127 | −0.001 | 0.028 | 0.003 |
+| Race_x_gender | 0.978 | 0.191 | 0.256 | −0.015 | −0.006 |
+| Religion | 0.983 | −0.114 | −0.328 | −0.037 | −0.003 |
+| Sexual_orientation | 0.984 | 0.216 | 0.172 | −0.083 | −0.012 |
+
+Readings, in licensing order:
+
+- With item universe, activations, splits, aggregation and statistic all
+  matched, contrast construction separates 0.975–0.984 from −0.114–0.735.
+  The controlled version of the provenance claim now exists for this model.
+- **Run 1's two-category island replicates.** Disability_status (0.735) and
+  Physical_appearance (0.617) are again the only categories that rise, on a
+  different item sample, different hardware, and a different floor statistic
+  than run 1. The behaviour-derived recipe is not pure noise; it weakly
+  recovers exactly the two categories it always recovered. (On run 1's own
+  qwen-1.8b attempt these two were dropped by the task-control gate, so run
+  1 reported 0 of 8 there; the matched arm shows the island was present at
+  this universe all along.)
+- The median-split sensitivity (uses all 100 items per half) is LOWER than
+  the quintile variant for most categories, so the behaviour arm's weakness
+  is not an artifact of discarding 60% of the items.
+- Independent controls sit at 0.000 ± 0.012 across all categories.
+
+**Remaining differences after matching, enumerated (not claimed away):**
+(1) the behaviour contrast uses only the ambiguous arm (inherent to its
+definition); (2) effective rows per half-direction 40 (quintile) / 100
+(median split) vs 200 for the annotation arm — the median-split variant
+narrows this and moves the result away from, not toward, the annotation arm;
+(3) margins scored on MPS in this session vs run-1's CUDA margins (instrument
+identity rests on the parity gate, not file identity); (4) single-measurement
+margin reliability is unknown and attenuates the behaviour arm — this is part
+of what the comparison measures.
+
+## 9. Claim ladder (state at 2026-08-31, qwen-1.8b only)
+
+| rung | annotation-derived arm | behaviour-derived arm |
+|---|---|---|
+| Reproducibility | 10/10, floors 0.975–0.984; template-robust | 2/10 weakly (0.62–0.74), same island as run 1 |
+| Specificity | not length (projection); not template; pairwise distinguishable; residues reproduce 0.84–0.93 | not established |
+| Behavioural association | shared component weakly associated with abstention (0.110, p=.001); residues: no detectable relationship under the tested statistic (p=.88) | by construction (circular), never validated |
+| Intervention / causal | untested | untested (run-1 transfer was uncontrolled) |
+
+No rung above behavioural association is occupied by either arm. "Bias
+direction" is not licensed for any object in this study.
