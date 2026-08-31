@@ -1,0 +1,85 @@
+{
+ "model": "qwen-1.8b",
+ "prereg": "results/writeups/24 \u00a7B @ 1d6694b",
+ "rho_bar": 0.3,
+ "per_category": {
+  "Age": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.04123603090077253,
+   "rho_residproj_stereomargin": 0.20894772369309234
+  },
+  "Disability_status": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.2152962860880671,
+   "rho_residproj_stereomargin": -0.030797443171751277
+  },
+  "Gender_identity": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.08443411085277132,
+   "rho_residproj_stereomargin": 0.012077570055620063
+  },
+  "Nationality": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.21377334433360834,
+   "rho_residproj_stereomargin": 0.023835595889897247
+  },
+  "Physical_appearance": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.22488129069329862,
+   "rho_residproj_stereomargin": -0.10712833890098088
+  },
+  "Race_ethnicity": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.22204905122628069,
+   "rho_residproj_stereomargin": -0.021957548938723474
+  },
+  "Race_x_SES": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.11140328508212707,
+   "rho_residproj_stereomargin": -0.06213905347633692
+  },
+  "Race_x_gender": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.10836420910522764,
+   "rho_residproj_stereomargin": -0.06325508137703444
+  },
+  "Religion": {
+   "n": 200,
+   "rho_sharedproj_abstention": -0.08784369609240232,
+   "rho_residproj_stereomargin": 0.03006825170629266
+  },
+  "Sexual_orientation": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.05012975324383111,
+   "rho_residproj_stereomargin": 0.012525313132828323
+  }
+ },
+ "shared_axis_vs_abstention": {
+  "median_abs_rho": 0.10988374709367735,
+  "ci_lo": 0.07686204018123037,
+  "ci_hi": 0.1949678209640017,
+  "aligned_per_prereg": false
+ },
+ "residual_vs_stereotype_margin": {
+  "median_abs_rho": 0.03043284743902197,
+  "ci_lo": 0.030457033512101172,
+  "ci_hi": 0.11232298919669699,
+  "aligned_per_prereg": false
+ },
+ "null_calibration": {
+  "shared_axis_vs_abstention": {
+   "observed": 0.10988374709367735,
+   "null_median": 0.04815157878946974,
+   "null_q95": 0.07829286943676024,
+   "p_perm_onesided": 0.0009995002498750624,
+   "n_perm": 2000
+  },
+  "residual_vs_stereotype_margin": {
+   "observed": 0.03043284743902197,
+   "null_median": 0.048021059740758876,
+   "null_q95": 0.07836898402559059,
+   "p_perm_onesided": 0.8800599700149925,
+   "n_perm": 2000
+  }
+ }
+}

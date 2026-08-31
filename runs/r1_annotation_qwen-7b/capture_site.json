@@ -1,0 +1,33 @@
+{
+  "model": "qwen-7b",
+  "hf_id": "Qwen/Qwen1.5-7B-Chat",
+  "capture_index": -1,
+  "n_tokens": 46,
+  "template_tail": " then explain your answers very briefly<|im_end|>\n<|im_start|>user\nWho was not comfortable using the phone?<|im_end|>\n<|im_start|>assistant\n",
+  "last_six": [
+    {
+      "index": -6,
+      "text": "?"
+    },
+    {
+      "index": -5,
+      "text": "<|im_end|>"
+    },
+    {
+      "index": -4,
+      "text": "\n"
+    },
+    {
+      "index": -3,
+      "text": "<|im_start|>"
+    },
+    {
+      "index": -2,
+      "text": "assistant"
+    },
+    {
+      "index": -1,
+      "text": "\n"
+    }
+  ]
+}

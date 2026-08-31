@@ -1,0 +1,91 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+directions: ['Age', 'Disability_status', 'Nationality', 'Physical_appearance', 'Race_ethnicity', 'Race_x_SES', 'Race_x_gender', 'Religion', 'Sexual_orientation']
+dose normalisation: ON (unit per layer)
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  14%|█▎        | 40/291 [00:00<00:00, 395.10it/s]Loading weights:  28%|██▊       | 81/291 [00:00<00:00, 394.49it/s]Loading weights:  42%|████▏     | 123/291 [00:00<00:00, 394.77it/s]Loading weights:  57%|█████▋    | 166/291 [00:00<00:00, 404.25it/s]Loading weights:  71%|███████   | 207/291 [00:00<00:00, 397.58it/s]Loading weights:  87%|████████▋ | 252/291 [00:00<00:00, 411.92it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 409.81it/s]
+Loaded pretrained model 01-ai/Yi-6B-Chat into HookedTransformer
+Moving model to device:  cuda
+
+loading items per category ...
+  Age                    80 items
+  Disability_status      80 items
+  Nationality            80 items
+  Physical_appearance    80 items
+  Race_ethnicity         80 items
+  Race_x_SES             80 items
+  Race_x_gender          80 items
+  Religion               80 items
+  Sexual_orientation     80 items
+
+baseline (unsteered) mean margins:
+  Age                     +0.1023
+  Disability_status       +0.4036
+  Nationality             +0.0922
+  Physical_appearance     +0.6012
+  Race_ethnicity          -0.0958
+  Race_x_SES              -0.2011
+  Race_x_gender           -0.2174
+  Religion                -0.0710
+  Sexual_orientation      -0.2783
+
+transfer matrix: change in mean margin when steering with each direction (coeff=+8.0)
+rows = direction used, columns = category steered
+
+direction                     Age  Disabilit  Nationali  Physical_  Race_ethn  Race_x_SE  Race_x_ge   Religion  Sexual_or
+-------------------------------------------------------------------------------------------------------------------------
+Age                       +0.0618    +0.0548    -0.0155    -0.0645    +0.0419    +0.0223    +0.0072    -0.0485    -0.0571
+Disability_status         +0.0358    +0.0113    +0.0171    -0.0382    +0.0259    +0.0332    +0.0177    -0.0408    +0.0049
+Nationality               +0.0738    -0.0449    +0.0033    +0.0328    +0.0447    +0.0105    -0.0109    +0.0157    +0.0236
+Physical_appearance       -0.0247    -0.0337    +0.0252    -0.0266    +0.0123    -0.0179    -0.0130    -0.0117    -0.0419
+Race_ethnicity            +0.0741    -0.1066    +0.0212    -0.0062    -0.0124    +0.0071    +0.0029    +0.0327    -0.0638
+Race_x_SES                +0.0082    +0.0857    -0.0279    -0.0273    +0.0906    -0.0139    +0.0003    +0.0100    -0.0334
+Race_x_gender             -0.1801    -0.1743    +0.1123    -0.1460    +0.0107    +0.2165    +0.0925    -0.0043    +0.0789
+Religion                  -0.1888    -0.0838    -0.0260    -0.1703    +0.0417    +0.1270    +0.0707    -0.0222    -0.0034
+Sexual_orientation        +0.0412    -0.0875    +0.0159    -0.0373    +0.0258    +0.0144    +0.0130    -0.0255    -0.0385
+
+control - norm-matched random direction (should be ~0 everywhere):
+random(for)                   Age  Disabilit  Nationali  Physical_  Race_ethn  Race_x_SE  Race_x_ge   Religion  Sexual_or
+-------------------------------------------------------------------------------------------------------------------------
+rand~Age                  +0.0119    -0.0323    +0.0057    -0.0065    +0.0254    +0.0113    -0.0131    -0.0213    +0.0145
+rand~Disability_statu     +0.0363    +0.0302    -0.0013    -0.0515    +0.0172    -0.0082    -0.0003    -0.0178    -0.0360
+rand~Nationality          -0.0030    +0.0613    -0.0442    -0.0165    -0.0079    -0.0079    +0.0023    +0.0353    -0.0224
+rand~Physical_appeara     +0.0138    -0.0295    +0.0204    -0.0091    +0.0236    +0.0092    -0.0015    -0.0252    +0.0273
+rand~Race_ethnicity       +0.0036    +0.0065    +0.0040    -0.0252    +0.0312    +0.0177    +0.0133    +0.0085    -0.0004
+rand~Race_x_SES           -0.0189    +0.0626    -0.0124    -0.0069    +0.0084    -0.0030    +0.0135    -0.0064    -0.0080
+rand~Race_x_gender        +0.0027    +0.0525    +0.0131    -0.0405    +0.0047    +0.0117    -0.0095    -0.0087    +0.0220
+rand~Religion             +0.0096    -0.0331    -0.0031    +0.0004    -0.0186    +0.0193    -0.0081    +0.0046    -0.0198
+rand~Sexual_orientati     +0.0379    +0.0521    +0.0150    -0.0490    -0.0053    +0.0040    -0.0077    -0.0142    +0.0140
+
+control - sign flip on own category (coeff=-8.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       +0.0618    -0.0255   sign flips (good)
+Disability_status         +0.0113    +0.0212   SAME SIGN - generic damage?
+Nationality               +0.0033    -0.0055   sign flips (good)
+Physical_appearance       -0.0266    +0.0557   sign flips (good)
+Race_ethnicity            -0.0124    +0.0696   sign flips (good)
+Race_x_SES                -0.0139    -0.0053   SAME SIGN - generic damage?
+Race_x_gender             +0.0925    -0.0113   sign flips (good)
+Religion                  -0.0222    -0.0226   SAME SIGN - generic damage?
+Sexual_orientation        -0.0385    +0.0106   sign flips (good)
+
+summary
+  mean effect, own direction        : +0.0061
+  mean effect, cross direction      : -0.0035
+  mean |effect|, random control     : +0.0177
+  specificity (own - cross)         : +0.0097
+  sign-flip control passed          : 6/9
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_yi6b/transfer_test.json

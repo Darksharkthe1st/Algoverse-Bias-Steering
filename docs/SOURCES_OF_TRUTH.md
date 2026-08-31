@@ -32,6 +32,8 @@ project studies: a disagreement invisible in any single document.
 | Rubric calibration workflow / Saturday decisions | **`docs/RUBRIC_CALIBRATION.md`** | link only; labels still only in `RUBRIC_v2.md` |
 | Team norms (humans vs agents, epistemic bar) | **`docs/TEAM_HOW_WE_WORK.md`** | link only |
 | Labeling examples / difficulty walkthrough | **`docs/LABELING_WALKTHROUGH.md`** | link only; labels still only in `RUBRIC_v2.md` |
+| Canonical execution handoffs (G1, WP-25, GPU hardening) | **`docs/HANDOFF_G1.md`, `docs/HANDOFF_WP25.md`, `docs/HANDOFF_GPU_HARDENING.md`** | link only; root `RUNBOOK_*`/`HANDOFF_*` are retired stubs |
+| A7 submission manuscript + its number provenance | **team Overleaf `main.tex`** (contract §12 A7 records which study) · recount: **`scripts/recount_taxonomy_paper.py`** | link only; no manuscript numbers restated in repo docs |
 
 ## Derived — never edit by hand
 

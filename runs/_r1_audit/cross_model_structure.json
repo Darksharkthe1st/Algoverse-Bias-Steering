@@ -1,0 +1,43 @@
+{
+ "which": "raw",
+ "prereg": "results/writeups/24 \u00a7A @ 1d6694b",
+ "n_perm": 10000,
+ "pairs": {
+  "qwen-1.8b|qwen-7b": {
+   "shared_categories": 10,
+   "spearman": 0.8220026350461134,
+   "pearson": 0.8393439785681438,
+   "p_perm_onesided": 9.999000099990002e-05,
+   "null_median": -0.024374176548089592,
+   "null_q95": 0.28169960474308275,
+   "mean_abs_offdiag": [
+    0.8170729842580502,
+    0.8807323711570163
+   ]
+  },
+  "qwen-1.8b|yi-6b": {
+   "shared_categories": 10,
+   "spearman": 0.5094861660079051,
+   "pearson": 0.4833327887257308,
+   "p_perm_onesided": 0.0010998900109989002,
+   "null_median": -0.006455862977602108,
+   "null_q95": 0.26245718050065864,
+   "mean_abs_offdiag": [
+    0.8170729842580502,
+    0.7170601518910186
+   ]
+  },
+  "qwen-7b|yi-6b": {
+   "shared_categories": 10,
+   "spearman": 0.35862977602108037,
+   "pearson": 0.32896311433676273,
+   "p_perm_onesided": 0.0188981101889811,
+   "null_median": -0.012516469038208168,
+   "null_q95": 0.27604743083003913,
+   "mean_abs_offdiag": [
+    0.8807323711570163,
+    0.7170601518910186
+   ]
+  }
+ }
+}

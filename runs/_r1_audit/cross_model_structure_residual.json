@@ -1,0 +1,43 @@
+{
+ "which": "residual",
+ "prereg": "frozen 2026-08-31 post-qwen-1.8b pre-model-2 (writeup 24 amendment A1); NOT in the original prereg",
+ "n_perm": 10000,
+ "pairs": {
+  "qwen-1.8b|qwen-7b": {
+   "shared_categories": 10,
+   "spearman": 0.9098814229249012,
+   "pearson": 0.9276390365384397,
+   "p_perm_onesided": 9.999000099990002e-05,
+   "null_median": -0.03992094861660079,
+   "null_q95": 0.3272793148880104,
+   "mean_abs_offdiag": [
+    0.24256605278796173,
+    0.31444243663442023
+   ]
+  },
+  "qwen-1.8b|yi-6b": {
+   "shared_categories": 10,
+   "spearman": 0.7451910408432147,
+   "pearson": 0.7654158586629562,
+   "p_perm_onesided": 9.999000099990002e-05,
+   "null_median": -0.02799736495388669,
+   "null_q95": 0.3272727272727272,
+   "mean_abs_offdiag": [
+    0.24256605278796173,
+    0.15439832278666693
+   ]
+  },
+  "qwen-7b|yi-6b": {
+   "shared_categories": 10,
+   "spearman": 0.6476943346508564,
+   "pearson": 0.678734991525332,
+   "p_perm_onesided": 0.0005999400059994001,
+   "null_median": -0.027338603425559944,
+   "null_q95": 0.32030303030303003,
+   "mean_abs_offdiag": [
+    0.31444243663442023,
+    0.15439832278666693
+   ]
+  }
+ }
+}

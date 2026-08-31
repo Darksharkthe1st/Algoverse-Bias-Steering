@@ -1,0 +1,23 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Fetching 3 files:   0%|          | 0/3 [00:00<?, ?it/s]Fetching 3 files:  33%|███▎      | 1/3 [00:13<00:26, 13.32s/it]Fetching 3 files:  67%|██████▋   | 2/3 [00:16<00:07,  7.08s/it]Fetching 3 files: 100%|██████████| 3/3 [00:17<00:00,  4.50s/it]Fetching 3 files: 100%|██████████| 3/3 [00:17<00:00,  5.82s/it]
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  17%|█▋        | 50/291 [00:00<00:00, 469.81it/s]Loading weights:  33%|███▎      | 97/291 [00:00<00:00, 451.48it/s]Loading weights:  49%|████▉     | 143/291 [00:00<00:00, 453.66it/s]Loading weights:  65%|██████▍   | 189/291 [00:00<00:00, 423.96it/s]Loading weights:  80%|███████▉  | 232/291 [00:00<00:00, 425.02it/s]Loading weights:  95%|█████████▍| 275/291 [00:00<00:00, 415.57it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 434.26it/s]
+Loaded pretrained model 01-ai/Yi-6B-Chat into HookedTransformer
+Moving model to device:  cuda
+model yi-6b  n_layers=32 d_model=4096
+random-direction floor (1/sqrt d) = 0.0156
+
+topic contrast                                 n  floor q05   median   verdict
+----------------------------------------------------------------------------------
+Race_ethnicity vs Gender_identity            320      0.862    0.897   REPRODUCIBLE
+Religion vs Age                              320      0.864    0.882   REPRODUCIBLE
+Nationality vs Sexual_orientation            320      0.879    0.891   REPRODUCIBLE
+
+Compare against the bias-margin floors from the full run:
+  Age 0.423 | Race_x_gender 0.138 | Nationality 0.057 | Race_x_SES 0.017
+  Religion -0.008 | Gender_identity -0.072 | Race_ethnicity -0.115 | Sexual_orientation -0.202   (q05)
+
+If the topic floors are high and those are ~0, extraction works and
+the stereotype-margin contrast is what has no stable correlate.
+
+written to runs/_extraction_control_yi6b.json
