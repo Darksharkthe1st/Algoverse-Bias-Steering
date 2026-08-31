@@ -40,6 +40,12 @@ independent of it (fresh captures, no reuse of any committed direction) and
 can run before or after. Do not tell the operator to do someone else's task
 first.
 
+**As of 2026-08-31 the operative runbook is `scripts/overnight_queue.sh`**: it
+runs R1 (the annotation-contrast redo of `results/writeups/17` §5, all five
+models) first, then P0–P3, gated on `scripts/preflight.py`. On Apple Silicon,
+`scripts/mps_parity_check.py` must PASS before any MPS capture counts as
+evidence (TransformerLens #1178: MPS can be silently wrong).
+
 ## Step 0 — get a machine (Algoverse A100 cluster, not Lambda)
 
 Request form: **https://slack.algoverseairesearch.org/a100/** · live
