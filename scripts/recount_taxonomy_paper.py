@@ -339,3 +339,32 @@ if FAILURES:
     for f in FAILURES: print("  -", f)
     sys.exit(1)
 print("R1 ADDENDA CLEAN")
+
+print("\n== R1 audit artifacts (2026-08-31): schema + invariants ==")
+aud = load("runs/_r1_audit/qwen-1.8b.json")
+for c, v in aud["leakage"].items():
+    if not v["split_disjointness_ok"]:
+        FAILURES.append(f"audit {c}: split halves overlap")
+    if not (v["floor_template_disjoint_split"]["mean"] >= 0.80):
+        FAILURES.append(f"audit {c}: template-disjoint floor below 0.80")
+    if abs(v["control_per_half_reshuffle"]["mean"]) > 0.05:
+        FAILURES.append(f"audit {c}: independent-reshuffle control not ~0")
+    if abs(v["control_label_free_anisotropy"]["mean"]) > 0.05:
+        FAILURES.append(f"audit {c}: label-free anisotropy control not ~0")
+for c, v in aud["decomposition"].items():
+    if not (v["residual_floor"]["ci_lo"] > 0.80):
+        FAILURES.append(f"audit {c}: residual floor CI dips below 0.80")
+for c, v in aud["loco_transfer"].items():
+    if not (v["auc_norm_weighted"] > 0.90):
+        FAILURES.append(f"audit {c}: LOCO AUC below 0.90")
+prov = aud["provenance"]["per_category"]
+if not all(v["sidecar_ids_match_fresh_pairing"] for v in prov.values()):
+    FAILURES.append("audit: sidecar ids do not match fresh pairing")
+print(f"  audited {len(aud['leakage'])} categories: "
+      f"{'all invariants hold' if not FAILURES else 'INVARIANT FAILURES'}")
+
+if FAILURES:
+    print(f"RECOUNT FAILED after audit addenda: {len(FAILURES)}")
+    for f in FAILURES: print("  -", f)
+    sys.exit(1)
+print("AUDIT ADDENDA CLEAN")
