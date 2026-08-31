@@ -1204,3 +1204,66 @@ def test_every_manifest_subset_clears_32_items_per_pole():
     for c in man["categories"].values():
         for r in c["groups"]:
             assert r["tested"] == (r["n"] >= mod.MIN_SUBSET_N)
+
+
+def test_load_residuals_roundtrips_and_upcasts(tmp_path):
+    """save_residuals stores fp16; the difference of means must be accumulated
+    in fp32 or the floor loses precision it is sensitive to."""
+    rng = np.random.default_rng(0)
+    resid = rng.normal(size=(6, N_LAYERS, D_MODEL))
+    ids = [f"item-{i}" for i in range(6)]
+    margins = rng.normal(size=6).tolist()
+
+    bt.save_residuals(tmp_path / "r.npz", resid, ids, margins)
+    back, back_ids, back_margins = bt.load_residuals(tmp_path / "r.npz")
+
+    assert back.shape == resid.shape
+    assert back.dtype == np.float32
+    assert back_ids == ids
+    assert np.allclose(back_margins, margins)
+    # fp16 storage, so exactness is not expected — but it must be close
+    assert np.allclose(back, resid, atol=1e-2)
+
+
+def test_load_residuals_reorders_to_a_requested_subset(tmp_path):
+    """The property P3 depends on: a subset run reuses the POOLED capture, so
+    the rows must come back in the subset's own order, not the file's."""
+    rng = np.random.default_rng(1)
+    resid = rng.normal(size=(5, N_LAYERS, D_MODEL))
+    ids = [f"item-{i}" for i in range(5)]
+    margins = list(range(5))
+    bt.save_residuals(tmp_path / "r.npz", resid, ids, margins)
+
+    want = ["item-3", "item-0", "item-4"]
+    sub, sub_ids, sub_margins = bt.load_residuals(tmp_path / "r.npz", ids=want)
+
+    assert sub_ids == want
+    assert sub.shape == (3, N_LAYERS, D_MODEL)
+    assert list(sub_margins) == [3, 0, 4]
+    assert np.allclose(sub[0], resid[3], atol=1e-2)
+    assert np.allclose(sub[1], resid[0], atol=1e-2)
+
+
+def test_load_residuals_refuses_a_subset_the_capture_does_not_contain(tmp_path):
+    """Silently dropping missing items would produce a direction fitted on fewer
+    items than the report claims — the exact class of defect this campaign keeps
+    finding. It must raise."""
+    rng = np.random.default_rng(2)
+    resid = rng.normal(size=(3, N_LAYERS, D_MODEL))
+    ids = ["a", "b", "c"]
+    bt.save_residuals(tmp_path / "r.npz", resid, ids, [0.0, 1.0, 2.0])
+
+    with pytest.raises(KeyError, match="not in this capture"):
+        bt.load_residuals(tmp_path / "r.npz", ids=["a", "zzz"])
+
+
+def test_load_residuals_rejects_an_internally_inconsistent_file(tmp_path):
+    """ids and rows disagreeing means the file cannot be trusted for alignment,
+    which is the only reason the ids are stored at all."""
+    rng = np.random.default_rng(3)
+    np.savez_compressed(tmp_path / "bad.npz",
+                        resid=rng.normal(size=(4, N_LAYERS, D_MODEL)).astype(np.float16),
+                        ids=np.asarray(["a", "b"], dtype=object),
+                        margins=np.asarray([0.0, 1.0, 2.0, 3.0]))
+    with pytest.raises(ValueError, match="not self-consistent"):
+        bt.load_residuals(tmp_path / "bad.npz")
