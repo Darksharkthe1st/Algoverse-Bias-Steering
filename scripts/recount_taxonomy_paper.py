@@ -406,3 +406,28 @@ for c, exp in MB.items():
 if FAILURES:
     print("RECOUNT FAILED after matched-arm addenda"); [print("  -", f) for f in FAILURES]; sys.exit(1)
 print("MATCHED-ARM ADDENDA CLEAN")
+
+print("\n== manuscript v2 tables (2026-08-31): anatomy + matched median ==")
+ANAT = {  # category: (tmpl_disj, residual)
+ "Age": (0.857, 0.907), "Disability_status": (0.822, 0.911),
+ "Gender_identity": (0.913, 0.906), "Nationality": (0.804, 0.873),
+ "Physical_appearance": (0.845, 0.930), "Race_ethnicity": (0.931, 0.836),
+ "Race_x_SES": (0.898, 0.901), "Race_x_gender": (0.919, 0.885),
+ "Religion": (0.903, 0.884), "Sexual_orientation": (0.906, 0.910)}
+aud2 = load("runs/_r1_audit/qwen-1.8b.json")
+for c, (td, rf) in ANAT.items():
+    check(f"anatomy tmpl-disj {c}", aud2["leakage"][c]["floor_template_disjoint_split"]["mean"], td)
+    check(f"anatomy residual {c}", aud2["decomposition"][c]["residual_floor"]["mean"], rf)
+MED = {"Age": 0.060, "Disability_status": 0.691, "Gender_identity": -0.035,
+       "Nationality": 0.062, "Physical_appearance": 0.499, "Race_ethnicity": 0.002,
+       "Race_x_SES": -0.001, "Race_x_gender": 0.256, "Religion": -0.328,
+       "Sexual_orientation": 0.172}
+mb2 = load("runs/_r1_audit/qwen-1.8b_matched_behaviour_arm.json")["per_category"]
+for c, v in MED.items():
+    check(f"matched median-split {c}", mb2[c]["behaviour_median_split"]["mean"], v)
+loco2 = aud2["loco_transfer"]
+check("LOCO AUC min", min(v["auc_norm_weighted"] for v in loco2.values()), 0.924, tol=0.002)
+check("LOCO AUC max", max(v["auc_norm_weighted"] for v in loco2.values()), 0.990, tol=0.002)
+if FAILURES:
+    print("RECOUNT FAILED after manuscript-v2 addenda"); [print("  -", f) for f in FAILURES]; sys.exit(1)
+print("MANUSCRIPT-V2 ADDENDA CLEAN")
