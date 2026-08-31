@@ -1034,3 +1034,50 @@ def save_residuals(path, residuals, ids, margins) -> dict:
                         margins=np.asarray(margins, dtype=np.float64))
     return {"path": str(p), "shape": list(r.shape), "dtype": "float16",
             "bytes": p.stat().st_size}
+
+
+def load_residuals(path, ids=None):
+    """Read back what `save_residuals` wrote, optionally re-ordered to `ids`.
+
+    The missing half. `save_residuals` stores ids and margins next to the
+    tensor "so alignment is checkable at load time" — but nothing read them, so
+    the persisted residuals could not actually be spent without writing new code
+    first. That is defect S5 in a subtler form: the run-1 session did not save
+    the expensive object at all, and saving it without a read path leaves you in
+    the same place one step later.
+
+    With `ids`, returns rows in exactly that order and raises if any are
+    missing. That is what lets a SUBSET analysis reuse a POOLED capture: a
+    stereotyped-group subset is a strict subset of the pooled run's items, so
+    its residuals are already on disk and the extraction is pure CPU.
+
+    Returns `(residuals, ids, margins)` with residuals as float32 — fp16 is fine
+    for storage but accumulating a difference of means in it loses precision the
+    floor is sensitive to.
+    """
+    import numpy as _np
+
+    with _np.load(path, allow_pickle=True) as z:
+        resid = _np.asarray(z["resid"], dtype=_np.float32)
+        stored_ids = [str(x) for x in z["ids"].tolist()]
+        margins = _np.asarray(z["margins"], dtype=_np.float64)
+
+    if resid.ndim != 3:
+        raise ValueError(f"{path}: expected (n, n_layers, d_model); got {resid.shape}")
+    if not (resid.shape[0] == len(stored_ids) == len(margins)):
+        raise ValueError(f"{path}: {resid.shape[0]} rows vs {len(stored_ids)} ids "
+                         f"/ {len(margins)} margins — the file is not self-consistent")
+
+    if ids is None:
+        return resid, stored_ids, margins
+
+    pos = {i: k for k, i in enumerate(stored_ids)}
+    missing = [i for i in ids if i not in pos]
+    if missing:
+        raise KeyError(
+            f"{path}: {len(missing)} of {len(ids)} requested ids are not in this "
+            f"capture (first: {missing[:3]}). A subset can only reuse a capture "
+            f"that contains it — check the pooled run used the same "
+            f"(--ambig-limit, --seed).")
+    take = [pos[i] for i in ids]
+    return resid[take], [stored_ids[k] for k in take], margins[take]

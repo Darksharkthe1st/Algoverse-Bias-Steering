@@ -60,16 +60,86 @@ def bare_prompt(example) -> str:
     return head.strip()
 
 
-def load_scoreable(category: str, condition: str, limit: int, seed: int = 0) -> list:
-    """Ambiguous or disambiguated items that can be scored, with their roles."""
+def _group_key(g) -> str:
+    """Normalise a stereotyped-group label for comparison.
+
+    BBQ is inconsistent about case and padding across categories ("Black" vs
+    "black ", "African American" vs "african american"), and a subset silently
+    missing half its items because of a stray space is exactly the class of
+    defect this campaign keeps finding.
+    """
+    return str(g).strip().lower()
+
+
+def load_scoreable(category: str, condition: str, limit: int, seed: int = 0,
+                   *, stereotyped_group: str | None = None) -> list:
+    """Ambiguous or disambiguated items that can be scored, with their roles.
+
+    `stereotyped_group` restricts to items whose BBQ-annotated
+    `stereotyped_groups` list CONTAINS that group — the WP-43 P3 split. It is
+    applied AFTER sampling, deliberately, so the subset is a strict subset of
+    the pooled run's items at the same `(limit, seed)`. That is what makes the
+    comparison a re-partition of one sample rather than a different sample, and
+    it is why the subset can reuse the pooled run's cached margins and cached
+    residuals instead of re-scoring anything.
+
+    Note that `sample`'s own filter cannot express this: it tests
+    `metadata[k] in vals`, and `stereotyped_groups` is a list, so membership has
+    to be tested inside it.
+    """
     exs = load_bbq(DatasetSpec(name="bbq", path=f"{BBQ_DIR}/{category}.jsonl"))
     exs = sample(exs, SampleSpec(filter={"context_condition": [condition]},
                                  limit=limit, seed=seed))
+    if stereotyped_group is not None:
+        want = _group_key(stereotyped_group)
+        exs = [e for e in exs
+               if want in {_group_key(g)
+                           for g in (e.metadata.get("stereotyped_groups") or [])}]
     out = []
     for e in exs:
         r = resolve_answer_roles(e.metadata)
         if r.usable and r.nonstereo is not None:
             out.append((e, r))
+    return out
+
+
+def stereotyped_group_sets(category: str, condition: str, limit: int,
+                           seed: int = 0) -> dict:
+    """Distinct stereotyped-group SETS in a category's sample, with their counts.
+
+    BBQ annotates several labels that always co-occur -- "Black" and "African
+    American" appear together on all 344 matching items of the Race_ethnicity
+    sample, as do "Hispanic"/"Latino" and "Arab"/"Middle Eastern". Treating
+    those as separate subsets would run the same extraction twice under two
+    names and double the multiple-comparison burden for nothing.
+
+    So the unit here is the co-occurring SET, keyed by its sorted membership,
+    and the returned `label` is a single representative for the command line.
+    """
+    items = load_scoreable(category, condition, limit, seed)
+    by_set: dict = {}
+    for e, _r in items:
+        key = tuple(sorted(_group_key(g)
+                           for g in (e.metadata.get("stereotyped_groups") or [])
+                           if str(g).strip()))
+        if not key:
+            continue
+        by_set.setdefault(key, []).append(e.id)
+
+    # collapse labels that are perfectly co-extensive across the sample
+    per_label: dict = {}
+    for key, ids in by_set.items():
+        for g in key:
+            per_label.setdefault(g, set()).update(ids)
+
+    seen, out = {}, {}
+    for label, ids in sorted(per_label.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        sig = frozenset(ids)
+        if sig in seen:
+            out[seen[sig]]["aliases"].append(label)
+            continue
+        seen[sig] = label
+        out[label] = {"n": len(ids), "aliases": [], "item_ids": sorted(ids)}
     return out
 
 
@@ -238,7 +308,8 @@ class MarginSet:
 
 
 def margins(loaded, category: str, system_prompt: str, *,
-            limit: int = 400, seed: int = 0) -> MarginSet:
+            limit: int = 400, seed: int = 0,
+            stereotyped_group: str | None = None) -> MarginSet:
     """Stereotype margin per ambiguous item, with no option list in the prompt.
 
         margin = logP(stereotyped person) - logP(other person)
@@ -246,8 +317,14 @@ def margins(loaded, category: str, system_prompt: str, *,
     Positive means the model leans toward the stereotyped answer on that item.
     The abstention margin, logP(unknown) - max(logP(named)), is recorded for
     context; it is not the contrast.
+
+    `stereotyped_group` restricts to one annotated group (WP-43 P3). Because the
+    filter is applied after sampling, the resulting items are a strict subset of
+    the pooled run's, so the pooled run's cached margins can be sliced instead of
+    re-scored -- which is what makes P3 cost no extra GPU time.
     """
-    items = load_scoreable(category, "ambig", limit, seed)
+    items = load_scoreable(category, "ambig", limit, seed,
+                           stereotyped_group=stereotyped_group)
     ms = MarginSet(category=category, items=items)
     for e, r in items:
         a = e.metadata["answers"]
