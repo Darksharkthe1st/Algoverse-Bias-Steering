@@ -62,13 +62,24 @@ def check_imports(load_model):
             check(f"import {mod}", FAIL, f"{type(e).__name__}: {e}",
                   f"pip install {mod}")
 
-    # I-10, collision 1: numpy 2.x against a numpy-1.x-compiled torch
+    # I-10, collision 1: numpy 2.x against a numpy-1.x-compiled torch.
+    # Only binding on CUDA boxes (Lambda/A100 stack); Mac/CPU torch wheels are
+    # built against numpy 2.
     try:
         import numpy as np
         major = int(np.__version__.split(".")[0])
-        check("numpy < 2 (Lambda/A100 torch is built against 1.x)",
-              OK if major < 2 else FAIL, np.__version__,
-              "pip install 'numpy<2'  — do this BEFORE importing torch")
+        cuda = False
+        try:
+            import torch
+            cuda = torch.cuda.is_available()
+        except Exception:
+            pass
+        if cuda:
+            check("numpy < 2 (Lambda/A100 torch is built against 1.x)",
+                  OK if major < 2 else FAIL, np.__version__,
+                  "pip install 'numpy<2'  — do this BEFORE importing torch")
+        else:
+            check("numpy version (no CUDA: 2.x is fine)", OK, np.__version__)
     except Exception:
         pass
 
@@ -98,6 +109,14 @@ def check_gpu(load_model):
     try:
         import torch
         if not torch.cuda.is_available():
+            if torch.backends.mps.is_available():
+                import subprocess
+                ram = int(subprocess.check_output(["sysctl", "-n", "hw.memsize"])) / 1e9
+                check("accelerator: Apple MPS", OK if ram >= 24 else WARN,
+                      f"unified memory {ram:.0f} GB",
+                      "qwen-14b fp16 is ~28 GB of weights; under ~40 GB of "
+                      "unified memory expect the 14B runs to swap or OOM")
+                return
             check("torch.cuda.is_available()", FAIL, "no GPU visible",
                   "wrong instance type, or the driver is not loaded")
             return
@@ -194,7 +213,7 @@ def check_model_loads(model):
             check("model registered", FAIL, f"{model} not in registry",
                   f"known: {sorted(MODELS)}")
             return
-        loaded = M.load(model)
+        loaded = M.load_model(MODELS[model])
         n_l = loaded.model.cfg.n_layers
         d_m = loaded.model.cfg.d_model
         check("model loads", OK, f"{model}: {n_l} layers, d_model {d_m}")

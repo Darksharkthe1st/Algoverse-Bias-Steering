@@ -248,3 +248,24 @@ if FAILURES:
         print("  -", f)
     sys.exit(1)
 print("RECOUNT CLEAN: every checked paper number reproduces from runs/ artifacts.")
+
+print("\n== S1/S2 disclosures (added 2026-08-31) ==")
+rep14p = load("runs/probe_tuned_qwen14b/report.json")
+cos = np.array(rep14p["categories"]["Nationality"]["extraction_floor"]["cosines"])
+rng = np.random.default_rng(0)
+fails = sum(np.quantile(rng.choice(cos, size=len(cos), replace=True), 0.05) < 0.50
+            for _ in range(20000)) / 20000
+print(f"  Nationality bootstrap P(fail): {fails:.3f} (paper: roughly 26%)")
+if not 0.20 <= fails <= 0.33:
+    FAILURES.append(f"Nationality bootstrap P(fail) {fails:.3f} outside 26%±7")
+rep14e = load("runs/full_qwen14b/report.json")
+n_ext = rep14e["categories"]["Nationality"]["margins"]["quintile_n"] * 2
+n_prb = rep14p["categories"]["Nationality"]["margins"]["n"]
+print(f"  estimator n confound: extremes {n_ext} vs probe {n_prb} (2.5x)")
+if abs(n_prb / n_ext - 2.5) > 0.05:
+    FAILURES.append("estimator n-ratio is not 2.5x")
+
+if FAILURES:
+    print(f"RECOUNT FAILED after addenda: {len(FAILURES)}")
+    sys.exit(1)
+print("ADDENDA CLEAN")
