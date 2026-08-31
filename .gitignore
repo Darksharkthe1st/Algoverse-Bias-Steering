@@ -229,6 +229,8 @@ runs/_discard/
 # src/bias_steer/ and IS committed:
 _coordinator/
 
+# Claude Code local settings / worktrees
+.claude/
 # --- third-party refusal-direction artifacts (fetched, not committed) ---
 # Downloaded by scripts/fetch_refusal_artifacts.py; provenance in the pinned
 # manifest.json. Only the manifest, README, and fetch script are committed.
