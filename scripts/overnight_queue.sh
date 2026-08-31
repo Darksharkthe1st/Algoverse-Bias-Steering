@@ -3,7 +3,19 @@
 #
 #   bash scripts/overnight_queue.sh 2>&1 | tee runs/_logs/overnight.log
 #
-# Start it, watch it clear preflight, go to bed. ~4-5 h wall clock.
+# Start it, watch it clear preflight, go to bed.
+#
+# TIMING, measured rather than guessed:
+#   R1a  qwen-14b capture + fast read   25-70 min   <- the decisive answer
+#   R1b  the other four models          1-2 h
+#   R1c  n_splits=400 analysis, all 5   ~37 min CPU
+#   P0-P3                               ~3 h
+#   TOTAL                               6-9 h
+#
+# The capture rate is the uncertain part: run 1's 4.0 ops/sec anchor came
+# from SCORING passes, and run_with_cache is slower. The range above assumes
+# somewhere between 1x and 3x slower. Model downloads add 11-36 min on a
+# fresh box (64 GB of weights across the five).
 #
 # ORDER, AND WHY
 # --------------
@@ -106,16 +118,61 @@ run () {
 # longer. The direction may encode "read one more sentence" rather than bias.
 # The analyse step runs a specificity control for exactly this and it may fail.
 # --------------------------------------------------------------------------- #
-for M in qwen-14b qwen-7b gemma-2b yi-6b qwen-1.8b; do
-    run "R1_annotation_${M}" \
+# --- R1a: qwen-14b alone, fast read. 25-70 min. --------------------------- #
+# One model answers the question. qwen-14b is the strongest and produced the
+# most reproducible categories in run 1, so if the annotation contrast works
+# anywhere it works here. n_splits=100 gives a 95% CI half-width of about
+# +/-0.041 -- far more than enough to tell a floor of 0.9 from one of 0.3, and
+# four times faster than the 400 the pre-registration fixes for the final number.
+run R1a_annotation_qwen-14b \
+    python3 -m scripts.run2_annotation_contrast capture \
+        --model qwen-14b --capture-index -1 --n-per-arm 200 \
+        --out runs/r1_annotation_qwen-14b
+
+run R1a_analyse_qwen-14b_fast \
+    python3 -m scripts.run2_annotation_contrast analyse \
+        --out runs/r1_annotation_qwen-14b --n-splits 100 --n-per-arm 200
+
+say "R1a READ THIS BEFORE THE REST RUNS"
+note ""
+note "R1a — annotation contrast, qwen-14b, n_splits=100:"
+python3 - <<'PY' | tee -a "$SUMMARY"
+import json, pathlib
+p = pathlib.Path("runs/r1_annotation_qwen-14b/report_annotation_contrast.json")
+if not p.exists():
+    print("  R1a produced no report — capture or analyse failed, see the logs.")
+else:
+    r = json.loads(p.read_text(encoding="utf-8"))
+    v = r.get("reproduces", {})
+    yes = [k for k, x in v.items() if x == "YES"]
+    print(f"  {len(yes)} of {len(v)} categories beat their own negative control")
+    print(f"  they are: {', '.join(sorted(yes)) if yes else '(none)'}")
+    print(f"  run 1, behavioural contrast: 10 of 46 model-category cells cleared 0.50")
+    sc = r.get("specificity_control", {})
+    print(f"  specificity control (is it just context length?): {sc.get('overall')}"
+          f"  [{sc.get('n_failing')}/{sc.get('n_categories')} read as LENGTH]")
+    cc = r.get("cross_category", {})
+    print(f"  cross-category median |cos|: {cc.get('median_offdiagonal'):+.3f}")
+PY
+note ""
+
+# --- R1b: the other four models. 1-2 h. ----------------------------------- #
+# These run regardless, because a one-model result is not a result -- the
+# cross-family replication is the part of this study that is genuinely ours.
+# But R1a above has already told you the answer by the time these finish.
+for M in qwen-7b yi-6b gemma-2b qwen-1.8b; do
+    run "R1b_annotation_${M}" \
         python3 -m scripts.run2_annotation_contrast capture \
             --model "$M" --capture-index -1 --n-per-arm 200 \
             --out "runs/r1_annotation_${M}"
 done
 
-# The analysis is CPU-only and reads the cached residuals R1 just wrote.
-for M in qwen-14b qwen-7b gemma-2b yi-6b qwen-1.8b; do
-    run "R1_analyse_${M}" \
+# --- R1c: the pre-registered analysis, n_splits=400, all five. ~37 min CPU. -- #
+# notes/13 sec4 fixes 400 by calculation: at run 1's 90th-percentile split SD of
+# 0.2023 it gives a 95% CI half-width of +/-0.020 on the mean. The n_splits=100
+# read above is for speed; THIS is the number that goes in the paper.
+for M in qwen-14b qwen-7b yi-6b gemma-2b qwen-1.8b; do
+    run "R1c_analyse_${M}" \
         python3 -m scripts.run2_annotation_contrast analyse \
             --out "runs/r1_annotation_${M}" --n-splits 400 --n-per-arm 200
 done
