@@ -291,3 +291,51 @@ if FAILURES:
     for f in FAILURES: print("  -", f)
     sys.exit(1)
 print("REANALYSIS ADDENDA CLEAN")
+
+print("\n== R1 annotation contrast, qwen-1.8b (2026-08-31) ==")
+r1 = load("runs/r1_annotation_qwen-1.8b/report_annotation_contrast.json")
+fl = {c: v["mean"] for c, v in r1["observed_floor"].items()}
+nc = {c: v["mean"] for c, v in r1["negative_control_floor"].items()}
+sc = r1["specificity_control"]["per_category"]
+check("R1 floor min", min(fl.values()), 0.975, tol=0.002)
+check("R1 floor max", max(fl.values()), 0.984, tol=0.002)
+check("R1 control min", min(nc.values()), 0.194, tol=0.002)
+check("R1 control max", max(nc.values()), 0.569, tol=0.002)
+if not all(r1["reproduces"].values()) or len(r1["reproduces"]) != 10:
+    FAILURES.append("R1: not 10/10 reproduces")
+check("R1 length self-floor", r1["length_direction_selfcheck"]["mean"], 0.868, tol=0.002)
+coss = [v["abs_cos_with_length_direction"] for v in sc.values()]
+check("R1 |cos| w/ length low", min(coss), 0.532, tol=0.002)
+check("R1 |cos| w/ length high", max(coss), 0.631, tol=0.002)
+fps = [v["floor_after_projection"] for v in sc.values()]
+check("R1 floor-after-projection low", min(fps), 0.959, tol=0.002)
+check("R1 floor-after-projection high", max(fps), 0.978, tol=0.002)
+if any(v["verdict"] != "BIAS-SPECIFIC" for v in sc.values()):
+    FAILURES.append("R1: some category read as LENGTH")
+M = np.array(r1["cross_category"]["matrix"])
+off = np.abs(M[~np.eye(len(M), dtype=bool)])
+check("R1 cross-cat |cos| min", float(off.min()), 0.72, tol=0.01)
+check("R1 cross-cat |cos| max", float(off.max()), 0.93, tol=0.01)
+check("R1 cross-cat |cos| median", float(np.median(off)), 0.81, tol=0.01)
+# Table 4 cells, exact
+T4 = {"Age": (0.983, 0.194, 0.563, 0.975),
+      "Disability_status": (0.979, 0.326, 0.532, 0.971),
+      "Gender_identity": (0.980, 0.569, 0.540, 0.972),
+      "Nationality": (0.975, 0.309, 0.631, 0.959),
+      "Physical_appearance": (0.983, 0.364, 0.612, 0.973),
+      "Race_ethnicity": (0.976, 0.237, 0.555, 0.966),
+      "Race_x_SES": (0.982, 0.412, 0.549, 0.974),
+      "Race_x_gender": (0.978, 0.304, 0.540, 0.969),
+      "Religion": (0.983, 0.263, 0.591, 0.975),
+      "Sexual_orientation": (0.984, 0.396, 0.545, 0.978)}
+for c, (ef, en, ec, ep) in T4.items():
+    check(f"T4 {c} floor", fl[c], ef)
+    check(f"T4 {c} control", nc[c], en)
+    check(f"T4 {c} cos", sc[c]["abs_cos_with_length_direction"], ec)
+    check(f"T4 {c} proj", sc[c]["floor_after_projection"], ep)
+
+if FAILURES:
+    print(f"RECOUNT FAILED after R1 addenda: {len(FAILURES)}")
+    for f in FAILURES: print("  -", f)
+    sys.exit(1)
+print("R1 ADDENDA CLEAN")
