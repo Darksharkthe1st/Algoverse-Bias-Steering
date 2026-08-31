@@ -1,0 +1,19 @@
+{
+ "which": "residual",
+ "prereg": "frozen 2026-08-31 post-qwen-1.8b pre-model-2 (writeup 24 amendment A1); NOT in the original prereg",
+ "n_perm": 10000,
+ "pairs": {
+  "qwen-1.8b|qwen-7b": {
+   "shared_categories": 10,
+   "spearman": 0.9098814229249012,
+   "pearson": 0.9276390365384397,
+   "p_perm_onesided": 9.999000099990002e-05,
+   "null_median": -0.03992094861660079,
+   "null_q95": 0.3272793148880104,
+   "mean_abs_offdiag": [
+    0.24256605278796173,
+    0.31444243663442023
+   ]
+  }
+ }
+}
