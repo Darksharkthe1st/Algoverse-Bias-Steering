@@ -5,29 +5,30 @@
 #
 # Start it, watch it clear preflight, go to bed.
 #
-# TIMING, measured rather than guessed:
-#   GATE 1  smoke test, qwen-1.8b, 1 cat    ~2 min    <- proves capture runs
-#   GATE 2  positive control, qwen-1.8b     ~10 min   <- proves it can find
-#                                                        a direction at all
-#   R1a  qwen-14b capture + fast read   25-70 min   <- the decisive answer
-#   R1b  the other four models          1-2 h
-#   R1c  n_splits=400 analysis, all 5   ~37 min CPU
+# TIMING. The generation count is arithmetic; the RATE is the uncertain term.
 #
-# ALL FOUR GATES RUN FIRST, before any long job. Once they are green the rest
-# is unattended, so that is the point at which you can go to bed:
-#   GATE 1    R1 capture smoke, qwen-1.8b   ~2 min
-#   GATE 2    R1 positive control           ~10 min
-#   GATE R3-1 R3 generate+judge+extract     ~5 min
-#   GATE R3-2 R3 positive control           ~10 min
-#   -> ~30 min of gates, plus model download time, then unattended.
-#   R3   generate/judge/extract/steer    2-4 h    <- the taxonomy
-#   P0-P3                               ~3 h
-#   TOTAL                               6-9 h
+# ALL FOUR GATES RUN FIRST, before any long job, so the run becomes unattended
+# in ~30 min (plus model downloads) and that is when you can go to bed:
+#   GATE 1    R1 capture smoke, qwen-1.8b        ~2 min
+#   GATE 2    R1 positive control                ~10 min
+#   GATE R3-1 R3 generate + judge + extract      ~5 min
+#   GATE R3-2 R3 positive control                ~10 min
 #
-# The capture rate is the uncertain part: run 1's 4.0 ops/sec anchor came
-# from SCORING passes, and run_with_cache is slower. The range above assumes
-# somewhere between 1x and 3x slower. Model downloads add 11-36 min on a
-# fresh box (64 GB of weights across the five).
+# Then, unattended:
+#   R3 generate   400x10x2 ambig + 100x10 answerable, x5 models    45,000 gen
+#   R3 judge      one forward pass per completion (qwen-1.8b)      ~50,000
+#   R3 extract    CPU only, from the cached residuals              ~1.5 h
+#   R3d toggle    10 cells x 17 x 120, x5 models                  102,000 gen
+#   R3e cross     DISABLED (RUN_R3E=0) -- would add 72,000 gen
+#   R1a           annotation contrast, qwen-14b, capture only      ~1 h
+#   R1b/R1c, P0-P3                                                 ~4 h
+#
+# 147,000 generations at 48 new tokens. TransformerLens `generate` is not a fast
+# serving path: at ~3-6 gen/s on a 14B that is 7-14 h of generation alone, so
+# budget 11-16 h for R3 and expect R1b/P0-P3 to be what runs out of window.
+#
+# Earlier revisions of this header said "TOTAL 6-9 h". That was an estimate built
+# from run 1's SCORING throughput, which does not transfer to generation.
 #
 # ORDER, AND WHY
 # --------------
@@ -376,7 +377,7 @@ note ""
 # diagonal cells R3d already did at different alphas. Phase 3 (the toggle test)
 # gates Phase 4.1 anyway: cross-application is only meaningful once a vector is
 # shown causal on its own category.
-RUN_R3E=1
+RUN_R3E=0
 
 if [ "$RUN_R3E" = "1" ]; then
 run R3e_cross_application_qwen-14b     python3 -m scripts.run3_behavioural_contrast steer         --model qwen-14b --out runs/r3_behavioural_qwen-14b         --judge-backend local --judge-local-model "$R3_JUDGE"         --apply-to Age Disability_status Gender_identity Nationality                    Physical_appearance Race_ethnicity Race_x_SES Race_x_gender                    Religion Sexual_orientation         --alphas 0.5 1.0 --n-eval 80
