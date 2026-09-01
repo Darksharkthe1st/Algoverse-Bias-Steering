@@ -701,6 +701,7 @@ def cmd_extract(args):
         # "answered" is a refusal direction that never consulted the bias
         # contrast, measured on the same prompt family at the same capture site.
         v_ref, rf, ref_meta = None, {"ci_lo": None}, {"source": "none"}
+        pooled_ambig = None      # set by the proxy block; reused by P1-b below
         if args.refusal_direction:
             v_ref = np.load(args.refusal_direction)
             rf = {"ci_lo": args.refusal_floor_ci_lo}
@@ -781,17 +782,24 @@ def cmd_extract(args):
         # would be the circular construction this design rejects -- and the two
         # are compared on the same disattenuation ceiling used everywhere else.
         if v_ref is not None and directions:
-            pooled_amb, pb = [], {"biased_idx": [], "refusal_idx": []}
+            # Pre-allocate and fill from the mmaps. Concatenating materialised
+            # copies peaks at ~2x the final size -- 6.2 GB for qwen-14b -- on the
+            # laptop this analysis is meant to run on. This is one copy.
+            names_ = sorted(directions)
+            n_rows = sum(resids[c].shape[0] for c in names_)
+            shp = resids[names_[0]].shape[1:]
+            Ra = np.empty((n_rows,) + tuple(shp), dtype=np.float32)
+            pb = {"biased_idx": [], "refusal_idx": []}
             off = 0
-            for c in sorted(directions):
-                R = np.asarray(resids[c]); bk = buckets[c]
-                pooled_amb.append(R)
+            for c in names_:
+                R, bk = resids[c], buckets[c]
+                Ra[off:off + R.shape[0]] = R
                 pb["biased_idx"] += [off + i for i in bk["biased_idx"]]
                 pb["refusal_idx"] += [off + i for i in bk["refusal_idx"]]
                 off += R.shape[0]
-            Ra = np.concatenate(pooled_amb, axis=0)
             pb.update({"n_biased": len(pb["biased_idx"]),
                        "n_refusal": len(pb["refusal_idx"]), "n_total": Ra.shape[0]})
+            pooled_ambig = Ra
             v_amb = -bh.behavioural_direction(Ra, pb)
             f_amb = bh.bucket_floor(Ra, pb, n_splits=min(args.n_splits, 200))
             a_lo = max(0.0, float(rf.get("ci_lo") or 0.0))
@@ -888,10 +896,10 @@ def cmd_extract(args):
             # null. In high dimension the mechanical effect is negligible, so
             # this should pass trivially -- it is cheap reassurance and the
             # matched-control-not-a-constant discipline used everywhere else.
+            # Reuses the pooled array built for the proxy validation rather than
+            # concatenating every residual a second time.
             rnd_ref = _matched_random(np.asarray(v_ref), seed=7,
-                                      resid=np.concatenate(
-                                          [np.asarray(resids[c])
-                                           for c in sorted(directions)], axis=0))
+                                      resid=pooled_ambig)
             orth_rnd = bh.cosine_matrix_layerwise(
                 {k: bh.orthogonalize(v, rnd_ref) for k, v in directions.items()})
             rnd_med = orth_rnd["median_offdiagonal"]
@@ -1133,31 +1141,58 @@ def cmd_steer(args):
     targets = args.apply_to or None          # None => diagonal only
     cells = ([(x, y) for x in sources for y in targets] if targets
              else [(x, x) for x in sources])
-    n_gen = len(cells) * (1 + len(args.alphas) * 4) * args.n_eval
-    print(f"  {len(cells)} cell(s) x {len(args.alphas)} alpha(s) "
-          f"~= {n_gen:,} generations")
-    args.n_eval = 0   # set from the holdout below; kept for the cost print
     rows_needed = sorted({y for _, y in cells})
-    # The holdout size comes from the residual sidecar `generate` wrote, not from
-    # a flag: two independent defaults that "must agree" is a silent-failure path,
-    # and closing one by opening a shorter one is not closing it.
-    held_n = None
+
+    # The evaluation size comes from the residual sidecar `generate` wrote, not
+    # from a flag. Two independent defaults that "must agree" is a silent-failure
+    # path, and closing one by opening a shorter one is not closing it. It is
+    # read BEFORE the cost estimate because the cost depends on it.
+    held_n, held_src = None, None
     for c in rows_needed:
         sp = os.path.join(args.out, "residuals", f"{c}__ambig.json")
         if os.path.exists(sp):
-            held_n = json.load(open(sp, encoding="utf-8")).get("eval_holdout_n")
-            if held_n:
+            v = json.load(open(sp, encoding="utf-8")).get("eval_holdout_n")
+            if v:
+                held_n, held_src = v, c
                 break
     if held_n is None:
-        print(f"  no eval_holdout_n in any sidecar -- this run predates the "
-              f"holdout, so steering would be evaluated on extraction items. "
-              f"Re-run `generate`, or pass --allow-unheld to accept train-on-test.")
+        print("  no eval_holdout_n in any residual sidecar. This run predates the "
+              "holdout, so steering would be evaluated on the items that built the "
+              "vectors. Re-run `generate`, or pass --allow-unheld to accept that.")
         if not args.allow_unheld:
             return 1
         held_n = EVAL_HOLDOUT_N
+
+    # Every sidecar must agree: a partial re-`generate` at a different holdout
+    # would otherwise leave categories evaluated on different item sets, and the
+    # cross-category steering comparison is exactly what that would corrupt.
+    mismatched = []
+    for c in rows_needed:
+        sp = os.path.join(args.out, "residuals", f"{c}__ambig.json")
+        if os.path.exists(sp):
+            v = json.load(open(sp, encoding="utf-8")).get("eval_holdout_n")
+            if v is not None and v != held_n:
+                mismatched.append(f"{c}={v}")
+    if mismatched and not args.allow_unheld:
+        print(f"  eval_holdout_n disagrees across categories ({held_src}={held_n}; "
+              f"{', '.join(mismatched)}). Categories would be evaluated on "
+              f"different item sets. Re-run `generate --force`.")
+        return 1
+
+    # 4 sweeps per (cell, alpha): plus, minus, covariance-matched random, and the
+    # task control. Plus 2 dose-free sweeps per cell: unsteered and the
+    # system-prompt baseline.
+    n_gen = len(cells) * (2 + len(args.alphas) * 4) * held_n
+    print(f"  {len(cells)} cell(s) x {len(args.alphas)} alpha(s) x {held_n} items "
+          f"~= {n_gen:,} generations")
     print(f"  evaluating on the {held_n} items per category held out of extraction")
+
     rows_by_cat = _load_rows(rows_needed, None, AMBIG, eval_only=True, n_eval=held_n)
     ctrl_by_cat = _load_rows(rows_needed, args.n_control, DISAMBIG)
+    short = {c: len(v) for c, v in rows_by_cat.items() if len(v) < held_n}
+    if short:
+        print(f"  note: fewer eval items than expected in {short} -- these "
+              f"categories carry larger dose-curve error; reported per cell.")
 
     resp_log = open(os.path.join(args.out, "steering_responses.jsonl"), "a",
                     encoding="utf-8")
