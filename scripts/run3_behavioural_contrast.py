@@ -811,7 +811,21 @@ def cmd_extract(args):
                 "answerable_floor_ci_lo": a_lo,
                 "ambiguous_pooled_floor_ci_lo": b_lo,
                 "indistinguishability_ceiling": ceil_,
-                "validated": bool(ceil_ > 0 and cos_pp >= ceil_),
+                # NO BOOLEAN. `cos >= ceiling` is the right rule for
+                # refusal_decoupling, where reaching the ceiling means
+                # INDISTINGUISHABLE and is the thing being detected. Reused here
+                # as a validation it inverts: it demands a near-perfect estimate
+                # and so fails almost always. Measured on planted data where the
+                # answerable arm carries the IDENTICAL refusal component -- i.e.
+                # where the proxy is correct by construction -- it read 0.994
+                # against a ceiling of 0.999 and reported NOT VALIDATED. A check
+                # that cannot pass is as uninformative as one that cannot fail.
+                #
+                # So report the two numbers and the attenuation-corrected ratio,
+                # and let the reader judge. A boolean here would need a fresh
+                # tolerance constant, which is the S4 defect RETENTION_BAR was
+                # cleaned up for and which P1-b declined for the same reason.
+                "alignment_vs_ceiling": (cos_pp / ceil_) if ceil_ > 0 else float("nan"),
                 "note": "the ambiguous-arm direction is a COMPARISON TARGET only "
                         "and is never orthogonalised against -- doing that is the "
                         "circular construction this design rejects. If the two are "
@@ -824,9 +838,10 @@ def cmd_extract(args):
                         "can differ for a benign reason. Read a failure here as "
                         "'unvalidated', not as 'refuted'.",
             }
+            _ratio = (cos_pp / ceil_) if ceil_ > 0 else float("nan")
             print(f"  refusal proxy: |cos(answerable, ambiguous)| = {cos_pp:.3f} "
-                  f"vs ceiling {ceil_:.3f} -> "
-                  f"{'VALIDATED' if ceil_ > 0 and cos_pp >= ceil_ else 'NOT VALIDATED'}")
+                  f"vs ceiling {ceil_:.3f} (ratio {_ratio:.3f}) -- descriptive, "
+                  f"not a gate; near 1.0 supports the proxy, low is ambiguous")
 
         if v_ref is not None:
             dec = bh.refusal_decoupling(directions, floors, v_ref, rf)
@@ -864,6 +879,18 @@ def cmd_extract(args):
                            and (o_lo > 0 or o_hi < 0))
             retained = (abs(orth_med) / abs(raw_med)) if raw_med else float("nan")
             survives = bool(np.isfinite(retained) and retained >= RETENTION_BAR)
+            # PRECONDITION, and not a formality -- notes/11 §9.3, incident I-8:
+            # a verdict string states what it required, and NO_EFFECT is never
+            # printed where UNMEASURABLE is the truth.
+            #
+            # Both verdicts below are read off a projection against V_refusal.
+            # `refusal_floor_usable` says whether V_refusal reproduces against
+            # its OWN split-half floor. If it does not, the projection removed
+            # noise rather than refusal, and neither verdict is licensed --
+            # "SURVIVES" least of all, because under-removal by an unreproducible
+            # reference is exactly what manufactures it. The numbers below stay
+            # (they are descriptive); the verdict withholds itself.
+            ref_usable = bool(dec.get("refusal_floor_usable"))
             report["cross_category_survives_refusal_removal"] = {
                 "median_offdiagonal_raw": raw_med,
                 "median_offdiagonal_orthogonalised": orth_med,
@@ -879,8 +906,17 @@ def cmd_extract(args):
                         f"the shared structure was refusal.",
                 "share_of_shared_structure_that_is_refusal":
                     float(1.0 - abs(orth_med) / abs(raw_med)) if raw_med else float("nan"),
-                "verdict": "SHARED STRUCTURE SURVIVES" if survives
-                           else "SHARED STRUCTURE IS REFUSAL",
+                "reference_reproduces": ref_usable,
+                "verdict": (("SHARED STRUCTURE SURVIVES" if survives
+                             else "SHARED STRUCTURE IS REFUSAL") if ref_usable
+                            else "UNREADABLE -- V_refusal did not reproduce "
+                                 "against its own split-half floor, so "
+                                 "orthogonalising against it removed noise "
+                                 "rather than refusal. Neither verdict is "
+                                 "licensed; report the control as vacuous."),
+                "verdict_if_reference_had_reproduced": (
+                    "SHARED STRUCTURE SURVIVES" if survives
+                    else "SHARED STRUCTURE IS REFUSAL"),
                 "caveat": "orthogonalisation is a LOWER BOUND -- V_refusal is itself "
                           "measured only to its own floor, so this removes only the "
                           "part that was estimated. A surviving cosine is evidence; "
@@ -920,6 +956,11 @@ def cmd_extract(args):
             print(f"  cross-category median |cos|  raw {raw_med:+.3f}  ->  "
                   f"orthogonalised {orth_med:+.3f}  "
                   f"(retained {retained:.3f}; under matched random {rnd_ret:.3f})")
+            if not ref_usable:
+                print("\n  *** V_refusal did NOT reproduce against its own floor "
+                      "(refusal_floor_usable=False).")
+                print("  *** The cross-category verdict is UNREADABLE, not a "
+                      "result. Do not report it either way.")
             print(f"  -> {report['cross_category_survives_refusal_removal']['verdict']}")
         else:
             report["refusal_decoupling"] = {
