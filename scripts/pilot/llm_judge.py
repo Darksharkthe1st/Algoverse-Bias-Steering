@@ -33,6 +33,7 @@ test against a 50% chance line.
 
 from __future__ import annotations
 
+import collections
 import json
 import os
 import re
@@ -226,14 +227,30 @@ def local_judge_client(model_key: str = "qwen-1.8b", *, device: str = "cuda",
 
     # Candidate token ids, tried with and without a leading space: tokenizers
     # differ on which form is the natural continuation after a newline.
-    cand = {}
+    # Candidate first-token ids per verdict, from both the bare and the
+    # leading-space form. On a SentencePiece tokenizer `encode(" 1")` can yield
+    # ["_", "1"], so the SPACE token would be t[0] for all five characters --
+    # taking that at face value made every verdict collide and the judge refuse
+    # to build. Drop any id claimed by more than one verdict instead of raising:
+    # what the argmax needs is that each verdict keeps at least one id nobody
+    # else claims, not that the naive extraction was unambiguous.
+    raw = {}
     for ch in LOCAL_TOKENS:
-        ids = {t[0] for t in (tok.encode(ch, add_special_tokens=False),
-                              tok.encode(" " + ch, add_special_tokens=False)) if t}
-        cand[ch] = sorted(ids)
-    if len({i for v in cand.values() for i in v}) < sum(len(v) for v in cand.values()):
-        # Two verdicts sharing a first token would make the argmax meaningless.
-        raise ValueError(f"verdict tokens collide for {model_key}: {cand}")
+        ids = set()
+        for form in (ch, " " + ch):
+            t = tok.encode(form, add_special_tokens=False)
+            if t:
+                ids.add(t[0])
+        raw[ch] = ids
+    seen = collections.Counter(i for v in raw.values() for i in v)
+    cand = {ch: sorted(i for i in v if seen[i] == 1) for ch, v in raw.items()}
+    empty = [ch for ch, v in cand.items() if not v]
+    if empty:
+        raise ValueError(
+            f"judge {model_key!r} has no unambiguous token for verdict(s) {empty}. "
+            f"Its tokenizer cannot distinguish the five verdicts by first token, "
+            f"so the argmax would be meaningless. Pick a different judge model "
+            f"(--judge-local-model) or use --judge-backend openai. Raw ids: {raw}")
 
     prev = getattr(tok, "padding_side", None)
     tok.padding_side = "left"

@@ -90,10 +90,30 @@ note "preflight: OK"
 # run <name> <command...>   — time it, log it, record the real exit code,
 #                             and commit whatever landed.
 # --------------------------------------------------------------------------- #
+# Incident I-9 (notes/11 §9.4): "wait on the resource, not the process." A
+# straggler holding 29 GB starved three queued steps and cost 35 minutes. The
+# queue now chains 5 models x (generate + judge + steer) unattended, so poll for
+# free VRAM before each step rather than starting the instant the last PID exits.
+wait_for_vram () {
+    local need_mb="${1:-20000}" waited=0
+    command -v nvidia-smi >/dev/null 2>&1 || return 0
+    while [ "$waited" -lt 300 ]; do
+        local free
+        free=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1)
+        [ -z "$free" ] && return 0
+        [ "$free" -ge "$need_mb" ] && return 0
+        [ "$waited" -eq 0 ] && printf '  waiting for VRAM (%s MB free, need %s) ...
+' "$free" "$need_mb"
+        sleep 15; waited=$((waited + 15))
+    done
+    note "       (proceeded after 5 min with VRAM still low)"
+}
+
 run () {
     local name="$1"; shift
     local log="$LOGDIR/${name}_${STAMP}.log"
     say "$name"
+    wait_for_vram 20000
     local t0=$SECONDS
     "$@" > >(tee "$log") 2>&1
     local rc=${PIPESTATUS[0]}
@@ -338,10 +358,31 @@ else:
 PY
 note ""
 
-# Phase 4.1 — cross-application, every vector onto every category. The most
-# expensive step in the queue (~200k generations at n_eval 80) and the last
-# thing R3 needs, so it runs after BOTH models have their toggle results.
+# Phase 4.1 — cross-application, every vector onto every category.
+#
+# SET RUN_R3E=0 TO DROP IT. The arithmetic, at the live 5-model target list:
+#
+#   generate   400x10x2 + 100x10, x5 models       45,000 generations
+#   R3d toggle 10 cells x 17 x 120, x5 models    102,000
+#   R3e cross  100 cells x 9 x 80                 72,000
+#                                                -------
+#                                                219,000  (+ a judge pass each)
+#
+# TransformerLens generate is not a fast serving path. At ~200 tok/s aggregate on
+# a 14B and 48 new tokens that is ~4 gen/s, so generation alone is 15-25 h against
+# a ~20 h usable window. WITHOUT R3e: 147,000 generations, ~11-16 h.
+#
+# R3e is last by design precisely so it is the droppable one, and it re-covers the
+# diagonal cells R3d already did at different alphas. Phase 3 (the toggle test)
+# gates Phase 4.1 anyway: cross-application is only meaningful once a vector is
+# shown causal on its own category.
+RUN_R3E=1
+
+if [ "$RUN_R3E" = "1" ]; then
 run R3e_cross_application_qwen-14b     python3 -m scripts.run3_behavioural_contrast steer         --model qwen-14b --out runs/r3_behavioural_qwen-14b         --judge-backend local --judge-local-model "$R3_JUDGE"         --apply-to Age Disability_status Gender_identity Nationality                    Physical_appearance Race_ethnicity Race_x_SES Race_x_gender                    Religion Sexual_orientation         --alphas 0.5 1.0 --n-eval 80
+else
+    note "R3e cross-application: SKIPPED (RUN_R3E=0) — Phase 4.1 not measured"
+fi
 
 say "R3 READ THIS"
 python3 - <<'PY' | tee -a "$SUMMARY"

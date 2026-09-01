@@ -344,3 +344,24 @@ def test_model_loader_entry_point_exists():
     src = inspect.getsource(M.load_model)
     assert "default_padding_side" in src, "the judge's scoring needs left padding"
     assert "qwen-1.8b" in SPECS and hasattr(SPECS["qwen-1.8b"], "hf_id")
+
+
+def test_permutation_null_is_reproducible_across_processes():
+    """Python randomises str hashing per process, so a category seed derived from
+    hash() makes the p-value irreproducible -- the one number here quoted as a
+    p-value. Seeds must come from a stable digest."""
+    import subprocess, sys as _sys, textwrap
+    prog = textwrap.dedent("""
+        import sys, numpy as np
+        sys.path.insert(0, r".")
+        from scripts.pilot import behavioural as bh
+        rng = np.random.default_rng(0)
+        R = {c: rng.normal(size=(40, 4, 16)) for c in ("Age", "Religion")}
+        bk = {c: {"biased_idx": list(range(20)), "refusal_idx": list(range(20, 40)),
+                  "n_biased": 20, "n_refusal": 20} for c in R}
+        out = bh.permutation_null_within(R, bk, n_permutations=6, seed=0)
+        print(f"{out['p']:.6f}")
+    """)
+    runs = {subprocess.run([_sys.executable, "-c", prog], capture_output=True,
+                           text=True).stdout.strip() for _ in range(2)}
+    assert len(runs) == 1, f"p-value differed across processes: {runs}"

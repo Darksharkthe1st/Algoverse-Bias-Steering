@@ -40,6 +40,7 @@ THE THREE THINGS THAT MAKE THIS CONTRAST DEFENSIBLE
 from __future__ import annotations
 
 import collections
+import hashlib
 
 import numpy as np
 
@@ -505,7 +506,12 @@ def permutation_null_within(resid_by_cat: dict, buckets_by_cat: dict, *,
         for c in names:
             bk = buckets_by_cat[c]
             pool = list(bk["biased_idx"]) + list(bk["refusal_idx"])
-            rng = np.random.default_rng(seed + p * 1013 + hash(c) % 1000)
+            # sha256, NOT hash(): Python randomises str hashing per process
+            # (PYTHONHASHSEED), so hash("Religion") differs between runs and the
+            # permutation p-value could not be reproduced -- the one number in
+            # this analysis that is quoted as a p-value.
+            cseed = int(hashlib.sha256(c.encode()).hexdigest()[:8], 16) % 1000
+            rng = np.random.default_rng(seed + p * 1013 + cseed)
             rng.shuffle(pool)
             fake[c] = behavioural_direction(
                 resid_by_cat[c],

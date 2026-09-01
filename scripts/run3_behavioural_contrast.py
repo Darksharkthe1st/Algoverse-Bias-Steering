@@ -350,7 +350,29 @@ def cmd_generate(args):
         lands directly on the bucket assignment. `notes/13` §13 requires every
         completion verbatim; `verifier.py` enforces it.
         """
-        with open(resp_path, "w", encoding="utf-8") as f:
+        # RESUME. `run_queue` re-executes every step on re-invocation, and this
+        # used to open with "w" -- so a crash at 90% of a 5-model generation pass
+        # cost the entire pass on a machine that can vanish. Categories already
+        # complete in the log are skipped and the file is appended to.
+        done = set()
+        if os.path.exists(resp_path) and not args.force:
+            for line in open(resp_path, encoding="utf-8"):
+                if line.strip():
+                    try:
+                        done.add(json.loads(line)["category"])
+                    except Exception:
+                        pass
+            # The last category may have been cut mid-write; redo it.
+            if done:
+                last = json.loads([l for l in open(resp_path, encoding="utf-8")
+                                   if l.strip()][-1])["category"]
+                done.discard(last)
+                keep = [l for l in open(resp_path, encoding="utf-8")
+                        if l.strip() and json.loads(l)["category"] in done]
+                with open(resp_path, "w", encoding="utf-8") as f:
+                    f.writelines(keep)
+                print(f"  resuming: {len(done)} categories already logged", flush=True)
+        with open(resp_path, "a" if done else "w", encoding="utf-8") as f:
             # The ANSWERABLE arm is generated too (one pass, no swap). It is what
             # makes an independent refusal direction possible: on a disambiguated
             # item the context says who did it, so declining is simply WRONG --
@@ -358,6 +380,8 @@ def cmd_generate(args):
             # the property the de-coupling control needs. ~100 extra generations
             # per category.
             for c in cats:
+                if c in done:
+                    continue
                 ctrl_rows = inf[c]
                 ctrl_out = _generate(tok, model, ctrl_rows, args.system_prompt,
                                      swap=False, max_new_tokens=args.max_new_tokens,
