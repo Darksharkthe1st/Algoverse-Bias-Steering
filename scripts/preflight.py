@@ -158,9 +158,15 @@ def check_p3_manifest():
 
 def check_disk():
     free = shutil.disk_usage(ROOT).free / 1e9
-    # P1 persists ~250 MB/category fp16; 10 categories plus headroom.
-    check("free disk >= 20 GB", OK if free >= 20 else WARN, f"{free:.0f} GB free",
-          "--save-residuals writes ~2.5 GB; model weights need more")
+    # Sized for what the queue ACTUALLY pulls, not for P1 alone. The five target
+    # models are ~64 GB of fp16 weights before a single residual is written
+    # (qwen-14b 28.4, qwen-7b 15.4, yi-6b 12.1, gemma-2b 5.0, qwen-1.8b 3.7),
+    # run 3's residual cache is ~11 GB across them, R1 adds its own, and P1
+    # writes ~2.5 GB more. The old bar was 20 GB, which a single model download
+    # clears and the queue then fills mid-run.
+    check("free disk >= 120 GB", OK if free >= 120 else WARN, f"{free:.0f} GB free",
+          "~64 GB of model weights + ~15 GB of residual caches. Under 120 GB the "
+          "queue can die part-way through a download with hours already spent")
 
 
 def check_tests():

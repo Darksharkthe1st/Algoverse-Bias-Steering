@@ -3,6 +3,20 @@
 #
 #   bash scripts/overnight_queue.sh 2>&1 | tee runs/_logs/overnight.log
 #
+# RUN IT INSIDE tmux. The box is LAMBDA, reached over SSH (notes/25 -- it is NOT
+# the Algoverse JupyterHub cluster, whatever notes/24 says). This queue is an
+# 11-16 HOUR job, and a plain ssh session dies when the laptop sleeps, the wifi
+# drops, or the terminal closes -- taking the queue with it while the instance
+# keeps billing.
+#
+#   tmux new -s run3
+#   bash scripts/overnight_queue.sh 2>&1 | tee runs/_logs/overnight.log
+#   # Ctrl-b then d to detach; the queue keeps running
+#
+#   # from the laptop, any time:
+#   ssh -i ~/.ssh/lambda_jeremiah ubuntu@<IP> -t 'tmux attach -t run3'
+#   ssh -i ~/.ssh/lambda_jeremiah ubuntu@<IP> 'tail -40 ~/Algoverse-Bias-Steering/runs/_logs/overnight.log'
+#
 # Start it, watch it clear preflight, go to bed.
 #
 # TIMING. The generation count is arithmetic; the RATE is the uncertain term.
@@ -568,8 +582,13 @@ note "their own negative control under the ANNOTATION contrast. Run 1 cleared"
 note "0.50 in 10 of 46 model-category cells under the behavioural one."
 note ""
 note "IN THE MORNING, IN THIS ORDER:"
-note "  1. git push          — the box can be reclaimed at any time"
-note "  2. upload runs/_residuals/ to Drive or HF — NOT committed, ~2.5 GB,"
-note "     and losing it turns every follow-up back into a rental"
+note "  1. git push"
+note "  2. FROM THE LAPTOP:  powershell -File sync_from_box.ps1 -BoxIp <IP>"
+note "     Pulls every artifact off the box and verifies it: non-empty, JSON"
+note "     parses, .npy headers valid. The residual arrays are gitignored (GB),"
+note "     so this is the ONLY thing standing between you and defect S5."
 note "  3. read $SUMMARY"
+note "  4. ONLY THEN terminate the instance from the Lambda console. It is not"
+note "     wiped automatically and it bills until you stop it. Do not terminate"
+note "     until the sync reports VERIFIED with zero problems (notes/14 sec3)."
 cat "$SUMMARY"
