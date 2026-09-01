@@ -383,9 +383,15 @@ note "gate R3-2 (positive control): OK — run-3 nulls are interpretable"
 # ORDER MATTERS FOR THE FALLBACK. Each model runs generate -> judge -> extract
 # -> toggle to completion before the next starts, so stopping the queue at any
 # point leaves COMPLETE results for every finished model rather than four
-# half-done ones. Largest first: if the window closes early, the model that
-# matters most is already finished.
-for M in qwen-14b qwen-7b yi-6b gemma-2b; do
+# half-done ones.
+# The order is qwen-14b, yi-6b, gemma-2b, qwen-7b: BY FAMILY, not by size.
+# qwen-14b first because it is the strongest model and the one most likely to
+# produce testable buckets; then a different family at each step. Stopping
+# after three leaves Qwen + Yi + Gemma -- the cross-family replication that
+# notes/13 sec1 asks for and the part of this study that is genuinely ours.
+# Under the old size order, stopping after three left two Qwens and one Yi.
+#
+for M in qwen-14b yi-6b gemma-2b qwen-7b; do
     run "R3a_generate_${M}"         python3 -m scripts.run3_behavioural_contrast generate             --model "$M" --capture-index -1 --n-per-category 400 --n-control 100             --out "runs/r3_behavioural_${M}"
 
     run "R3b_judge_${M}"         python3 -m scripts.run3_behavioural_contrast judge             --out "runs/r3_behavioural_${M}"             --model "$M"             --judge-backend local --judge-local-model "$R3_JUDGE" --judge-swapped
