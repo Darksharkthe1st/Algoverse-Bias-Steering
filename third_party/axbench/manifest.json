@@ -1,0 +1,21 @@
+{
+  "_comment": "Third-party dataset artifacts from AxBench (Wu et al., 2025; arXiv:2501.17148), hosted at hf.co/datasets/pyvene/axbench-concept500 (CC-BY-4.0). Fetched by scripts/fetch_axbench.py; NOT committed (see README.md). Concept500 stores labelled positive (concept-present) / negative (unsteered) instruction+response pairs per concept — the contrast DiffMean is built from. Byte sizes are the HF tree API values at the pinned commit; the fetcher verifies them.",
+  "source_repo": "pyvene/axbench-concept500",
+  "source_commit": "ad8a5d60c4616b599c24dd6689f05f696ec610f3",
+  "source_last_modified": "2025-01-24",
+  "raw_base_url": "https://huggingface.co/datasets/pyvene/axbench-concept500/resolve/ad8a5d60c4616b599c24dd6689f05f696ec610f3/",
+  "dest_root": "third_party/axbench/",
+  "_variant_note": "AxBench stored one copy of Concept500 per (extraction model, layer) it released dictionaries for: 2b/l10, 2b/l20 (gemma-2-2b-it) and 9b/l20, 9b/l31 (gemma-2-9b-it). We extract on OUR model, so the model/layer folder only selects which released copy of the labelled text to read; default is 2b/l20.",
+  "variants": ["2b/l10", "2b/l20", "9b/l20", "9b/l31"],
+  "default_variant": "2b/l20",
+  "files": [
+    {"path": "2b/l10/train/data.parquet", "bytes": 10543385, "variant": "2b/l10", "split": "train"},
+    {"path": "2b/l10/test/data.parquet",  "bytes": 10014810, "variant": "2b/l10", "split": "test"},
+    {"path": "2b/l20/train/data.parquet", "bytes": 10631674, "variant": "2b/l20", "split": "train"},
+    {"path": "2b/l20/test/data.parquet",  "bytes": 10096963, "variant": "2b/l20", "split": "test"},
+    {"path": "9b/l20/train/data.parquet", "bytes": 10358530, "variant": "9b/l20", "split": "train"},
+    {"path": "9b/l20/test/data.parquet",  "bytes": 9914517,  "variant": "9b/l20", "split": "test"},
+    {"path": "9b/l31/train/data.parquet", "bytes": 10299636, "variant": "9b/l31", "split": "train"},
+    {"path": "9b/l31/test/data.parquet",  "bytes": 9933192,  "variant": "9b/l31", "split": "test"}
+  ]
+}

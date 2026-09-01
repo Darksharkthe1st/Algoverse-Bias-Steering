@@ -35,6 +35,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="'run' = bias-steering pipeline; 'refuse' = refusal-direction repro (arXiv:2406.11717)")
     p.add_argument("config", nargs="?", help="path to a Python config file defining `config`")
     p.add_argument("--runs-dir", default="runs", help="where run folders are written")
+    p.add_argument("--vector", default=None,
+                   help="path to a saved steering_vector.safetensors to APPLY instead of extracting "
+                        "(overrides config.vector_path); the TRAIN split is then not used to fit a vector")
     p.add_argument("--queue", action="store_true",
                    help="drain _coordinator/route.json across branches (the batch coordinator, §10)")
     return p
@@ -132,13 +135,20 @@ def main(argv=None) -> int:
               "       Put it in .env at the repo root (see .env.example) or export it.")
         return 2
 
+    # A vector may be supplied (--vector or config.vector_path) to APPLY instead of
+    # extract; run() handles both through one path.
+    vector_path = args.vector or getattr(cfg, "vector_path", None)
     print(f"experiment: {cfg.label}")
     print(f"  models:  {', '.join(cfg.models)}")
     print(f"  dataset: {cfg.dataset.name}  judge: {cfg.judge.name}  method: {cfg.method}")
-    print(f"  coeffs:  opinion={cfg.coeffs.opinion} neutral={cfg.coeffs.neutral}\n")
+    if vector_path:
+        print(f"  vector:  {vector_path}  (applying; TRAIN split not used to fit)")
+    else:
+        print(f"  coeffs:  opinion={cfg.coeffs.opinion} neutral={cfg.coeffs.neutral}")
+    print()
 
     from . import experiment
-    results = experiment.run(cfg, runs_dir=args.runs_dir,
+    results = experiment.run(cfg, vector_path=vector_path, runs_dir=args.runs_dir,
                              progress=prog, on_phase=_emit_phase)
     for r in results:
         print(f"\ndone: {r.dir}\n  summary: {r.summary_md}\n  results: {r.results_csv}")

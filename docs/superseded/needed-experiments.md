@@ -408,6 +408,39 @@ underpins every reproducibility claim the manifests make. (Engineering note mirr
 
 ---
 
+## 14. System-prompt control as a native steering-comparison baseline  — not yet built (2026-09-01)
+
+**Motivation.** AGENTS.md §5a requires a *system-prompt baseline on the same prompts* before any
+steering result is reportable — i.e. show that our difference-of-means direction beats simply
+*asking* the model (in the system prompt) to exhibit the target behaviour. AxBench (arXiv:2501.17148)
+makes this concrete: a natural-language "Prompt" instruction is a surprisingly strong steering
+method, so a residual-stream direction only earns its keep if it beats prompting head-to-head.
+
+**Scope decision (FK, 2026-09-01):** this is **not an AxBench-only change**. It should be a
+*natively-supported control-experiment capability* — the pipeline should be able to run any eval
+prompt set under (a) a control system prompt, (b) a behaviour-inducing system prompt, and (c) our
+steering vector, on the *same* prompts under the *same* judge, and report all three side by side.
+An earlier attempt (a standalone `axbench.py` prompting-baseline driver) was **deleted** because it
+lived off to the side of `experiment.run` and duplicated wiring; the right shape is a control-arm
+option inside the existing run path, not a parallel module.
+
+- **What to run:** on one eval battery (start with the S2 stance items, then IssueBench), score
+  three arms — `control` (default system prompt, no steering), `prompt` (system prompt instructs the
+  target behaviour, no steering), `steer` (our diff-of-means vector, default system prompt) — same
+  prompts, same pinned judge (§0.2), same coherence gate (§0.3).
+- **What to log:** per-example verdicts for all three arms (not just marginals) and the 3×3
+  confusion between `control` and each of `prompt` / `steer`, so "did steering beat prompting" is a
+  per-item comparison, not a difference of two rates.
+- **Data required to draw a conclusion:** the prompting arm must use a *frozen, documented* system
+  prompt (it is part of the method — record it like a judge version), and the comparison is only
+  meaningful once the injection convention (§0.1) and judge (§0.2) are locked. Report whether
+  `steer` beats `prompt` and by how much, with an item-bootstrap CI.
+- **Boundary-claim tie-in (FK-5):** if single-direction additive steering does *not* beat the
+  prompting baseline on IssueBench / AxBench-style tasks, that IS the boundary result the literature
+  reports — log it as an honest negative, do not soften it.
+
+---
+
 # 2-Week-Plan additions (2026-08-18)
 
 New cross-cutting experiments from `Algoverse — 2 Wk Plan`, split by owner. **Per-person

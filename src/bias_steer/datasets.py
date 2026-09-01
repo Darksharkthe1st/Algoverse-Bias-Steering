@@ -296,6 +296,175 @@ def load_refusal_contrast(spec: DatasetSpec) -> list[Example]:
     return examples
 
 
+# --------------------------------------------------------------------------- #
+# IssueBench (Röttger et al., 2025; arXiv:2502.08395): realistic writing-
+# assistance prompts (template × political issue) for measuring issue bias.
+# Fetched from hf.co/datasets/Paul/IssueBench by scripts/fetch_issuebench.py into
+# third_party/issuebench/prompts/ as parquet. FK-5 in the fk task-list: the
+# boundary check for the single-direction story.
+# --------------------------------------------------------------------------- #
+
+# Worktree root -> the fetched parquet. Same rationale as _REFUSAL_SPLITS_DIR:
+# parents[2] (not get_repo_root()) stays inside a git worktree, where `.git` is a
+# file rather than a directory.
+_ISSUEBENCH_DIR = (
+    Path(__file__).resolve().parents[2] / "third_party" / "issuebench"
+)
+_ISSUEBENCH_SPLITS = ("debug", "sample", "full")
+
+
+@register(DATASETS, "issuebench")
+def load_issuebench(spec: DatasetSpec) -> list[Example]:
+    """IssueBench prompt split -> Examples (arXiv:2502.08395).
+
+    `spec.path` names the split: "debug" (150 prompts, the default), "sample"
+    (636k), or "full" (2.49m, sharded across two parquet files). The split must
+    already be fetched:
+
+        python scripts/fetch_issuebench.py --split <split>
+
+    Each row's `prompt_text` (the fully-materialised user prompt) becomes
+    `Example.prompt`; the rest of the release's schema is preserved in
+    `metadata`. `category` is set to `topic_polarity` (neutral/pro/con) so the
+    generic `sample(per_group=("category", n))` stratifier balances across issue
+    framings without any IssueBench-specific code.
+
+    Ad-hoc `spec.max_rows` (int, optional) caps how many rows are materialised at
+    load time — the full split is 2.49m prompts, and a pilot rarely wants every
+    Example object in memory. It slices in file order *before* any `SampleSpec`
+    sampling; leave it None to load the whole split.
+
+    pandas is imported lazily (like torch in steering.py) so this module still
+    imports without it; only actually loading IssueBench pays for pandas.
+    """
+    split = (spec.path or "debug").strip()
+    if split not in _ISSUEBENCH_SPLITS:
+        raise ValueError(
+            f"issuebench split {split!r} must be one of {_ISSUEBENCH_SPLITS}; "
+            f"pass it as DatasetSpec(name='issuebench', path='debug')"
+        )
+
+    shards = sorted(_ISSUEBENCH_DIR.glob(f"prompts/prompts_{split}-*.parquet"))
+    if not shards:
+        raise FileNotFoundError(
+            f"no IssueBench '{split}' parquet under {_ISSUEBENCH_DIR / 'prompts'}\n"
+            f"Fetch it first:\n"
+            f"    python scripts/fetch_issuebench.py --split {split}"
+        )
+
+    import pandas as pd  # lazy: keeps datasets.py importable without pandas
+
+    frames = [pd.read_parquet(s) for s in shards]
+    df = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
+
+    max_rows = getattr(spec, "max_rows", None)
+    if max_rows is not None:
+        df = df.head(int(max_rows))
+
+    examples: list[Example] = []
+    for i, row in enumerate(df.itertuples(index=False)):
+        r = row._asdict()
+        examples.append(Example(
+            id=f"issuebench-{split}-{i}",
+            prompt=r["prompt_text"],
+            metadata={
+                "category": r.get("topic_polarity"),  # neutral/pro/con — stratify key
+                "topic_id": r.get("topic_id"),
+                "topic_text": r.get("topic_text"),
+                "topic_polarity": r.get("topic_polarity"),
+                "template_id": r.get("template_id"),
+                "split": split,
+            },
+        ))
+    return examples
+
+
+# --------------------------------------------------------------------------- #
+# AxBench Concept500 (Wu et al., 2025; arXiv:2501.17148): per-concept labelled
+# positive (concept-present) / negative (unsteered) instruction+response pairs.
+# Fetched from hf.co/datasets/pyvene/axbench-concept500 by scripts/fetch_axbench.py
+# into third_party/axbench/<variant>/<split>/data.parquet. FK-5: run OUR
+# difference-of-means steering on it and measure single-direction effectiveness.
+# --------------------------------------------------------------------------- #
+
+_AXBENCH_DIR = (
+    Path(__file__).resolve().parents[2] / "third_party" / "axbench"
+)
+_AXBENCH_VARIANTS = ("2b/l10", "2b/l20", "9b/l20", "9b/l31")
+_AXBENCH_SPLITS = ("train", "test")
+
+
+@register(DATASETS, "axbench")
+def load_axbench(spec: DatasetSpec) -> list[Example]:
+    """AxBench Concept500 -> Examples (arXiv:2501.17148).
+
+    `spec.path` selects the released copy to read as ``"<variant>/<split>"`` —
+    e.g. ``"2b/l20/train"`` (the default when `spec.path` is empty is
+    ``"2b/l20/train"``). Fetch it first:
+
+        python scripts/fetch_axbench.py --variant 2b/l20
+
+    Mapping (see third_party/axbench/README.md): `input` -> `Example.prompt`;
+    `metadata` carries **`label`** = `category` (``positive``/``negative`` — the
+    DiffMean contrast, so a label-bucketed extraction can group residuals by it),
+    **`category`** = `concept_genre` (the coarse stratify key, matching how other
+    loaders use `category`), plus `concept_id`, `output_concept`, and the
+    reference `output`. Filter to one concept with
+    ``SampleSpec(filter={"concept_id": [<id>]})``.
+
+    Two intended uses, per FK-5 (run separately):
+      - **label-bucketed (AxBench-native)**: bucket residuals by `metadata["label"]`
+        (``positive``/``negative``) to build a diff-of-means direction the way
+        AxBench's DiffMean does. Contrast = ``("positive", "negative")``.
+      - **judge-bucketed (ours)**: feed the prompts through the standard
+        judge-bucketed pipeline, same as the bias battery.
+
+    Ad-hoc `spec.max_rows` caps rows at load time (Concept500 is large). pandas is
+    imported lazily so this module still imports without it.
+    """
+    sel = (spec.path or "2b/l20/train").strip().strip("/")
+    parts = sel.split("/")
+    if len(parts) != 3 or f"{parts[0]}/{parts[1]}" not in _AXBENCH_VARIANTS or parts[2] not in _AXBENCH_SPLITS:
+        raise ValueError(
+            f"axbench path {spec.path!r} must be '<variant>/<split>' with variant in "
+            f"{_AXBENCH_VARIANTS} and split in {_AXBENCH_SPLITS}, e.g. '2b/l20/train'"
+        )
+    variant, split = f"{parts[0]}/{parts[1]}", parts[2]
+
+    path = _AXBENCH_DIR / variant / split / "data.parquet"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"missing AxBench parquet {path}\nFetch it first:\n"
+            f"    python scripts/fetch_axbench.py --variant {variant}"
+        )
+
+    import pandas as pd  # lazy: keeps datasets.py importable without pandas
+
+    df = pd.read_parquet(path)
+    max_rows = getattr(spec, "max_rows", None)
+    if max_rows is not None:
+        df = df.head(int(max_rows))
+
+    tag = sel.replace("/", "-")
+    examples: list[Example] = []
+    for i, row in enumerate(df.itertuples(index=False)):
+        r = row._asdict()
+        examples.append(Example(
+            id=f"axbench-{tag}-{i}",
+            prompt=r["input"],
+            metadata={
+                "label": r.get("category"),          # positive/negative — DiffMean contrast
+                "category": r.get("concept_genre"),  # text/code/math — coarse stratify key
+                "concept_id": r.get("concept_id"),
+                "output_concept": r.get("output_concept"),
+                "output": r.get("output"),           # reference (concept-bearing if positive)
+                "variant": variant,
+                "split": split,
+            },
+        ))
+    return examples
+
+
 def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     """Filter + stratify + cap, deterministically by `spec.seed` (arch §3.3).
 
