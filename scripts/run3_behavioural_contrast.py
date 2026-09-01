@@ -155,10 +155,33 @@ def _prompt_with_options(row: dict, *, swap: bool = False) -> str:
             f"Pick one of three options: {a[0]}, {a[1]}, {a[2]}")
 
 
-def _load_rows(categories, n_per_category, condition=AMBIG, *, exclude_n=None):
-    """`exclude_n` holds out the items an earlier evenly-spaced draw of that
-    size already used, so steering is evaluated on data the vector never saw."""
+EVAL_HOLDOUT_N = 120
+
+
+def eval_holdout(rows: list, n_eval: int = EVAL_HOLDOUT_N) -> list:
+    """The evenly-spaced items RESERVED for steering evaluation.
+
+    Drawn FIRST, at a fixed size, before extraction takes anything. The earlier
+    order -- extraction first, evaluation from the remainder -- left
+    Sexual_orientation with 432-400 = 32 eval items against 120 elsewhere, so its
+    dose curve carried 1.9x the standard error and any ranking of categories by
+    steerability was partly a ranking by evaluation noise. Reversing the priority
+    moves the variation onto the EXTRACTION n, which the floor already reports.
+    """
+    if n_eval >= len(rows):
+        return list(rows)
+    step = len(rows) / n_eval
+    return [rows[int(i * step)] for i in range(n_eval)]
+
+
+def _load_rows(categories, n_per_category, condition=AMBIG, *,
+               hold_out_eval=False, eval_only=False, n_eval=EVAL_HOLDOUT_N):
     """BBQ rows for one condition, with BBQ's own answer key attached.
+
+    `hold_out_eval` removes the reserved evaluation items (extraction path).
+    `eval_only` returns exactly those items (steering path). The two are derived
+    from the same deterministic function, so they cannot drift the way two
+    independent `--n` flags could.
 
     `target_loc` is the dataset authors' label for which answer is biased, and it
     ALREADY accounts for question polarity.  Attaching it here means
@@ -172,17 +195,10 @@ def _load_rows(categories, n_per_category, condition=AMBIG, *, exclude_n=None):
     for c in categories:
         rows = [r for r in pairing.load_category(c)
                 if r["context_condition"] == condition]
-        if exclude_n:
-            # The extraction draw and the steering draw are BOTH evenly spaced,
-            # so they overlap heavily and by an amount that varies with category
-            # size -- measured 19% on Age, 67% on Religion. That evaluates the
-            # causal claim partly on the items that built the vector, and makes
-            # the cross-category steering comparison depend on how much overlap
-            # each category happened to get. Remove them.
-            step = len(rows) / exclude_n
-            used = {rows[int(i * step)]["example_id"]
-                    for i in range(min(exclude_n, len(rows)))}
-            rows = [r for r in rows if r["example_id"] not in used]
+        if condition == AMBIG and (hold_out_eval or eval_only):
+            held = {r["example_id"] for r in eval_holdout(rows, n_eval)}
+            rows = ([r for r in rows if r["example_id"] in held] if eval_only
+                    else [r for r in rows if r["example_id"] not in held])
         if n_per_category and n_per_category < len(rows):
             step = len(rows) / n_per_category
             rows = [rows[int(i * step)] for i in range(n_per_category)]
@@ -331,7 +347,8 @@ def cmd_generate(args):
                    "capture_index": args.capture_index, **probe}, f, indent=2)
 
     cats = args.categories or pairing.categories()
-    amb = _load_rows(cats, args.n_per_category, AMBIG)
+    amb = _load_rows(cats, args.n_per_category, AMBIG, hold_out_eval=True,
+                     n_eval=args.n_eval_holdout)
     inf = _load_rows(cats, args.n_control, DISAMBIG)      # Phase 1.3 task control
 
     meta_extra = {
@@ -340,6 +357,9 @@ def cmd_generate(args):
         "capture_index": args.capture_index,
         "system_prompt": args.system_prompt,
         "contrast": "behavioural (R_biased minus R_refusal), parsed from generation",
+        # Recorded so `steer` derives the holdout from the artifact rather than
+        # from a flag that has to be kept in sync by hand.
+        "eval_holdout_n": args.n_eval_holdout,
         "condition": "ambig (under-informative) only; disambig captured as task control",
     }
 
@@ -721,9 +741,18 @@ def cmd_extract(args):
                                   "n_total": Rp.shape[0]})
                 ref_meta = {"source": "answerable_arm", "n_answered": nb,
                             "n_declined": nr}
-                if nb >= 8 and nr >= 8:
-                    # Sign convention: point TOWARD refusal, so it is comparable
-                    # in direction to the V_C's, which point toward biased.
+                # Same minimum as every V_C. It was 8 -- a fourth of MIN_BUCKET,
+                # declared nowhere -- on the ONE direction the entire taxonomy is
+                # orthogonalised against. At 8 a split-half leaves 4 per half.
+                # Declining an ANSWERABLE question is rare by construction, so
+                # landing in the teens pooled across ten categories is a live
+                # outcome, not a hypothetical.
+                if nb >= bh.MIN_BUCKET and nr >= bh.MIN_BUCKET:
+                    # Negated so V_refusal points TOWARD refusal, i.e. opposite
+                    # to the V_C's, which point toward the stereotyped answer.
+                    # Immaterial to the arithmetic -- the control uses |cos| and
+                    # `orthogonalize` is sign-invariant -- but the convention
+                    # should read correctly.
                     v_ref = -bh.behavioural_direction(Rp, pooled_bk)
                     ffl = bh.bucket_floor(Rp, pooled_bk, n_splits=min(args.n_splits, 200))
                     rf = {"ci_lo": ffl["ci_lo"]}
@@ -731,10 +760,65 @@ def cmd_extract(args):
                 else:
                     ref_meta["unusable_reason"] = (
                         f"only {nr} declined and {nb} answered on the answerable "
-                        f"arm; need >= 8 of each. The model almost never refuses "
+                        f"arm; need >= {bh.MIN_BUCKET} of each. The model almost never refuses "
                         f"an answerable question, so no refusal direction can be "
                         f"measured this way -- report the control as VACUOUS.")
         report["refusal_direction"] = ref_meta
+
+        # ---- P0-a. Is the answerable-arm proxy the abstention component that
+        # actually sits inside V_C?  Currently that is an argument, and two
+        # things could break it: the two arms are different BEHAVIOURS (declining
+        # an unanswerable question is correct epistemic humility; declining an
+        # answerable one is a comprehension failure), and they are measured in
+        # different REGIMES (disambiguated contexts run 2.22-2.65x longer).
+        #
+        # The error direction is the dangerous one: a misaligned reference
+        # under-removes the confound, the cross-category cosine stays high, and
+        # the run reports SURVIVES when the truth is that it was refusal.
+        #
+        # So measure it. The pooled AMBIGUOUS-arm refusal direction is computed
+        # here as a COMPARISON TARGET ONLY -- never orthogonalised against, which
+        # would be the circular construction this design rejects -- and the two
+        # are compared on the same disattenuation ceiling used everywhere else.
+        if v_ref is not None and directions:
+            pooled_amb, pb = [], {"biased_idx": [], "refusal_idx": []}
+            off = 0
+            for c in sorted(directions):
+                R = np.asarray(resids[c]); bk = buckets[c]
+                pooled_amb.append(R)
+                pb["biased_idx"] += [off + i for i in bk["biased_idx"]]
+                pb["refusal_idx"] += [off + i for i in bk["refusal_idx"]]
+                off += R.shape[0]
+            Ra = np.concatenate(pooled_amb, axis=0)
+            pb.update({"n_biased": len(pb["biased_idx"]),
+                       "n_refusal": len(pb["refusal_idx"]), "n_total": Ra.shape[0]})
+            v_amb = -bh.behavioural_direction(Ra, pb)
+            f_amb = bh.bucket_floor(Ra, pb, n_splits=min(args.n_splits, 200))
+            a_lo = max(0.0, float(rf.get("ci_lo") or 0.0))
+            b_lo = max(0.0, float(f_amb["ci_lo"] or 0.0))
+            ceil_ = float(np.sqrt(a_lo * b_lo))
+            cos_pp = abs(analysis.summarize(v_ref, v_amb)["norm_weighted_mean"])
+            report["refusal_proxy_validation"] = {
+                "abs_cos_answerable_vs_ambiguous": cos_pp,
+                "answerable_floor_ci_lo": a_lo,
+                "ambiguous_pooled_floor_ci_lo": b_lo,
+                "indistinguishability_ceiling": ceil_,
+                "validated": bool(ceil_ > 0 and cos_pp >= ceil_),
+                "note": "the ambiguous-arm direction is a COMPARISON TARGET only "
+                        "and is never orthogonalised against -- doing that is the "
+                        "circular construction this design rejects. If the two are "
+                        "near-orthogonal the proxy is removing the wrong thing and "
+                        "NO 'SURVIVES' verdict is readable.",
+                "asymmetry_of_evidence": "a HIGH cosine validates the proxy. A low "
+                        "one is ambiguous rather than damning, because the "
+                        "comparison target is itself the pooled V_C and therefore "
+                        "carries bias structure as well as refusal -- so the two "
+                        "can differ for a benign reason. Read a failure here as "
+                        "'unvalidated', not as 'refuted'.",
+            }
+            print(f"  refusal proxy: |cos(answerable, ambiguous)| = {cos_pp:.3f} "
+                  f"vs ceiling {ceil_:.3f} -> "
+                  f"{'VALIDATED' if ceil_ > 0 and cos_pp >= ceil_ else 'NOT VALIDATED'}")
 
         if v_ref is not None:
             dec = bh.refusal_decoupling(directions, floors, v_ref, rf)
@@ -798,8 +882,36 @@ def cmd_extract(args):
                   f"categories REFUSAL-DOMINATED (control usable={dec['refusal_floor_usable']})")
             print(f"  mean refusal variance share per category: "
                   f"{np.mean([v['refusal_variance_share'] for v in dec['per_category'].values()]):.3f}")
+            # P1-b. RETENTION_BAR answers "how much survives". It does not
+            # answer "was the removal specific to refusal, or is that simply what
+            # removing any direction does?" A matched random direction is the
+            # null. In high dimension the mechanical effect is negligible, so
+            # this should pass trivially -- it is cheap reassurance and the
+            # matched-control-not-a-constant discipline used everywhere else.
+            rnd_ref = _matched_random(np.asarray(v_ref), seed=7,
+                                      resid=np.concatenate(
+                                          [np.asarray(resids[c])
+                                           for c in sorted(directions)], axis=0))
+            orth_rnd = bh.cosine_matrix_layerwise(
+                {k: bh.orthogonalize(v, rnd_ref) for k, v in directions.items()})
+            rnd_med = orth_rnd["median_offdiagonal"]
+            rnd_ret = (abs(rnd_med) / abs(raw_med)) if raw_med else float("nan")
+            report["cross_category_survives_refusal_removal"][
+                "retention_under_matched_random"] = rnd_ret
+            # Reported, NOT thresholded. A boolean here would need a fresh
+            # constant, which is the same S4 defect RETENTION_BAR was cleaned up
+            # for. The two retentions side by side are the informative object:
+            # if removing a random direction retains as little as removing
+            # V_refusal does, the removal was not about refusal.
+            report["cross_category_survives_refusal_removal"][
+                "retention_note"] = (
+                    "compare retention under V_refusal against retention under a "
+                    "matched random direction. Similar values mean the removal "
+                    "was not specific to refusal; a much lower value under "
+                    "V_refusal means it was.")
             print(f"  cross-category median |cos|  raw {raw_med:+.3f}  ->  "
-                  f"orthogonalised {orth_med:+.3f}")
+                  f"orthogonalised {orth_med:+.3f}  "
+                  f"(retained {retained:.3f}; under matched random {rnd_ret:.3f})")
             print(f"  -> {report['cross_category_survives_refusal_removal']['verdict']}")
         else:
             report["refusal_decoupling"] = {
@@ -1024,12 +1136,28 @@ def cmd_steer(args):
     n_gen = len(cells) * (1 + len(args.alphas) * 4) * args.n_eval
     print(f"  {len(cells)} cell(s) x {len(args.alphas)} alpha(s) "
           f"~= {n_gen:,} generations")
+    args.n_eval = 0   # set from the holdout below; kept for the cost print
     rows_needed = sorted({y for _, y in cells})
-    # Held out from the --n-extract items `generate` used to build the vectors.
-    rows_by_cat = _load_rows(rows_needed, args.n_eval, AMBIG,
-                             exclude_n=args.n_extract)
-    ctrl_by_cat = _load_rows(rows_needed, args.n_control, DISAMBIG,
-                             exclude_n=args.n_control_extract)
+    # The holdout size comes from the residual sidecar `generate` wrote, not from
+    # a flag: two independent defaults that "must agree" is a silent-failure path,
+    # and closing one by opening a shorter one is not closing it.
+    held_n = None
+    for c in rows_needed:
+        sp = os.path.join(args.out, "residuals", f"{c}__ambig.json")
+        if os.path.exists(sp):
+            held_n = json.load(open(sp, encoding="utf-8")).get("eval_holdout_n")
+            if held_n:
+                break
+    if held_n is None:
+        print(f"  no eval_holdout_n in any sidecar -- this run predates the "
+              f"holdout, so steering would be evaluated on extraction items. "
+              f"Re-run `generate`, or pass --allow-unheld to accept train-on-test.")
+        if not args.allow_unheld:
+            return 1
+        held_n = EVAL_HOLDOUT_N
+    print(f"  evaluating on the {held_n} items per category held out of extraction")
+    rows_by_cat = _load_rows(rows_needed, None, AMBIG, eval_only=True, n_eval=held_n)
+    ctrl_by_cat = _load_rows(rows_needed, args.n_control, DISAMBIG)
 
     resp_log = open(os.path.join(args.out, "steering_responses.jsonl"), "a",
                     encoding="utf-8")
@@ -1268,6 +1396,10 @@ def main(argv=None):
     g.add_argument("--out", required=True)
     g.add_argument("--categories", nargs="*", default=None)
     g.add_argument("--n-per-category", type=int, default=400)
+    g.add_argument("--n-eval-holdout", type=int, default=EVAL_HOLDOUT_N,
+                   help="ambiguous items RESERVED for steering evaluation and "
+                        "excluded from extraction. Recorded in every sidecar so "
+                        "`steer` cannot disagree with it.")
     g.add_argument("--n-control", type=int, default=100,
                    help="adequately-informative items kept as the task control")
     g.add_argument("--max-new-tokens", type=int, default=48)
@@ -1334,13 +1466,9 @@ def main(argv=None):
     s.add_argument("--alphas", nargs="*", type=float, default=[0.25, 0.5, 1.0, 2.0],
                    help="dose as a multiple of the layer's own mean residual norm. "
                         "Reported as a CURVE; picking the best value post hoc is S3.")
-    s.add_argument("--n-eval", type=int, default=120)
-    s.add_argument("--n-extract", type=int, default=400,
-                   help="the --n-per-category `generate` used. Those items are HELD "
-                        "OUT of the steering evaluation, so the causal claim is not "
-                        "measured on the data that built the vector.")
-    s.add_argument("--n-control-extract", type=int, default=100,
-                   help="likewise, for the answerable arm")
+    s.add_argument("--allow-unheld", action="store_true",
+                   help="evaluate steering on items that may have built the vector. "
+                        "Only for runs generated before the holdout existed.")
     s.add_argument("--n-control", type=int, default=60)
     s.add_argument("--max-new-tokens", type=int, default=48)
     s.add_argument("--judge-model", default="gpt-4o-mini")

@@ -329,6 +329,14 @@ option list does not change which name appears first in the response text. It is
 retained as a sanity check and must never be reported as the position-bias
 control.
 
+### 7.2b What the positive control does NOT license
+
+Gate R3-2 contrasts race-themed against gender-themed prompts. `paper/HOSTILE-REVIEW.md`
+A1 establishes that topic identity is trivially linearly decodable — a
+bag-of-words model finds it. So passing it shows the capture and estimator
+machinery is not broken; it does **not** show the instrument can recover
+something as subtle as a bias direction. The implication runs one way only.
+
 ### 7.3 Positive control — Gate R3-2
 Race-themed prompts against gender-themed prompts, through run 3's own
 estimator. Topic identity is linearly present if anything is. **If this fails,
@@ -390,6 +398,32 @@ noisily-estimated reference can only be partly projected out, so a projected
 result is a lower bound. A surviving cosine is evidence; a collapsing one is
 decisive.
 
+### 7.4b Validating the refusal proxy
+
+`V_refusal` comes from the answerable arm, and that its abstention component is
+the same one sitting inside `V_C` is an *argument*, not yet a measurement. Two
+ways it could fail: the two arms are different behaviours (declining an
+unanswerable question is correct epistemic humility; declining an answerable one
+is a comprehension failure), and they are measured in different regimes
+(disambiguated contexts run 2.22–2.65× longer).
+
+The error direction is the dangerous one — a misaligned reference *under*-removes
+the confound, so the cross-category cosine stays high and the run reports
+§8.2 when §8.3 is true.
+
+So `refusal_proxy_validation` measures it: the pooled **ambiguous**-arm refusal
+direction is computed as a comparison target only — never orthogonalised
+against, which is the circular construction §7.4 rejects — and the two are
+compared on the same disattenuation ceiling. **The evidence is asymmetric.** A
+high cosine validates the proxy. A low one is *unvalidated*, not *refuted*,
+because the comparison target is itself the pooled `V_C` and so carries bias
+structure as well as refusal.
+
+Reported alongside: retention under a **matched random direction**, which asks
+whether the removal was specific to refusal or is simply what removing any
+direction does. Reported, never thresholded — a boolean there would need a fresh
+constant, which is the defect `RETENTION_BAR` was cleaned up for.
+
 ### 7.5 Negative control
 §5. Runs automatically per category.
 
@@ -430,6 +464,34 @@ Floors that do not beat their shuffled controls, **with Gates R3-1 and R3-2
 green**. That is publishable: the positive control proves the instrument works,
 so the null is about bias rather than about the code. It also directly informs
 the open question between this design and the annotation-derived R1.
+
+### 8.4b Two limits on every interval in this study
+
+**No item-level error bars.** Every interval here — including on the
+cross-category cosines the headline rests on — is Monte-Carlo over splits of a
+*fixed sample*, not sampling over items. Nothing answers *"what if you had drawn
+different items?"* At `n_splits = 400` the MC error is ≈±0.02 and looks
+reassuringly tight, which makes it more misleading rather than less. Read every
+interval as precision-of-the-procedure, not confidence-in-the-population.
+
+**The taxonomy is computed over a tilt-selected subset.** Categories below 32 per
+arm are `UNTESTABLE` (§6.2) and a majority of them stops the run (§8.5). Between
+those poles is a live range where the cosine matrix, the PCA and the permutation
+null are computed over *whichever categories the model stereotyped enough on* —
+and run 1's evidence says that preferentially excludes the race categories. Any
+clustering claim is therefore conditional on that selection, and the excluded
+categories must be named in the results table rather than omitted.
+
+### 8.4c How a prompt-baseline-beats-steering result gets reported
+
+Pre-declared, because deciding it after seeing the number is defect S3. If the
+system-prompt baseline moves the stereotyped-answer rate **further than steering
+does**, that is reported as: the behaviour is substantially instruction-
+accessible, and activation steering offers no efficacy advantage over asking on
+this task. It does **not** retract the representation-structure claim, which
+rests on the floors, the refusal de-coupling and the covariance-matched control —
+none of which involve the prompt baseline. §7.2 of this plan explains why the
+baseline is context rather than a control.
 
 ### 8.5 What would invalidate the run
 

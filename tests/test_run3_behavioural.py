@@ -372,12 +372,19 @@ def test_steering_eval_items_are_held_out_from_extraction():
     overlapped 19-67% depending on category size -- evaluating the causal claim
     partly on the items that built the vector, by an amount that varied per
     category and so confounded the cross-category comparison too."""
-    for c in ("Religion", "Age", "Race_ethnicity"):
-        ex = {r["example_id"] for r in r3._load_rows([c], 400, "ambig")[c]}
-        st = {r["example_id"] for r in r3._load_rows([c], 120, "ambig",
-                                                     exclude_n=400)[c]}
-        assert len(st) == 120
+    from scripts.pilot import pairing as _p
+    for c in _p.categories():
+        ex = {r["example_id"] for r in r3._load_rows([c], 400, "ambig",
+                                                     hold_out_eval=True)[c]}
+        st = {r["example_id"] for r in r3._load_rows([c], None, "ambig",
+                                                     eval_only=True)[c]}
+        # n_eval must be CONSTANT across categories. Drawing extraction first and
+        # taking the remainder left Sexual_orientation (432 ambig) with 32 eval
+        # items against 120 elsewhere -- 1.9x the standard error, so ranking
+        # categories by steerability partly ranked them by evaluation noise.
+        assert len(st) == r3.EVAL_HOLDOUT_N, f"{c}: n_eval={len(st)}"
         assert not (ex & st), f"{c}: {len(ex & st)} steering items were in extraction"
+        assert len(ex) >= 32, f"{c}: extraction left only {len(ex)}"
 
 
 def test_random_control_is_covariance_matched_not_isotropic():
