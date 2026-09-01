@@ -4,3 +4,4 @@ run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,
 20260816-011914_refusal-repro_qwen-1.8b,refusal repro,qwen-1.8b,refusal_eval,ablation,1.0,1.0,aaaa4554277894f6cd4d0e6a3596e16006b562b1,True,20260816-011914,done,,200,,
 20260901-092009_anchor-qwen3-8b_qwen3-8b,anchor qwen3-8b,qwen3-8b,snapshot,mean_diff,8.0,8.0,f9af1f799833141a2c0a5b488438e7b5d1098f1c,True,20260901-092009,done,100,100,31,21
 20260901-093135_apply-opinion-vec-on-axbench_qwen3-8b,apply opinion vec on axbench,qwen3-8b,axbench,mean_diff,8.0,8.0,e801c2a45f60f9f10892feb8697618befaf2599e,True,20260901-093135,done,0,200,36,25
+20260901-160507_apply-opinion-vec-on-issuebench_qwen3-8b,apply opinion vec on issuebench,qwen3-8b,issuebench,mean_diff,8.0,8.0,52ae1abba50813858d840f3d8074d8efa97f4adb,True,20260901-160507,done,0,200,61,23
