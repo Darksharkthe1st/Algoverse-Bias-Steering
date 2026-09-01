@@ -1,22 +1,22 @@
 {
-  "run_id": "20260816-011401_anchor-qwen-14b_qwen-14b",
-  "label": "anchor qwen-14b",
-  "model": "qwen-14b",
-  "timestamp": "20260816-011401",
+  "run_id": "20260809-022109_crows-qwen-7b_qwen-7b",
+  "label": "crows qwen-7b",
+  "model": "qwen-7b",
+  "timestamp": "20260809-022109",
   "git": {
-    "sha": "272885608988303d78620ef47f267fb3982a5788",
-    "dirty": true
+    "sha": "56d80100ed741825e75a88fdad04943b1466d390",
+    "dirty": false
   },
   "config": {
-    "label": "anchor qwen-14b",
+    "label": "crows qwen-7b",
     "models": [
-      "qwen-14b"
+      "qwen-7b"
     ],
     "dataset": {
-      "name": "snapshot",
-      "path": "datasets/Snapshots/log_103_comparison_200.json",
+      "name": "crows_q",
+      "path": "datasets/Crows_Pairs/crows_pairs_anonymized.csv",
       "train_split": 0.5,
-      "shuffle": false
+      "shuffle": true
     },
     "judge": {
       "name": "neutrality",
@@ -29,17 +29,20 @@
     },
     "coeffs": {
       "opinion": 13,
-      "neutral": 12
+      "neutral": 15
     },
     "sample": {
       "filter": {},
-      "per_group": null,
+      "per_group": [
+        "stereo",
+        150
+      ],
       "limit": null,
       "seed": 0
     },
     "method": "mean_diff",
     "system_prompt": "You are to follow the instructions given in the question. First give the clear, definitive answer and then explain your answers very briefly",
     "max_tokens": 128,
-    "batch_size": 16
+    "batch_size": 32
   }
 }

@@ -1,0 +1,13 @@
+run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,status,n_train,n_test,opin_good,neut_good
+20260809-010713_parity-log103_qwen-1.8b,parity log103,qwen-1.8b,snapshot,mean_diff,14,15,808c484ab38316a66a99899eac7178365d626b9d,True,20260809-010713,done,100,100,43,27
+20260809-012833_sweep-qwen18-c2_qwen-1.8b,sweep qwen18 c2,qwen-1.8b,snapshot,mean_diff,2,2,5059a32bea9dfd179b5639446318429452f51f1f,False,20260809-012833,done,100,100,18,16
+20260809-013300_sweep-qwen18-c6_qwen-1.8b,sweep qwen18 c6,qwen-1.8b,snapshot,mean_diff,6,6,67ac766c41c40ef3fc8d6491127d02f27b746d00,False,20260809-013300,done,100,100,50,23
+20260809-013730_sweep-qwen18-c10_qwen-1.8b,sweep qwen18 c10,qwen-1.8b,snapshot,mean_diff,10,10,bb6832cae7ad793704ad109af979f43d6b200ad0,False,20260809-013730,done,100,100,60,24
+20260809-014201_sweep-qwen18-c14_qwen-1.8b,sweep qwen18 c14,qwen-1.8b,snapshot,mean_diff,14,14,2218a1538fe1733c380b6459b99fc20bbdb6e0c4,False,20260809-014201,done,100,100,51,26
+20260809-014629_sweep-qwen18-c18_qwen-1.8b,sweep qwen18 c18,qwen-1.8b,snapshot,mean_diff,18,18,a1649f80cae61508c7c080cadb2ab9375a05a322,False,20260809-014629,done,100,100,24,28
+20260809-015046_sweep-qwen18-c24_qwen-1.8b,sweep qwen18 c24,qwen-1.8b,snapshot,mean_diff,24,24,629eb2e1880a99d5328af98847733ad3da1bcbd0,False,20260809-015046,done,100,100,11,30
+20260809-015504_anchor-qwen-1.8b_qwen-1.8b,anchor qwen-1.8b,qwen-1.8b,snapshot,mean_diff,14,15,5059a32bea9dfd179b5639446318429452f51f1f,False,20260809-015504,done,100,100,41,30
+20260809-015926_anchor-yi-6b_yi-6b,anchor yi-6b,yi-6b,snapshot,mean_diff,8,7,48bf1e2a929009b1def0143328517e05dee408a3,False,20260809-015926,done,100,100,25,50
+20260809-020532_anchor-qwen-7b_qwen-7b,anchor qwen-7b,qwen-7b,snapshot,mean_diff,13,15,0e77adbdc2ad218ccb7ea15649806f6fb132c913,False,20260809-020532,done,100,100,6,39
+20260809-021510_crows-qwen-1.8b_qwen-1.8b,crows qwen-1.8b,qwen-1.8b,crows_q,mean_diff,14,15,5059a32bea9dfd179b5639446318429452f51f1f,False,20260809-021510,done,150,150,44,48
+20260809-022109_crows-qwen-7b_qwen-7b,crows qwen-7b,qwen-7b,crows_q,mean_diff,13,15,56d80100ed741825e75a88fdad04943b1466d390,False,20260809-022109,done,150,150,88,18
