@@ -22,6 +22,14 @@ from src.bias_steer.bias_taxonomy import assert_direction, per_layer_cosine
 from . import pairing
 
 
+#: How well the pooled LENGTH direction must reproduce against its own
+#: split-half floor before the specificity control can be read. If d_len_bar
+#: is itself noise, A-2 compares against noise and its verdict means nothing
+#: (notes/19 §3.3, A-4). Declared rather than inline: same S4 reasoning as
+#: SWAP_CONSISTENCY_BAR and REFERENCE_FLOOR_BAR in behavioural.py.
+LENGTH_SELFCHECK_BAR = 0.5
+
+
 # --------------------------------------------------------------------------- #
 # Estimator — the primary contrast, notes/13 §2.1
 # --------------------------------------------------------------------------- #
@@ -334,7 +342,8 @@ def length_direction_selfcheck(per_category_rows: dict, capture, *,
     return {"n_splits": len(cos),
             "mean": float(np.mean(finite)) if finite else float("nan"),
             "ci_lo": lo, "ci_hi": hi,
-            "usable": bool(np.isfinite(lo) and lo > 0.5)}
+            "self_floor_bar": LENGTH_SELFCHECK_BAR,
+            "usable": bool(np.isfinite(lo) and lo > LENGTH_SELFCHECK_BAR)}
 
 
 def project_out(direction, reference):

@@ -103,10 +103,16 @@ def check_gpu(load_model):
             return
         name = torch.cuda.get_device_name(0)
         gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+        # cmd_steer calls _judge_client() BEFORE _load(), so the judge is
+        # co-resident with the target on the same card for the whole of Phase 3.
+        # qwen-14b (28.4 GB) + the qwen-1.8b judge (3.7) = ~32 GB before any
+        # activation. A 6B+ judge would not fit at all -- see --judge-device.
         enough = gb >= 38
         check("GPU present", OK if enough else WARN, f"{name}, {gb:.0f} GB",
               "qwen-14b fp16 is ~28 GB of weights before activations; "
-              "under ~38 GB expect OOM on the 14B runs")
+              "qwen-14b 28.4 GB + a co-resident qwen-1.8b judge 3.7 GB = ~32 GB "
+              "before activations. If you change --judge-local-model to a 6B+ "
+              "model, put it elsewhere with --judge-device or it will OOM")
     except Exception as e:
         check("GPU check", FAIL, f"{type(e).__name__}: {e}")
 
@@ -164,7 +170,9 @@ def check_disk():
     # run 3's residual cache is ~11 GB across them, R1 adds its own, and P1
     # writes ~2.5 GB more. The old bar was 20 GB, which a single model download
     # clears and the queue then fills mid-run.
-    check("free disk >= 120 GB", OK if free >= 120 else WARN, f"{free:.0f} GB free",
+    # FAIL, not WARN: a WARN does not stop overnight_queue.sh, and running out
+    # of disk mid-download loses the hours already spent.
+    check("free disk >= 120 GB", OK if free >= 120 else FAIL, f"{free:.0f} GB free",
           "~64 GB of model weights + ~15 GB of residual caches. Under 120 GB the "
           "queue can die part-way through a download with hours already spent")
 

@@ -380,7 +380,8 @@ def qualify(items: list, *, model: str = JUDGE_MODEL_DEFAULT, client=None,
 # --------------------------------------------------------------------------- #
 
 def buckets_from_labels(labels: list, *, min_bucket: int = 32,
-                        include_distractor_in_refusal: bool = False) -> dict:
+                        include_distractor_in_refusal: bool = False,
+                        judge_version: str = JUDGE_VERSION) -> dict:
     """Turn directive labels into the two arms `behavioural.py` consumes.
 
     `BIASED_DISTRACTOR` -- the model named the NON-stereotyped person -- is by
@@ -414,7 +415,12 @@ def buckets_from_labels(labels: list, *, min_bucket: int = 32,
         "refusal_rate": n_r / len(labels) if labels else float("nan"),
         "unparsed_rate": len(idx[UNKNOWN]) / len(labels) if labels else float("nan"),
         "distractor_in_refusal": include_distractor_in_refusal,
-        "min_bucket": min_bucket, "judge_version": JUDGE_VERSION,
+        # Threaded in, NOT read from the module constant. The queue runs the
+        # LOCAL judge (v3-bbq-choice-local, RUBRIC_LOCAL), so hardcoding
+        # JUDGE_VERSION stamped every per-category bucket block "v2" while
+        # judge_labels.jsonl correctly said v3. AGENTS.md §4: every judged
+        # number carries its judge version.
+        "min_bucket": min_bucket, "judge_version": judge_version,
         "status": "TESTABLE" if ok else "UNTESTABLE",
         "untestable_reason": None if ok else (
             f"n_biased={n_b}, n_refusal={n_r}; need >= {min_bucket} in both. "

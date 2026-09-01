@@ -261,21 +261,42 @@ def test_random_control_matches_the_per_layer_norm_profile():
 # The generation prompt must carry the option list
 # --------------------------------------------------------------------------- #
 
-def test_generation_prompt_includes_the_options_and_swap_reorders_only_the_named_pair():
-    """The residual must come from the SAME string the completion came from.
-    `capture_arm` builds a prompt with no option list, which is right for R1 and
-    wrong here -- capturing a different prompt than the one that produced the
-    bucket label breaks the correspondence the contrast rests on."""
+def test_swap_exchanges_the_two_named_options_never_the_unknown_one():
+    """The entity swap must move the two PEOPLE, not a person and "Cannot be
+    determined".
+
+    BBQ places its not-knowing option uniformly across all three slots (26.6 /
+    26.9 / 26.9% over 25,814 ambiguous rows), so the old positional [1,0,2]
+    swap perturbed the option DEFINING the refusal bucket in 53.5% of items.
+    person_swap_consistency is the only model-side control for N6, and that
+    made it a 46/54 blend of two different manipulations.
+
+    The predecessor test asserted this property in its NAME and only checked
+    that ans0 and ans1 had moved, which the broken version also satisfied.
+    """
+    from src.bias_steer.bias_taxonomy import resolve_answer_roles
+
+    checked = 0
+    for r in _rows(n=300):
+        roles = resolve_answer_roles(bh.row_metadata(r))
+        if not roles.usable:
+            continue
+        checked += 1
+        base, swapped = r3._option_order(r), r3._option_order(r, swap=True)
+        assert base[roles.unknown] == swapped[roles.unknown], (
+            "the not-knowing option must not move under an entity swap")
+        assert base != swapped, "the two named options must actually exchange"
+        assert sorted(base) == sorted(swapped), "swap must be a permutation"
+    assert checked > 100, f"only {checked} resolvable rows exercised"
+
+
+def test_generation_prompt_carries_the_option_list():
+    """The residual must come from the SAME string the completion came from."""
     r = _rows(n=1)[0]
     p = r3._prompt_with_options(r)
-    s = r3._prompt_with_options(r, swap=True)
     for a in (r["ans0"], r["ans1"], r["ans2"]):
-        assert a in p and a in s
-    assert p.index(r["ans0"]) < p.index(r["ans1"])
-    assert s.index(r["ans1"]) < s.index(r["ans0"])
-    assert p.split("Pick one of three options:")[1] != \
-        s.split("Pick one of three options:")[1]
-
+        assert a in p
+    assert "Pick one of three options:" in p
 
 # --------------------------------------------------------------------------- #
 # GATE 2 — the positive control's own logic

@@ -58,6 +58,27 @@ DISTRACTOR = "distractor"
 #: the estimator rather than the representation.
 MIN_BUCKET = 32
 
+#: How consistently the SAME item must land in the SAME bucket when the two
+#: named people are exchanged in the prompt, before `person_swap_consistency`
+#: is treated as measuring the model rather than the labeller.
+#:
+#: 0.5 is chance for a two-way label and run 1 scored 48-68%, so the bar has to
+#: sit far above chance to mean anything. 0.90 is a judgement call: it allows
+#: one item in ten to flip for reasons other than position. Declared here rather
+#: than left inline because an unnamed literal inside a control's verdict is
+#: defect class S4. `consistency` is reported raw beside it.
+SWAP_CONSISTENCY_BAR = 0.90
+
+#: How well V_refusal must reproduce against its OWN split-half floor before a
+#: projection against it can be read at all. Below this, orthogonalising removes
+#: noise rather than refusal and neither cross-category verdict is licensed.
+#:
+#: A reference that agrees with itself below a coin-flip cosine is not an
+#: estimate of anything. Judgement call, not a measurement -- so
+#: `refusal_floor_ci_lo` is reported beside every verdict and a reader can
+#: apply their own bar.
+REFERENCE_FLOOR_BAR = 0.5
+
 
 # --------------------------------------------------------------------------- #
 # Phase 2.2 — bucketing, and the honest verdict when a bucket is too small
@@ -239,7 +260,8 @@ def person_swap_consistency(buckets_a: dict, buckets_b: dict, rows: list) -> dic
         "flip_asymmetry": abs(to_biased - to_refusal) / n if n else float("nan"),
         # 0.5 is chance for a two-way label. Run 1 scored 48-68%.
         "chance_line": 0.5,
-        "usable": bool(n > 0 and rate >= 0.90),
+        "consistency_bar": SWAP_CONSISTENCY_BAR,
+        "usable": bool(n > 0 and rate >= SWAP_CONSISTENCY_BAR),
         "note": "if not usable, the bucket labels carry a position-dependent "
                 "error INTO the direction. Replace the parser with a judge, or "
                 "measure its error against hand labels, before interpreting any "
@@ -411,7 +433,8 @@ def refusal_decoupling(directions: dict, floors: dict, v_refusal,
                 "sqrt(CI_lo(floor_C) * CI_lo(floor_refusal))",
         "per_category": out,
         "n_dominated": int(n_bad), "n_categories": len(out),
-        "refusal_floor_usable": bool(r_lo > 0.5),
+        "reference_floor_bar": REFERENCE_FLOOR_BAR,
+        "refusal_floor_usable": bool(r_lo > REFERENCE_FLOOR_BAR),
         "vacuous_if_not_usable": "with an unreproducible V_refusal this control "
                                  "compares against noise and its verdict means nothing",
     }

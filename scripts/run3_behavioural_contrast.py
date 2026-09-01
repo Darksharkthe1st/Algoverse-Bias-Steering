@@ -136,6 +136,37 @@ DEBIAS_SYS = ("Answer the question. If the context does not say who, say that it
 RETENTION_BAR = 0.5
 
 
+def _option_order(row: dict, *, swap: bool = False) -> list:
+    """The three options as presented.  `swap` exchanges the two NAMED options.
+
+    NOT positions 0 and 1.  BBQ places its not-knowing option uniformly across
+    all three slots -- measured over all 25,814 ambiguous rows: 26.6% at ans0,
+    26.9% at ans1, 26.9% at ans2, 19.6% unresolvable.  So a positional [1,0,2]
+    swap exchanges a PERSON with "Cannot be determined" in 53.5% of items.
+
+    That is a different manipulation from the one N6 needs measured.  The
+    not-knowing option is what DEFINES the refusal bucket, so moving its
+    salience changes the thing being bucketed rather than the entity order, and
+    `person_swap_consistency` -- the only model-side control for N6 -- becomes a
+    46/54 blend of two manipulations.  The swapped pass costs ~20,000 of the
+    generate phase's ~45,000 generations and cannot be recomputed from the
+    residual cache, so this is only fixable before the run.
+    """
+    a = [row["ans0"], row["ans1"], row["ans2"]]
+    if not swap:
+        return a
+    from src.bias_steer.bias_taxonomy import resolve_answer_roles   # noqa: PLC0415
+    roles = resolve_answer_roles(bh.row_metadata(row))
+    named = [i for i in range(3) if not (roles.usable and i == roles.unknown)]
+    if len(named) == 2:
+        i, j = named
+        a[i], a[j] = a[j], a[i]
+        return a
+    # Unresolvable row (19.6%): no answer key, so `bucket_one` returns UNPARSED
+    # and the item never enters either arm. The fallback is inert, not silent.
+    return [a[1], a[0], a[2]]
+
+
 def _prompt_with_options(row: dict, *, swap: bool = False) -> str:
     """The generation prompt.  `swap` exchanges the two NAMED options in the list.
 
@@ -148,9 +179,7 @@ def _prompt_with_options(row: dict, *, swap: bool = False) -> str:
     disagreement is the model's presentation-order dependence rather than a
     bookkeeping artifact.  Run 1 measured this at 48-68% against a 50% line.
     """
-    a = [row["ans0"], row["ans1"], row["ans2"]]
-    if swap:
-        a = [row["ans1"], row["ans0"], row["ans2"]]
+    a = _option_order(row, swap=swap)
     return (f"{row['context']} {row['question']} "
             f"Pick one of three options: {a[0]}, {a[1]}, {a[2]}")
 
@@ -568,12 +597,41 @@ def cmd_extract(args):
     recs = [json.loads(l) for l in open(resp_path, encoding="utf-8") if l.strip()]
 
     judged = None
+    judged_swapped = None
+    judged_version = None
     jl = args.judge_labels or os.path.join(args.out, "judge_labels.jsonl")
     if os.path.exists(jl):
         from scripts.pilot import llm_judge as J               # noqa: PLC0415
         judged = J.load_labels(jl)
-        print(f"using judge labels from {jl} ({len(judged)} items)")
+        # Read the version that ACTUALLY ran off the labels file rather than
+        # taking the module default. The queue runs the local v3 judge, so the
+        # v2 constant would mislabel every bucket block in the report while
+        # judge_labels.jsonl said v3 (AGENTS.md §4).
+        judged_version = J.JUDGE_VERSION
+        judged_model = None
+        with open(jl, encoding="utf-8") as _f:
+            for _line in _f:
+                if _line.strip():
+                    _r = json.loads(_line)
+                    judged_version = _r.get("judge_version") or judged_version
+                    judged_model = _r.get("judge_model")
+                    break
+        print(f"using judge labels from {jl} ({len(judged)} items, "
+              f"judge {judged_version} / {judged_model})")
+        swl = os.path.join(args.out, "judge_labels_swapped.jsonl")
+        if os.path.exists(swl):
+            judged_swapped = J.load_labels(swl)
+            print(f"  + {len(judged_swapped)} judged SWAPPED labels -- the N6 "
+                  f"model-side control gets a judge-scored version too")
     else:
+        if getattr(args, "require_judge", False):
+            print("no judge_labels.jsonl and --require-judge is set. The "
+                  "heuristic-parser fallback would rebuild the whole taxonomy "
+                  "-- floors, cosine matrix, PCA, permutation null, refusal "
+                  "de-coupling -- on the labeller the judge exists to replace. "
+                  "The queue's run() always returns 0, so a failed judge step "
+                  "does not stop extract; this flag does. Re-run `judge` first.")
+            return 1
         print("no judge_labels.jsonl -- falling back to the HEURISTIC parser (N6). "
               "Run `judge` first for the judge-v2 labelling.")
 
@@ -586,6 +644,10 @@ def cmd_extract(args):
 
     report = {"contrast": "behavioural (R_biased - R_refusal)", "n_splits": args.n_splits,
               "min_bucket": args.min_bucket, "per_category": {}}
+
+    if judged is not None:
+        report["judge"] = {"version": judged_version, "model": judged_model,
+                           "labels_file": os.path.basename(jl)}
     directions, floors, buckets, resids = {}, {}, {}, {}
 
     # Reload the real BBQ rows rather than reconstructing them from the log.
@@ -618,15 +680,30 @@ def cmd_extract(args):
             # itself a finding about N6, and it costs nothing to record.
             from scripts.pilot import llm_judge as J           # noqa: PLC0415
             labs = [judged.get(x["item_id"]) for x in rs]
-            bk = J.buckets_from_labels(
+            bk = J.buckets_from_labels(  # judge_version threaded, not assumed
                 labs, min_bucket=args.min_bucket,
-                include_distractor_in_refusal=args.distractor_in_refusal)
+                include_distractor_in_refusal=args.distractor_in_refusal,
+                judge_version=judged_version)
         else:
             bk = bh.bucket_responses(rows, base, min_bucket=args.min_bucket)
 
         heur = bh.bucket_responses(rows, base, min_bucket=args.min_bucket)
         bk_s = bh.bucket_responses(rows, swap, min_bucket=1)
         pos = bh.person_swap_consistency(heur, bk_s, rows)
+        # If the swapped pass was judged too, run the SAME control through the
+        # judge and report both. The heuristic version stays: a large gap
+        # between them is itself a finding about N6.
+        pos_judge = None
+        if judged is not None and judged_swapped is not None:
+            ids_here = [x["item_id"] for x in rs]
+            lab_b = [judged.get(i) for i in ids_here]
+            lab_s = [judged_swapped.get(i) for i in ids_here]
+            if sum(l is not None for l in lab_s) >= 2:
+                bk_jb = J.buckets_from_labels(lab_b, min_bucket=1,
+                                              judge_version=judged_version)
+                bk_js = J.buckets_from_labels(lab_s, min_bucket=1,
+                                              judge_version=judged_version)
+                pos_judge = bh.person_swap_consistency(bk_jb, bk_js, rows)
         ooi = bh.option_order_invariance(base, rows)
 
         # Bucket MEMBERSHIP is part of the record, not an implementation detail:
@@ -639,6 +716,7 @@ def cmd_extract(args):
                      "excluded_unknown": [ids[i] for i in bk.get("unparsed_idx", [])]},
                  "labeller": "judge-v2" if judged is not None else "heuristic-parser",
                  "position_bias_control_heuristic": pos,
+                 "position_bias_control_judge": pos_judge,
                  "option_order_invariance": ooi}
         if judged is not None:
             agree = sum(1 for i in range(len(rs))
@@ -685,318 +763,342 @@ def cmd_extract(args):
               f"pos-bias {pos['consistency']:.2f} "
               f"{'floor ' + format(floors[c]['mean'], '+.3f') if c in floors else ''}")
 
-    if directions:
-        report["cosine_matrix"] = bh.cosine_matrix_layerwise(directions)
-        report["pca"] = bh.pca(directions)
-        if len(directions) > 1:
-            report["permutation_null"] = bh.permutation_null_within(
-                {k: resids[k] for k in directions}, buckets,
-                n_permutations=args.n_permutations, seed=0)
+    # DURABILITY. Everything above -- buckets, floors, shuffled controls, one
+    # per category -- is ~1.5 h of CPU. Everything below is the cross-category
+    # section, which allocates the pooled residual array and is where an OOM
+    # would land. The report was written only at the very end, so a failure
+    # here discarded every floor. Now the section is best-effort and the report
+    # is dumped in a finally: a partial report with all the floors and a
+    # recorded error beats no report at all.
+    try:
+        if directions:
+            report["cosine_matrix"] = bh.cosine_matrix_layerwise(directions)
+            report["pca"] = bh.pca(directions)
+            if len(directions) > 1:
+                report["permutation_null"] = bh.permutation_null_within(
+                    {k: resids[k] for k in directions}, buckets,
+                    n_permutations=args.n_permutations, seed=0)
 
-        # Phase 2.4. WITHOUT THIS, A HIGH CROSS-CATEGORY COSINE IS UNREADABLE.
-        # Bucketing by answered-vs-declined puts the shared abstention direction
-        # into every V_C, so "all categories point the same way" is exactly what
-        # you see when you have measured refusal and nothing else. The
-        # permutation null does NOT catch it: shuffling bucket labels destroys
-        # the refusal component and the bias component alike, so the observed
-        # value beats the null either way. Verified on planted data where each
-        # category had an INDEPENDENT bias direction plus a shared refusal one:
-        # median off-diagonal 0.809, permutation p = 0.024 -- "significant
-        # clustering" with no shared bias mechanism present at all.
-        # ---- V_refusal, built from THIS run's answerable arm -------------- #
-        # WHY NOT THE OBVIOUS POOLING. The tempting construction is to pool
-        # R_refusal against R_biased across all ten categories -- same prompts,
-        # same capture site, free. But that pooled vector is (approximately) the
-        # MEAN OF THE V_C's, so orthogonalising against it removes whatever is
-        # common to all categories -- which is precisely the quantity in dispute.
-        # §8.2 ("one shared bias mechanism") and §8.3 ("we measured refusal")
-        # both predict a large shared component; a control built from that
-        # component cannot distinguish them. It would answer the question by
-        # assuming it.
-        #
-        # The ANSWERABLE arm breaks the circularity. On a disambiguated item the
-        # context says who did it, so declining is simply wrong and has nothing
-        # to do with stereotyping. "Declined when it should have answered" minus
-        # "answered" is a refusal direction that never consulted the bias
-        # contrast, measured on the same prompt family at the same capture site.
-        v_ref, rf, ref_meta = None, {"ci_lo": None}, {"source": "none"}
-        pooled_ambig = None      # set by the proxy block; reused by P1-b below
-        if args.refusal_direction:
-            v_ref = np.load(args.refusal_direction)
-            rf = {"ci_lo": args.refusal_floor_ci_lo}
-            ref_meta = {"source": "external", "path": args.refusal_direction}
-        elif ctrl_by_cat_recs:
-            pooled_R, pooled_bk = [], {"biased_idx": [], "refusal_idx": []}
-            off = 0
-            for c, crs in sorted(ctrl_by_cat_recs.items()):
-                stem = os.path.join(args.out, "residuals", f"{c}__control_disambig.npy")
-                if not os.path.exists(stem):
-                    continue
-                # Same alignment guard as the ambiguous arm: bucket indices come
-                # from the log and index the array, so a resume at a different
-                # --n-control would silently mix items into V_refusal.
-                sidep = stem[:-4] + ".json"
-                if os.path.exists(sidep):
-                    mids = json.load(open(sidep, encoding="utf-8")).get("item_ids")
-                    if mids is not None and mids != [x["item_id"] for x in crs]:
-                        print(f"  {c}: control-arm ids misaligned "
-                              f"-- excluded from V_refusal")
+            # Phase 2.4. WITHOUT THIS, A HIGH CROSS-CATEGORY COSINE IS UNREADABLE.
+            # Bucketing by answered-vs-declined puts the shared abstention direction
+            # into every V_C, so "all categories point the same way" is exactly what
+            # you see when you have measured refusal and nothing else. The
+            # permutation null does NOT catch it: shuffling bucket labels destroys
+            # the refusal component and the bias component alike, so the observed
+            # value beats the null either way. Verified on planted data where each
+            # category had an INDEPENDENT bias direction plus a shared refusal one:
+            # median off-diagonal 0.809, permutation p = 0.024 -- "significant
+            # clustering" with no shared bias mechanism present at all.
+            # ---- V_refusal, built from THIS run's answerable arm -------------- #
+            # WHY NOT THE OBVIOUS POOLING. The tempting construction is to pool
+            # R_refusal against R_biased across all ten categories -- same prompts,
+            # same capture site, free. But that pooled vector is (approximately) the
+            # MEAN OF THE V_C's, so orthogonalising against it removes whatever is
+            # common to all categories -- which is precisely the quantity in dispute.
+            # §8.2 ("one shared bias mechanism") and §8.3 ("we measured refusal")
+            # both predict a large shared component; a control built from that
+            # component cannot distinguish them. It would answer the question by
+            # assuming it.
+            #
+            # The ANSWERABLE arm breaks the circularity. On a disambiguated item the
+            # context says who did it, so declining is simply wrong and has nothing
+            # to do with stereotyping. "Declined when it should have answered" minus
+            # "answered" is a refusal direction that never consulted the bias
+            # contrast, measured on the same prompt family at the same capture site.
+            v_ref, rf, ref_meta = None, {"ci_lo": None}, {"source": "none"}
+            pooled_ambig = None      # set by the proxy block; reused by P1-b below
+            if args.refusal_direction:
+                v_ref = np.load(args.refusal_direction)
+                rf = {"ci_lo": args.refusal_floor_ci_lo}
+                ref_meta = {"source": "external", "path": args.refusal_direction}
+            elif ctrl_by_cat_recs:
+                pooled_R, pooled_bk = [], {"biased_idx": [], "refusal_idx": []}
+                off = 0
+                for c, crs in sorted(ctrl_by_cat_recs.items()):
+                    stem = os.path.join(args.out, "residuals", f"{c}__control_disambig.npy")
+                    if not os.path.exists(stem):
                         continue
-                R = np.asarray(np.load(stem, mmap_mode="r"))
-                n = min(len(crs), R.shape[0])
-                pooled_R.append(R[:n])
-                for i, rec in enumerate(crs[:n]):
-                    lab = judged.get(rec["item_id"]) if judged else None
-                    # "refusal_idx" = declined an ANSWERABLE question.
-                    # "biased_idx"  = answered it (either named person).
-                    if lab == "REFUSAL":
-                        pooled_bk["refusal_idx"].append(off + i)
-                    elif lab in ("BIASED_TARGET", "BIASED_DISTRACTOR"):
-                        pooled_bk["biased_idx"].append(off + i)
-                off += n
-            if pooled_R:
-                Rp = np.concatenate(pooled_R, axis=0)
-                nb, nr = len(pooled_bk["biased_idx"]), len(pooled_bk["refusal_idx"])
-                pooled_bk.update({"n_biased": nb, "n_refusal": nr,
-                                  "n_total": Rp.shape[0]})
-                ref_meta = {"source": "answerable_arm", "n_answered": nb,
-                            "n_declined": nr}
-                # Same minimum as every V_C. It was 8 -- a fourth of MIN_BUCKET,
-                # declared nowhere -- on the ONE direction the entire taxonomy is
-                # orthogonalised against. At 8 a split-half leaves 4 per half.
-                # Declining an ANSWERABLE question is rare by construction, so
-                # landing in the teens pooled across ten categories is a live
-                # outcome, not a hypothetical.
-                if nb >= bh.MIN_BUCKET and nr >= bh.MIN_BUCKET:
-                    # Negated so V_refusal points TOWARD refusal, i.e. opposite
-                    # to the V_C's, which point toward the stereotyped answer.
-                    # Immaterial to the arithmetic -- the control uses |cos| and
-                    # `orthogonalize` is sign-invariant -- but the convention
-                    # should read correctly.
-                    v_ref = -bh.behavioural_direction(Rp, pooled_bk)
-                    ffl = bh.bucket_floor(Rp, pooled_bk, n_splits=min(args.n_splits, 200))
-                    rf = {"ci_lo": ffl["ci_lo"]}
-                    ref_meta["floor"] = ffl
-                else:
-                    ref_meta["unusable_reason"] = (
-                        f"only {nr} declined and {nb} answered on the answerable "
-                        f"arm; need >= {bh.MIN_BUCKET} of each. The model almost never refuses "
-                        f"an answerable question, so no refusal direction can be "
-                        f"measured this way -- report the control as VACUOUS.")
-        report["refusal_direction"] = ref_meta
+                    # Same alignment guard as the ambiguous arm: bucket indices come
+                    # from the log and index the array, so a resume at a different
+                    # --n-control would silently mix items into V_refusal.
+                    sidep = stem[:-4] + ".json"
+                    if os.path.exists(sidep):
+                        mids = json.load(open(sidep, encoding="utf-8")).get("item_ids")
+                        if mids is not None and mids != [x["item_id"] for x in crs]:
+                            print(f"  {c}: control-arm ids misaligned "
+                                  f"-- excluded from V_refusal")
+                            continue
+                    R = np.asarray(np.load(stem, mmap_mode="r"))
+                    n = min(len(crs), R.shape[0])
+                    pooled_R.append(R[:n])
+                    for i, rec in enumerate(crs[:n]):
+                        lab = judged.get(rec["item_id"]) if judged else None
+                        # "refusal_idx" = declined an ANSWERABLE question.
+                        # "biased_idx"  = answered it (either named person).
+                        if lab == "REFUSAL":
+                            pooled_bk["refusal_idx"].append(off + i)
+                        elif lab in ("BIASED_TARGET", "BIASED_DISTRACTOR"):
+                            pooled_bk["biased_idx"].append(off + i)
+                    off += n
+                if pooled_R:
+                    Rp = np.concatenate(pooled_R, axis=0)
+                    nb, nr = len(pooled_bk["biased_idx"]), len(pooled_bk["refusal_idx"])
+                    pooled_bk.update({"n_biased": nb, "n_refusal": nr,
+                                      "n_total": Rp.shape[0]})
+                    ref_meta = {"source": "answerable_arm", "n_answered": nb,
+                                "n_declined": nr}
+                    # Same minimum as every V_C. It was 8 -- a fourth of MIN_BUCKET,
+                    # declared nowhere -- on the ONE direction the entire taxonomy is
+                    # orthogonalised against. At 8 a split-half leaves 4 per half.
+                    # Declining an ANSWERABLE question is rare by construction, so
+                    # landing in the teens pooled across ten categories is a live
+                    # outcome, not a hypothetical.
+                    if nb >= bh.MIN_BUCKET and nr >= bh.MIN_BUCKET:
+                        # Negated so V_refusal points TOWARD refusal, i.e. opposite
+                        # to the V_C's, which point toward the stereotyped answer.
+                        # Immaterial to the arithmetic -- the control uses |cos| and
+                        # `orthogonalize` is sign-invariant -- but the convention
+                        # should read correctly.
+                        v_ref = -bh.behavioural_direction(Rp, pooled_bk)
+                        ffl = bh.bucket_floor(Rp, pooled_bk, n_splits=min(args.n_splits, 200))
+                        rf = {"ci_lo": ffl["ci_lo"]}
+                        ref_meta["floor"] = ffl
+                    else:
+                        ref_meta["unusable_reason"] = (
+                            f"only {nr} declined and {nb} answered on the answerable "
+                            f"arm; need >= {bh.MIN_BUCKET} of each. The model almost never refuses "
+                            f"an answerable question, so no refusal direction can be "
+                            f"measured this way -- report the control as VACUOUS.")
+            report["refusal_direction"] = ref_meta
 
-        # ---- P0-a. Is the answerable-arm proxy the abstention component that
-        # actually sits inside V_C?  Currently that is an argument, and two
-        # things could break it: the two arms are different BEHAVIOURS (declining
-        # an unanswerable question is correct epistemic humility; declining an
-        # answerable one is a comprehension failure), and they are measured in
-        # different REGIMES (disambiguated contexts run 2.22-2.65x longer).
-        #
-        # The error direction is the dangerous one: a misaligned reference
-        # under-removes the confound, the cross-category cosine stays high, and
-        # the run reports SURVIVES when the truth is that it was refusal.
-        #
-        # So measure it. The pooled AMBIGUOUS-arm refusal direction is computed
-        # here as a COMPARISON TARGET ONLY -- never orthogonalised against, which
-        # would be the circular construction this design rejects -- and the two
-        # are compared on the same disattenuation ceiling used everywhere else.
-        if v_ref is not None and directions:
-            # Pre-allocate and fill from the mmaps. Concatenating materialised
-            # copies peaks at ~2x the final size -- 6.2 GB for qwen-14b -- on the
-            # laptop this analysis is meant to run on. This is one copy.
-            names_ = sorted(directions)
-            n_rows = sum(resids[c].shape[0] for c in names_)
-            shp = resids[names_[0]].shape[1:]
-            Ra = np.empty((n_rows,) + tuple(shp), dtype=np.float32)
-            pb = {"biased_idx": [], "refusal_idx": []}
-            off = 0
-            for c in names_:
-                R, bk = resids[c], buckets[c]
-                Ra[off:off + R.shape[0]] = R
-                pb["biased_idx"] += [off + i for i in bk["biased_idx"]]
-                pb["refusal_idx"] += [off + i for i in bk["refusal_idx"]]
-                off += R.shape[0]
-            pb.update({"n_biased": len(pb["biased_idx"]),
-                       "n_refusal": len(pb["refusal_idx"]), "n_total": Ra.shape[0]})
-            pooled_ambig = Ra
-            v_amb = -bh.behavioural_direction(Ra, pb)
-            f_amb = bh.bucket_floor(Ra, pb, n_splits=min(args.n_splits, 200))
-            a_lo = max(0.0, float(rf.get("ci_lo") or 0.0))
-            b_lo = max(0.0, float(f_amb["ci_lo"] or 0.0))
-            ceil_ = float(np.sqrt(a_lo * b_lo))
-            cos_pp = abs(analysis.summarize(v_ref, v_amb)["norm_weighted_mean"])
-            report["refusal_proxy_validation"] = {
-                "abs_cos_answerable_vs_ambiguous": cos_pp,
-                "answerable_floor_ci_lo": a_lo,
-                "ambiguous_pooled_floor_ci_lo": b_lo,
-                "indistinguishability_ceiling": ceil_,
-                # NO BOOLEAN. `cos >= ceiling` is the right rule for
-                # refusal_decoupling, where reaching the ceiling means
-                # INDISTINGUISHABLE and is the thing being detected. Reused here
-                # as a validation it inverts: it demands a near-perfect estimate
-                # and so fails almost always. Measured on planted data where the
-                # answerable arm carries the IDENTICAL refusal component -- i.e.
-                # where the proxy is correct by construction -- it read 0.994
-                # against a ceiling of 0.999 and reported NOT VALIDATED. A check
-                # that cannot pass is as uninformative as one that cannot fail.
+            # ---- P0-a. Is the answerable-arm proxy the abstention component that
+            # actually sits inside V_C?  Currently that is an argument, and two
+            # things could break it: the two arms are different BEHAVIOURS (declining
+            # an unanswerable question is correct epistemic humility; declining an
+            # answerable one is a comprehension failure), and they are measured in
+            # different REGIMES (disambiguated contexts run 2.22-2.65x longer).
+            #
+            # The error direction is the dangerous one: a misaligned reference
+            # under-removes the confound, the cross-category cosine stays high, and
+            # the run reports SURVIVES when the truth is that it was refusal.
+            #
+            # So measure it. The pooled AMBIGUOUS-arm refusal direction is computed
+            # here as a COMPARISON TARGET ONLY -- never orthogonalised against, which
+            # would be the circular construction this design rejects -- and the two
+            # are compared on the same disattenuation ceiling used everywhere else.
+            if v_ref is not None and directions:
+                # Pre-allocate and fill from the mmaps. Concatenating materialised
+                # copies peaks at ~2x the final size -- 6.2 GB for qwen-14b -- on the
+                # laptop this analysis is meant to run on. This is one copy.
+                names_ = sorted(directions)
+                n_rows = sum(resids[c].shape[0] for c in names_)
+                shp = resids[names_[0]].shape[1:]
+                Ra = np.empty((n_rows,) + tuple(shp), dtype=np.float32)
+                pb = {"biased_idx": [], "refusal_idx": []}
+                off = 0
+                for c in names_:
+                    R, bk = resids[c], buckets[c]
+                    Ra[off:off + R.shape[0]] = R
+                    pb["biased_idx"] += [off + i for i in bk["biased_idx"]]
+                    pb["refusal_idx"] += [off + i for i in bk["refusal_idx"]]
+                    off += R.shape[0]
+                pb.update({"n_biased": len(pb["biased_idx"]),
+                           "n_refusal": len(pb["refusal_idx"]), "n_total": Ra.shape[0]})
+                pooled_ambig = Ra
+                v_amb = -bh.behavioural_direction(Ra, pb)
+                f_amb = bh.bucket_floor(Ra, pb, n_splits=min(args.n_splits, 200))
+                a_lo = max(0.0, float(rf.get("ci_lo") or 0.0))
+                b_lo = max(0.0, float(f_amb["ci_lo"] or 0.0))
+                ceil_ = float(np.sqrt(a_lo * b_lo))
+                cos_pp = abs(analysis.summarize(v_ref, v_amb)["norm_weighted_mean"])
+                report["refusal_proxy_validation"] = {
+                    "abs_cos_answerable_vs_ambiguous": cos_pp,
+                    "answerable_floor_ci_lo": a_lo,
+                    "ambiguous_pooled_floor_ci_lo": b_lo,
+                    "indistinguishability_ceiling": ceil_,
+                    # NO BOOLEAN. `cos >= ceiling` is the right rule for
+                    # refusal_decoupling, where reaching the ceiling means
+                    # INDISTINGUISHABLE and is the thing being detected. Reused here
+                    # as a validation it inverts: it demands a near-perfect estimate
+                    # and so fails almost always. Measured on planted data where the
+                    # answerable arm carries the IDENTICAL refusal component -- i.e.
+                    # where the proxy is correct by construction -- it read 0.994
+                    # against a ceiling of 0.999 and reported NOT VALIDATED. A check
+                    # that cannot pass is as uninformative as one that cannot fail.
+                    #
+                    # So report the two numbers and the attenuation-corrected ratio,
+                    # and let the reader judge. A boolean here would need a fresh
+                    # tolerance constant, which is the S4 defect RETENTION_BAR was
+                    # cleaned up for and which P1-b declined for the same reason.
+                    "alignment_vs_ceiling": (cos_pp / ceil_) if ceil_ > 0 else float("nan"),
+                    "note": "the ambiguous-arm direction is a COMPARISON TARGET only "
+                            "and is never orthogonalised against -- doing that is the "
+                            "circular construction this design rejects. If the two are "
+                            "near-orthogonal the proxy is removing the wrong thing and "
+                            "NO 'SURVIVES' verdict is readable.",
+                    "asymmetry_of_evidence": "a HIGH cosine validates the proxy. A low "
+                            "one is ambiguous rather than damning, because the "
+                            "comparison target is itself the pooled V_C and therefore "
+                            "carries bias structure as well as refusal -- so the two "
+                            "can differ for a benign reason. Read a failure here as "
+                            "'unvalidated', not as 'refuted'.",
+                }
+                _ratio = (cos_pp / ceil_) if ceil_ > 0 else float("nan")
+                print(f"  refusal proxy: |cos(answerable, ambiguous)| = {cos_pp:.3f} "
+                      f"vs ceiling {ceil_:.3f} (ratio {_ratio:.3f}) -- descriptive, "
+                      f"not a gate; near 1.0 supports the proxy, low is ambiguous")
+
+            if v_ref is not None:
+                dec = bh.refusal_decoupling(directions, floors, v_ref, rf)
+                dec["direction_source"] = ref_meta.get("source")
+                report["refusal_decoupling"] = dec
+                orth = bh.cosine_matrix_layerwise(
+                    {k: bh.orthogonalize(v, v_ref) for k, v in directions.items()})
+                report["cosine_matrix_refusal_orthogonalised"] = orth
+
+                # THE DECISION FOR PHASE 4.3 LIVES HERE, NOT IN THE PER-CATEGORY TEST.
+                # The per-category ceiling asks "is V_C indistinguishable from
+                # V_refusal?" -- a strict bar that a direction can pass while still
+                # being mostly refusal. Measured on planted data with INDEPENDENT
+                # per-category bias directions plus a shared refusal component:
+                # every category read BIAS-SPECIFIC (|cos| 0.894 against a ceiling of
+                # 0.974) while the cross-category cosine went 0.809 -> -0.004 under
+                # orthogonalisation. All of the shared structure was refusal, and the
+                # per-category verdict said nothing was wrong.
                 #
-                # So report the two numbers and the attenuation-corrected ratio,
-                # and let the reader judge. A boolean here would need a fresh
-                # tolerance constant, which is the S4 defect RETENTION_BAR was
-                # cleaned up for and which P1-b declined for the same reason.
-                "alignment_vs_ceiling": (cos_pp / ceil_) if ceil_ > 0 else float("nan"),
-                "note": "the ambiguous-arm direction is a COMPARISON TARGET only "
-                        "and is never orthogonalised against -- doing that is the "
-                        "circular construction this design rejects. If the two are "
-                        "near-orthogonal the proxy is removing the wrong thing and "
-                        "NO 'SURVIVES' verdict is readable.",
-                "asymmetry_of_evidence": "a HIGH cosine validates the proxy. A low "
-                        "one is ambiguous rather than damning, because the "
-                        "comparison target is itself the pooled V_C and therefore "
-                        "carries bias structure as well as refusal -- so the two "
-                        "can differ for a benign reason. Read a failure here as "
-                        "'unvalidated', not as 'refuted'.",
-            }
-            _ratio = (cos_pp / ceil_) if ceil_ > 0 else float("nan")
-            print(f"  refusal proxy: |cos(answerable, ambiguous)| = {cos_pp:.3f} "
-                  f"vs ceiling {ceil_:.3f} (ratio {_ratio:.3f}) -- descriptive, "
-                  f"not a gate; near 1.0 supports the proxy, low is ambiguous")
+                # The taxonomy claim is about the SHARED structure, so it has to be
+                # tested on the shared structure.
+                raw_med = report["cosine_matrix"]["median_offdiagonal"]
+                orth_med = orth["median_offdiagonal"]
+                # THRESHOLD-FREE. This previously read `>= 0.5 * abs(raw_med)` -- a
+                # 50%-retention bar chosen in code and written down nowhere, sitting
+                # inside the decision §7.4 calls "the decision". That is defect class
+                # S4 (a constant fixed against the quantity it gates), which is the
+                # failure this project reorganised itself to avoid. Replaced with the
+                # same interval logic the rest of the pipeline uses: the shared
+                # structure survives iff the bootstrap CI of the orthogonalised
+                # off-diagonal cosines excludes zero.
+                orth_off = [x for x in orth["offdiagonal"] if np.isfinite(x)]
+                o_lo, o_hi = analysis.bootstrap_ci(orth_off, seed=0)
+                nonzero = bool(np.isfinite(o_lo) and np.isfinite(o_hi)
+                               and (o_lo > 0 or o_hi < 0))
+                retained = (abs(orth_med) / abs(raw_med)) if raw_med else float("nan")
+                survives = bool(np.isfinite(retained) and retained >= RETENTION_BAR)
+                # PRECONDITION, and not a formality -- notes/11 §9.3, incident I-8:
+                # a verdict string states what it required, and NO_EFFECT is never
+                # printed where UNMEASURABLE is the truth.
+                #
+                # Both verdicts below are read off a projection against V_refusal.
+                # `refusal_floor_usable` says whether V_refusal reproduces against
+                # its OWN split-half floor. If it does not, the projection removed
+                # noise rather than refusal, and neither verdict is licensed --
+                # "SURVIVES" least of all, because under-removal by an unreproducible
+                # reference is exactly what manufactures it. The numbers below stay
+                # (they are descriptive); the verdict withholds itself.
+                ref_usable = bool(dec.get("refusal_floor_usable"))
+                report["cross_category_survives_refusal_removal"] = {
+                    "median_offdiagonal_raw": raw_med,
+                    "median_offdiagonal_orthogonalised": orth_med,
+                    "orthogonalised_ci": [o_lo, o_hi],
+                    "orthogonalised_distinguishable_from_zero": nonzero,
+                    "fraction_retained": retained,
+                    "retention_bar": RETENTION_BAR,
+                    "rule": f"survives iff |orth| / |raw| >= {RETENTION_BAR} "
+                            f"(DECLARED, see RETENTION_BAR). The CI above says only "
+                            f"whether the remainder differs from zero, which is a "
+                            f"significance test and not the question -- a residual "
+                            f"cosine of 0.02 can be highly significant and still mean "
+                            f"the shared structure was refusal.",
+                    "share_of_shared_structure_that_is_refusal":
+                        float(1.0 - abs(orth_med) / abs(raw_med)) if raw_med else float("nan"),
+                    "reference_reproduces": ref_usable,
+                    "verdict": (("SHARED STRUCTURE SURVIVES" if survives
+                                 else "SHARED STRUCTURE IS REFUSAL") if ref_usable
+                                else "UNREADABLE -- V_refusal did not reproduce "
+                                     "against its own split-half floor, so "
+                                     "orthogonalising against it removed noise "
+                                     "rather than refusal. Neither verdict is "
+                                     "licensed; report the control as vacuous."),
+                    "verdict_if_reference_had_reproduced": (
+                        "SHARED STRUCTURE SURVIVES" if survives
+                        else "SHARED STRUCTURE IS REFUSAL"),
+                    "caveat": "orthogonalisation is a LOWER BOUND -- V_refusal is itself "
+                              "measured only to its own floor, so this removes only the "
+                              "part that was estimated. A surviving cosine is evidence; "
+                              "a collapsing one is decisive.",
+                }
+                print(f"\n  refusal de-coupling: {dec['n_dominated']}/{dec['n_categories']} "
+                      f"categories REFUSAL-DOMINATED (control usable={dec['refusal_floor_usable']})")
+                print(f"  mean refusal variance share per category: "
+                      f"{np.mean([v['refusal_variance_share'] for v in dec['per_category'].values()]):.3f}")
+                # P1-b. RETENTION_BAR answers "how much survives". It does not
+                # answer "was the removal specific to refusal, or is that simply what
+                # removing any direction does?" A matched random direction is the
+                # null. In high dimension the mechanical effect is negligible, so
+                # this should pass trivially -- it is cheap reassurance and the
+                # matched-control-not-a-constant discipline used everywhere else.
+                # Reuses the pooled array built for the proxy validation rather than
+                # concatenating every residual a second time.
+                rnd_ref = _matched_random(np.asarray(v_ref), seed=7,
+                                          resid=pooled_ambig)
+                orth_rnd = bh.cosine_matrix_layerwise(
+                    {k: bh.orthogonalize(v, rnd_ref) for k, v in directions.items()})
+                rnd_med = orth_rnd["median_offdiagonal"]
+                rnd_ret = (abs(rnd_med) / abs(raw_med)) if raw_med else float("nan")
+                report["cross_category_survives_refusal_removal"][
+                    "retention_under_matched_random"] = rnd_ret
+                # Reported, NOT thresholded. A boolean here would need a fresh
+                # constant, which is the same S4 defect RETENTION_BAR was cleaned up
+                # for. The two retentions side by side are the informative object:
+                # if removing a random direction retains as little as removing
+                # V_refusal does, the removal was not about refusal.
+                report["cross_category_survives_refusal_removal"][
+                    "retention_note"] = (
+                        "compare retention under V_refusal against retention under a "
+                        "matched random direction. Similar values mean the removal "
+                        "was not specific to refusal; a much lower value under "
+                        "V_refusal means it was.")
+                print(f"  cross-category median |cos|  raw {raw_med:+.3f}  ->  "
+                      f"orthogonalised {orth_med:+.3f}  "
+                      f"(retained {retained:.3f}; under matched random {rnd_ret:.3f})")
+                if not ref_usable:
+                    print("\n  *** V_refusal did NOT reproduce against its own floor "
+                          "(refusal_floor_usable=False).")
+                    print("  *** The cross-category verdict is UNREADABLE, not a "
+                          "result. Do not report it either way.")
+                print(f"  -> {report['cross_category_survives_refusal_removal']['verdict']}")
+            else:
+                report["refusal_decoupling"] = {
+                    "status": "NOT RUN",
+                    "why_it_matters": "every V_C contains the shared abstention "
+                                      "direction by construction; without this control "
+                                      "a high cross-category cosine cannot be told "
+                                      "apart from 'we measured refusal'",
+                    "how": "pass --refusal-direction PATH.npy (from "
+                           "src/bias_steer/refusal_extract.py) and --refusal-floor-ci-lo",
+                }
+                print("\n  *** refusal de-coupling NOT RUN. Do not read the cross-category")
+                print("  *** cosine or the PCA as a bias result until it is.")
 
-        if v_ref is not None:
-            dec = bh.refusal_decoupling(directions, floors, v_ref, rf)
-            dec["direction_source"] = ref_meta.get("source")
-            report["refusal_decoupling"] = dec
-            orth = bh.cosine_matrix_layerwise(
-                {k: bh.orthogonalize(v, v_ref) for k, v in directions.items()})
-            report["cosine_matrix_refusal_orthogonalised"] = orth
 
-            # THE DECISION FOR PHASE 4.3 LIVES HERE, NOT IN THE PER-CATEGORY TEST.
-            # The per-category ceiling asks "is V_C indistinguishable from
-            # V_refusal?" -- a strict bar that a direction can pass while still
-            # being mostly refusal. Measured on planted data with INDEPENDENT
-            # per-category bias directions plus a shared refusal component:
-            # every category read BIAS-SPECIFIC (|cos| 0.894 against a ceiling of
-            # 0.974) while the cross-category cosine went 0.809 -> -0.004 under
-            # orthogonalisation. All of the shared structure was refusal, and the
-            # per-category verdict said nothing was wrong.
-            #
-            # The taxonomy claim is about the SHARED structure, so it has to be
-            # tested on the shared structure.
-            raw_med = report["cosine_matrix"]["median_offdiagonal"]
-            orth_med = orth["median_offdiagonal"]
-            # THRESHOLD-FREE. This previously read `>= 0.5 * abs(raw_med)` -- a
-            # 50%-retention bar chosen in code and written down nowhere, sitting
-            # inside the decision §7.4 calls "the decision". That is defect class
-            # S4 (a constant fixed against the quantity it gates), which is the
-            # failure this project reorganised itself to avoid. Replaced with the
-            # same interval logic the rest of the pipeline uses: the shared
-            # structure survives iff the bootstrap CI of the orthogonalised
-            # off-diagonal cosines excludes zero.
-            orth_off = [x for x in orth["offdiagonal"] if np.isfinite(x)]
-            o_lo, o_hi = analysis.bootstrap_ci(orth_off, seed=0)
-            nonzero = bool(np.isfinite(o_lo) and np.isfinite(o_hi)
-                           and (o_lo > 0 or o_hi < 0))
-            retained = (abs(orth_med) / abs(raw_med)) if raw_med else float("nan")
-            survives = bool(np.isfinite(retained) and retained >= RETENTION_BAR)
-            # PRECONDITION, and not a formality -- notes/11 §9.3, incident I-8:
-            # a verdict string states what it required, and NO_EFFECT is never
-            # printed where UNMEASURABLE is the truth.
-            #
-            # Both verdicts below are read off a projection against V_refusal.
-            # `refusal_floor_usable` says whether V_refusal reproduces against
-            # its OWN split-half floor. If it does not, the projection removed
-            # noise rather than refusal, and neither verdict is licensed --
-            # "SURVIVES" least of all, because under-removal by an unreproducible
-            # reference is exactly what manufactures it. The numbers below stay
-            # (they are descriptive); the verdict withholds itself.
-            ref_usable = bool(dec.get("refusal_floor_usable"))
-            report["cross_category_survives_refusal_removal"] = {
-                "median_offdiagonal_raw": raw_med,
-                "median_offdiagonal_orthogonalised": orth_med,
-                "orthogonalised_ci": [o_lo, o_hi],
-                "orthogonalised_distinguishable_from_zero": nonzero,
-                "fraction_retained": retained,
-                "retention_bar": RETENTION_BAR,
-                "rule": f"survives iff |orth| / |raw| >= {RETENTION_BAR} "
-                        f"(DECLARED, see RETENTION_BAR). The CI above says only "
-                        f"whether the remainder differs from zero, which is a "
-                        f"significance test and not the question -- a residual "
-                        f"cosine of 0.02 can be highly significant and still mean "
-                        f"the shared structure was refusal.",
-                "share_of_shared_structure_that_is_refusal":
-                    float(1.0 - abs(orth_med) / abs(raw_med)) if raw_med else float("nan"),
-                "reference_reproduces": ref_usable,
-                "verdict": (("SHARED STRUCTURE SURVIVES" if survives
-                             else "SHARED STRUCTURE IS REFUSAL") if ref_usable
-                            else "UNREADABLE -- V_refusal did not reproduce "
-                                 "against its own split-half floor, so "
-                                 "orthogonalising against it removed noise "
-                                 "rather than refusal. Neither verdict is "
-                                 "licensed; report the control as vacuous."),
-                "verdict_if_reference_had_reproduced": (
-                    "SHARED STRUCTURE SURVIVES" if survives
-                    else "SHARED STRUCTURE IS REFUSAL"),
-                "caveat": "orthogonalisation is a LOWER BOUND -- V_refusal is itself "
-                          "measured only to its own floor, so this removes only the "
-                          "part that was estimated. A surviving cosine is evidence; "
-                          "a collapsing one is decisive.",
-            }
-            print(f"\n  refusal de-coupling: {dec['n_dominated']}/{dec['n_categories']} "
-                  f"categories REFUSAL-DOMINATED (control usable={dec['refusal_floor_usable']})")
-            print(f"  mean refusal variance share per category: "
-                  f"{np.mean([v['refusal_variance_share'] for v in dec['per_category'].values()]):.3f}")
-            # P1-b. RETENTION_BAR answers "how much survives". It does not
-            # answer "was the removal specific to refusal, or is that simply what
-            # removing any direction does?" A matched random direction is the
-            # null. In high dimension the mechanical effect is negligible, so
-            # this should pass trivially -- it is cheap reassurance and the
-            # matched-control-not-a-constant discipline used everywhere else.
-            # Reuses the pooled array built for the proxy validation rather than
-            # concatenating every residual a second time.
-            rnd_ref = _matched_random(np.asarray(v_ref), seed=7,
-                                      resid=pooled_ambig)
-            orth_rnd = bh.cosine_matrix_layerwise(
-                {k: bh.orthogonalize(v, rnd_ref) for k, v in directions.items()})
-            rnd_med = orth_rnd["median_offdiagonal"]
-            rnd_ret = (abs(rnd_med) / abs(raw_med)) if raw_med else float("nan")
-            report["cross_category_survives_refusal_removal"][
-                "retention_under_matched_random"] = rnd_ret
-            # Reported, NOT thresholded. A boolean here would need a fresh
-            # constant, which is the same S4 defect RETENTION_BAR was cleaned up
-            # for. The two retentions side by side are the informative object:
-            # if removing a random direction retains as little as removing
-            # V_refusal does, the removal was not about refusal.
-            report["cross_category_survives_refusal_removal"][
-                "retention_note"] = (
-                    "compare retention under V_refusal against retention under a "
-                    "matched random direction. Similar values mean the removal "
-                    "was not specific to refusal; a much lower value under "
-                    "V_refusal means it was.")
-            print(f"  cross-category median |cos|  raw {raw_med:+.3f}  ->  "
-                  f"orthogonalised {orth_med:+.3f}  "
-                  f"(retained {retained:.3f}; under matched random {rnd_ret:.3f})")
-            if not ref_usable:
-                print("\n  *** V_refusal did NOT reproduce against its own floor "
-                      "(refusal_floor_usable=False).")
-                print("  *** The cross-category verdict is UNREADABLE, not a "
-                      "result. Do not report it either way.")
-            print(f"  -> {report['cross_category_survives_refusal_removal']['verdict']}")
-        else:
-            report["refusal_decoupling"] = {
-                "status": "NOT RUN",
-                "why_it_matters": "every V_C contains the shared abstention "
-                                  "direction by construction; without this control "
-                                  "a high cross-category cosine cannot be told "
-                                  "apart from 'we measured refusal'",
-                "how": "pass --refusal-direction PATH.npy (from "
-                       "src/bias_steer/refusal_extract.py) and --refusal-floor-ci-lo",
-            }
-            print("\n  *** refusal de-coupling NOT RUN. Do not read the cross-category")
-            print("  *** cosine or the PCA as a bias result until it is.")
-
-    p = os.path.join(args.out, "report_behavioural.json")
-    with open(p, "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2, default=float)
+    except Exception as _e:
+        import traceback                                        # noqa: PLC0415
+        report["cross_category_error"] = {
+            "error": f"{type(_e).__name__}: {_e}",
+            "traceback": traceback.format_exc(limit=8),
+            "note": "the per-category buckets, floors and shuffled controls "
+                    "above are complete and valid. The cross-category section "
+                    "(cosine matrix, PCA, permutation null, refusal "
+                    "de-coupling) did not finish -- re-run `extract` on the "
+                    "cached residuals, which needs no GPU.",
+        }
+        print("\n  *** cross-category section FAILED: "
+              f"{type(_e).__name__}: {_e}")
+        print("  *** per-category floors are intact and written. Re-run extract.")
+    finally:
+        p = os.path.join(args.out, "report_behavioural.json")
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, default=float)
     print(f"\nwrote {p}")
     return 0
 
@@ -1107,6 +1209,42 @@ def cmd_judge(args):
             }) + "\n")
     print(f"  {counts}")
     print(f"wrote {path}")
+
+    # The SWAPPED pass, judged by the same instrument. Without this,
+    # `person_swap_consistency` -- the only model-side control for N6 -- is
+    # computed by scoring BOTH passes with the heuristic parser, i.e. the
+    # positionally-biased instrument the judge exists to replace grades the
+    # control that measures positional bias. ~4,000 extra forward passes per
+    # model, minutes against an 11-16 h queue.
+    if getattr(args, "judge_swapped", False):
+        sw_recs = [r for r in recs if r.get("response_swapped")]
+        if not sw_recs:
+            print("  no response_swapped in this run -- nothing to judge")
+            return 0
+        sw_items = [{"scenario": r["prompt_swapped"] or r["prompt"],
+                     "options": r["answers"], "response": r["response_swapped"]}
+                    for r in sw_recs]
+        print(f"judging {len(sw_items)} SWAPPED completions ...")
+        sw_choices = J.judge_batch(sw_items, model=jmodel, client=client)
+        sw_path = os.path.join(args.out, "judge_labels_swapped.jsonl")
+        sw_counts = {}
+        with open(sw_path, "w", encoding="utf-8") as f:
+            for rec, ch in zip(sw_recs, sw_choices):
+                row = bbq.get(rec["item_id"])
+                roles = resolve_answer_roles(row_metadata(row)) if row else None
+                tl = targets.get((rec["category"], rec["item_id"].split(":")[-1]))
+                lab = J.to_directive_label(
+                    ch, target_loc=tl,
+                    unknown_idx=roles.unknown if roles is not None else None)
+                sw_counts[lab] = sw_counts.get(lab, 0) + 1
+                f.write(json.dumps({
+                    "item_id": rec["item_id"], "category": rec["category"],
+                    "judge_choice": ch, "label": lab, "arm": "swapped",
+                    "judge_version": jver, "judge_model": jmodel,
+                    "target_loc": tl,
+                }) + "\n")
+        print(f"  swapped: {sw_counts}")
+        print(f"wrote {sw_path}")
     return 0
 
 
@@ -1162,10 +1300,16 @@ def _matched_random(direction, seed: int, resid=None):
     D = np.asarray(direction)
     rng = np.random.default_rng(seed)
     if resid is not None:
-        X = np.asarray(resid, dtype=np.float64)
-        Xc = X - X.mean(axis=0, keepdims=True)
-        w = rng.normal(size=(Xc.shape[0],))
-        R = np.tensordot(w, Xc, axes=(0, 0))
+        # float32 throughout, with the centring folded into the contraction:
+        #     sum_i w_i (X_i - m)  ==  sum_i w_i X_i  -  (sum_i w_i) m
+        # algebraically identical, and it allocates nothing beyond two
+        # (n_layers, d_model) arrays. The explicit float64 `X - X.mean(...)`
+        # cost 5x the pooled array -- 16.4 GB on qwen-14b against a 3.28 GB
+        # pooled input -- which undid the memory work in commit 4864a98 and put
+        # an OOM in front of every floor computed in the preceding ~1.5 h.
+        X = np.asarray(resid, dtype=np.float32)
+        w = rng.normal(size=(X.shape[0],)).astype(np.float32)
+        R = np.tensordot(w, X, axes=(0, 0)) - w.sum() * X.mean(axis=0)
     else:
         R = rng.normal(size=D.shape)
     nr = np.linalg.norm(R, axis=1, keepdims=True)
@@ -1238,6 +1382,19 @@ def cmd_steer(args):
               f"{', '.join(mismatched)}). Categories would be evaluated on "
               f"different item sets. Re-run `generate --force`.")
         return 1
+
+    # --n-eval trims Phase 4.1 without a code change (plan §6.2 calls this the
+    # trim lever). It may only go DOWN: above the recorded holdout the extra
+    # items were never held out of extraction, so the causal arm would be scored
+    # partly on what built the vector.
+    if args.n_eval is not None:
+        if args.n_eval > held_n and not args.allow_unheld:
+            print(f"  --n-eval {args.n_eval} exceeds the recorded holdout "
+                  f"({held_n}); those items built the vectors. Lower it, or pass "
+                  f"--allow-unheld to accept the leak knowingly.")
+            return 1
+        held_n = args.n_eval
+    report_eval_n = held_n
 
     # 4 sweeps per (cell, alpha): plus, minus, covariance-matched random, and the
     # task control. Plus 2 dose-free sweeps per cell: unsteered and the
@@ -1513,6 +1670,12 @@ def main(argv=None):
     j.add_argument("--model", default=None, choices=sorted(MODELS),
                    help="the TARGET model these completions came from. Only used to "
                         "detect and record judge==target; does not load anything.")
+    j.add_argument("--judge-swapped", action="store_true",
+                   help="also label the entity-swapped pass into "
+                        "judge_labels_swapped.jsonl. Without it "
+                        "person_swap_consistency -- the only model-side N6 "
+                        "control -- is scored by the heuristic parser, which is "
+                        "the instrument whose positional bias N6 names.")
     j.add_argument("--labels-out", default=None,
                    help="write labels here instead of judge_labels.jsonl. Used to "
                         "produce a second, independent labelling for comparison.")
@@ -1563,7 +1726,16 @@ def main(argv=None):
                         "Reported as a CURVE; picking the best value post hoc is S3.")
     s.add_argument("--allow-unheld", action="store_true",
                    help="evaluate steering on items that may have built the vector. "
-                        "Only for runs generated before the holdout existed.")
+                        "Covers two cases: a run generated before the holdout "
+                        "existed, and an --n-eval above the recorded holdout. "
+                        "Both mean the causal arm is scored partly on what fitted "
+                        "the direction, so it must be asked for explicitly.")
+    s.add_argument("--n-eval", type=int, default=None,
+                   help="override the per-category evaluation size read from the "
+                        "residual sidecar. Lower it to trim Phase 4.1's cost. "
+                        "Must be <= the recorded eval_holdout_n, or the extra "
+                        "items were not held out of extraction and the causal "
+                        "arm is scored partly on what built the vector.")
     s.add_argument("--n-control", type=int, default=60)
     s.add_argument("--max-new-tokens", type=int, default=48)
     s.add_argument("--judge-model", default="gpt-4o-mini")
@@ -1599,6 +1771,11 @@ def main(argv=None):
                         "naming the non-stereotyped person is a CHOICE, not an "
                         "abstention, and folding it in makes the contrast "
                         "'stereotyped vs anything else'.")
+    e.add_argument("--require-judge", action="store_true",
+                   help="exit non-zero if judge_labels.jsonl is absent rather "
+                        "than falling back to the heuristic parser. The queue "
+                        "does not stop on a failed step, so without this a "
+                        "judge failure silently rebuilds the taxonomy on N6.")
     e.add_argument("--refusal-direction", default=None,
                    help="(n_layers, d_model) .npy from refusal_extract.py. Phase 2.4. "
                         "Without it the cross-category cosine and the PCA cannot be "

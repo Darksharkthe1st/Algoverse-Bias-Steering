@@ -104,6 +104,31 @@ if ! python3 -m scripts.preflight --load-model qwen-1.8b 2>&1 | tee "$LOGDIR/pre
 fi
 note "preflight: OK"
 
+# --- Off-box durability. A fresh Lambda box has NO git identity: `git commit`
+# --- fails, stderr goes to /dev/null, and run() prints "(nothing new to
+# --- commit)" -- indistinguishable from success, at every step, all night. Set
+# --- it, then prove push works NOW rather than at 8am with everything still on
+# --- a box that bills until you terminate it.
+git config user.email >/dev/null 2>&1 || git config user.email "run3@box.local"
+git config user.name  >/dev/null 2>&1 || git config user.name  "run3 box"
+if git push -q origin HEAD > "$LOGDIR/push_probe_${STAMP}.log" 2>&1; then
+    note "push probe: OK — commits will reach the remote"
+else
+    note "PUSH PROBE FAILED — nothing would survive this box. Fix the remote or"
+    note "the credentials before spending GPU hours."
+    note "See $LOGDIR/push_probe_${STAMP}.log"
+    exit 1
+fi
+
+: "${RESID_BACKUP:=}"
+if [ -z "$RESID_BACKUP" ]; then
+    note "*** RESID_BACKUP unset: residual tensors will exist ONLY on this box."
+    note "*** They are gitignored (GB), so no commit carries them. Either export"
+    note "*** RESID_BACKUP=user@host:/path before starting, or run"
+    note "*** sync_from_box.ps1 from the laptop BEFORE terminating. That is"
+    note "*** defect S5 and it has already cost this project a week."
+fi
+
 # --------------------------------------------------------------------------- #
 # run <name> <command...>   — time it, log it, record the real exit code,
 #                             and commit whatever landed.
@@ -143,8 +168,25 @@ run () {
     fi
     # Checkpoint after every run: the box can vanish at any time.
     git add runs/ 2>/dev/null
-    git commit -q -m "hardening: $name ($( [ "$rc" -eq 0 ] && echo ok || echo "exit $rc" ))" 2>/dev/null \
-        && note "       committed" || note "       (nothing new to commit)"
+    if git commit -q -m "run3: $name ($( [ "$rc" -eq 0 ] && echo ok || echo "exit $rc" ))" 2>/dev/null; then
+        if git push -q origin HEAD 2>/dev/null; then
+            note "       committed + pushed"
+        else
+            note "       *** COMMITTED BUT PUSH FAILED — this work is box-local"
+        fi
+    else
+        note "       (nothing new to commit)"
+    fi
+    # Residual arrays are gitignored (GB, over GitHub 100 MiB), so the commit
+    # above does NOT carry them. Mirror them if a destination is set.
+    if [ -n "${RESID_BACKUP:-}" ]; then
+        if rsync -a --partial --include='*/' --include='residuals/***' \
+                 --exclude='*' runs/ "$RESID_BACKUP/runs/" >/dev/null 2>&1; then
+            note "       residuals mirrored to $RESID_BACKUP"
+        else
+            note "       *** RESIDUAL MIRROR FAILED — they exist only on this box"
+        fi
+    fi
     return 0
 }
 
@@ -335,9 +377,9 @@ note "gate R3-2 (positive control): OK — run-3 nulls are interpretable"
 for M in qwen-14b qwen-7b yi-6b gemma-2b qwen-1.8b; do
     run "R3a_generate_${M}"         python3 -m scripts.run3_behavioural_contrast generate             --model "$M" --capture-index -1 --n-per-category 400 --n-control 100             --out "runs/r3_behavioural_${M}"
 
-    run "R3b_judge_${M}"         python3 -m scripts.run3_behavioural_contrast judge             --out "runs/r3_behavioural_${M}"             --model "$M"             --judge-backend local --judge-local-model "$R3_JUDGE"
+    run "R3b_judge_${M}"         python3 -m scripts.run3_behavioural_contrast judge             --out "runs/r3_behavioural_${M}"             --model "$M"             --judge-backend local --judge-local-model "$R3_JUDGE" --judge-swapped
 
-    run "R3c_extract_${M}"         python3 -m scripts.run3_behavioural_contrast extract             --out "runs/r3_behavioural_${M}" --n-splits 400
+    run "R3c_extract_${M}"         python3 -m scripts.run3_behavioural_contrast extract             --out "runs/r3_behavioural_${M}" --n-splits 400 --require-judge
 
     # Phase 3 — the toggle test, each vector on its own category.
     run "R3d_toggle_${M}"         python3 -m scripts.run3_behavioural_contrast steer             --model "$M" --out "runs/r3_behavioural_${M}"             --judge-backend local --judge-local-model "$R3_JUDGE"             --alphas 0.5 1.0
@@ -430,6 +472,12 @@ for MODEL in ("qwen-14b", "qwen-7b", "yi-6b", "gemma-2b", "qwen-1.8b"):
 PY
 note ""
 
+
+# COLLECT, FIRST PASS. run 3's artifacts into one folder as soon as R3 is done,
+# rather than only at the very end behind ~4 h of P0-P3 that the header already
+# expects to run out of window. A second pass runs at the end so a full queue
+# re-collects everything.
+run COLLECT_r3_only     python3 -m scripts.collect_run3 --out "results/run3_$(date +%Y-%m-%d)"
 
 # --- R1a: qwen-14b alone, fast read. 25-70 min. --------------------------- #
 # One model answers the question. qwen-14b is the strongest and produced the

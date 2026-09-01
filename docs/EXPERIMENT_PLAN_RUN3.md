@@ -189,12 +189,23 @@ span that. Measured on planted data, one draw versus twenty moved the control by
 `CI_lower(observed) > CI_upper(control)`; overlapping intervals are
 `INDETERMINATE`. No constant enters this rule.
 
-**One constant does exist in the pipeline, and it is declared** —
-`RETENTION_BAR = 0.5` in `run3_behavioural_contrast.py`, used only by §7.4's
-cross-category decision. An earlier draft said "there is no threshold constant
-anywhere" while carrying this value inline with no justification, which is defect
-class S4 exactly. `fraction_retained` is reported beside every verdict so a reader
-can apply a different bar.
+**Four decision constants exist in the pipeline, and all four are declared.**
+An earlier draft of this section said "there is no threshold constant anywhere",
+then said "one constant does exist"; both were wrong while three more sat inline
+with no name and no justification. That is defect class S4 — a threshold fixed
+against the quantity it gates — which is what run 1's 0.500 floor bar was
+retracted for. Each now has a named module constant, a written rationale, and
+its raw input reported beside every verdict so a reader can apply their own bar:
+
+| constant | where | gates |
+|---|---|---|
+| `RETENTION_BAR = 0.5` | `run3_behavioural_contrast.py` | §7.4's cross-category verdict; `fraction_retained` reported beside it |
+| `REFERENCE_FLOOR_BAR = 0.5` | `pilot/behavioural.py` | whether `V_refusal` reproduces well enough for that verdict to be readable at all; `refusal_floor_ci_lo` reported |
+| `SWAP_CONSISTENCY_BAR = 0.90` | `pilot/behavioural.py` | whether `person_swap_consistency` is measuring the model rather than the labeller; `consistency` reported |
+| `LENGTH_SELFCHECK_BAR = 0.5` | `pilot/analysis.py` | whether `d_len_bar` reproduces well enough for the specificity control to mean anything (notes/19 §3.3 A-4) |
+
+`MIN_BUCKET = 32` and `EVAL_HOLDOUT_N = 200` are sample sizes rather than
+decision thresholds, and are declared in the same style.
 
 **Known limitation, stated plainly.** These intervals are Monte-Carlo error over
 splits, not sampling error over items, so they narrow as the split count rises.
