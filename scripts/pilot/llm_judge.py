@@ -215,9 +215,13 @@ def local_judge_client(model_key: str = "qwen-1.8b", *, device: str = "cuda",
         circular. Prefer a different family from the target.
     """
     from src.bias_steer import models as M                     # noqa: PLC0415
+    from src.bias_steer.registry import MODELS as _SPECS        # noqa: PLC0415
     import torch                                               # noqa: PLC0415
 
-    loaded = M.load(model_key, device=device)
+    # load_model takes a ModelSpec, not a key string, and sets
+    # default_padding_side="left" plus float16 -- which is exactly what the
+    # left-padded final-position scoring below depends on.
+    loaded = M.load_model(_SPECS[model_key], device=device)
     tok, model = loaded.tokenizer, loaded.model
 
     # Candidate token ids, tried with and without a leading space: tokenizers
@@ -314,10 +318,14 @@ def qualify(items: list, *, model: str = JUDGE_MODEL_DEFAULT, client=None,
     idx = idx[:min(n_sample, len(idx))]
     sub = [items[i] for i in idx]
 
+    # A ROTATION, not a reversal. [2,1,0] leaves index 1 fixed, so a judge that
+    # always answers "the middle one" agrees with itself perfectly and scores
+    # 1.000 -- measured against a stub with exactly that behaviour. [1,2,0] moves
+    # every position, so no constant-answer judge can pass.
     fwd_orders = [[0, 1, 2] for _ in sub]
-    rev_orders = [[2, 1, 0] for _ in sub]
+    rot_orders = [[1, 2, 0] for _ in sub]
     a = judge_batch(sub, model=model, order_by_item=fwd_orders, client=client)
-    b = judge_batch(sub, model=model, order_by_item=rev_orders, client=client)
+    b = judge_batch(sub, model=model, order_by_item=rot_orders, client=client)
 
     def resolve(choice, order):
         """Undo the presentation permutation -> canonical option index or tag."""
@@ -333,7 +341,7 @@ def qualify(items: list, *, model: str = JUDGE_MODEL_DEFAULT, client=None,
             fmt_fail += 1
             continue
         compared += 1
-        if resolve(ca, [0, 1, 2]) == resolve(cb, [2, 1, 0]):
+        if resolve(ca, [0, 1, 2]) == resolve(cb, [1, 2, 0]):
             agree += 1
 
     rate = agree / compared if compared else float("nan")

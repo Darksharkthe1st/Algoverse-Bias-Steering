@@ -255,7 +255,10 @@ class HFBackend:
     def _load(self):
         if self._loaded is None:
             from src.bias_steer import models   # noqa: PLC0415 — optional dep
-            self._loaded = models.load(self.hf_id, device=self.device)
+            from src.bias_steer.config import ModelSpec        # noqa: PLC0415
+            # `models.load` does not exist; the loader takes a ModelSpec.
+            self._loaded = models.load_model(
+                ModelSpec(self.hf_id, self.hf_id, True), device=self.device)
         return self._loaded
 
     def capture(self, rows: list[dict], category: str, *, arm_sign: float) -> np.ndarray:

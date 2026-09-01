@@ -187,7 +187,14 @@ span that. Measured on planted data, one draw versus twenty moved the control by
 
 **Decision rule.** A category reproduces iff
 `CI_lower(observed) > CI_upper(control)`; overlapping intervals are
-`INDETERMINATE`. **There is no threshold constant anywhere.**
+`INDETERMINATE`. No constant enters this rule.
+
+**One constant does exist in the pipeline, and it is declared** —
+`RETENTION_BAR = 0.5` in `run3_behavioural_contrast.py`, used only by §7.4's
+cross-category decision. An earlier draft said "there is no threshold constant
+anywhere" while carrying this value inline with no justification, which is defect
+class S4 exactly. `fraction_retained` is reported beside every verdict so a reader
+can apply a different bar.
 
 **Known limitation, stated plainly.** These intervals are Monte-Carlo error over
 splits, not sampling error over items, so they narrow as the split count rises.
@@ -353,10 +360,30 @@ was refusal, and the per-category verdict said nothing was wrong.
 destroys the bias and refusal components alike, so the observed value beats the
 null (p = 0.024 on that same planted data) regardless.
 
-**This control requires `V_refusal_base`** from `src/bias_steer/refusal_extract.py`
-plus its own floor. Without them the ceiling collapses to zero, nothing can fire,
-and the run reports the control as **vacuous rather than passed**. Until it is
-supplied, the cosine matrix and the PCA are not readable as bias results.
+**Where `V_refusal` comes from — and one construction that looks right and is
+not.** It is built automatically from **this run's answerable arm**: on a
+disambiguated item the context says who did it, so declining is simply wrong and
+has nothing to do with stereotyping. "Declined when it should have answered"
+minus "answered" gives a refusal direction that never consulted the bias
+contrast, on the same prompt family at the same capture site, with its own
+split-half floor. No flag, no extra GPU.
+
+The tempting alternative — pooling `R_refusal` against `R_biased` across all ten
+categories — is **circular**. That pooled vector is approximately the mean of the
+`V_C`s, so orthogonalising against it removes whatever is common to all
+categories, which is precisely the quantity in dispute: §8.2 and §8.3 both
+predict a large shared component, and a control built from that component cannot
+tell them apart. It would answer the question by assuming it.
+
+**The decision:** the shared structure survives iff
+`|orth_median| / |raw_median| >= RETENTION_BAR`. The bootstrap CI of the
+orthogonalised cosines is reported too, but only as description — "differs from
+zero" is a significance test, and a residual cosine of 0.02 can clear it while
+still meaning the shared structure was refusal.
+
+**If the model almost never declines an answerable question**, the arm has too
+few items and the control is reported **vacuous rather than passed**, with the
+counts. `--refusal-direction` still overrides with an external vector.
 
 Orthogonalisation is reported alongside the raw direction, never instead of it: a
 noisily-estimated reference can only be partly projected out, so a projected

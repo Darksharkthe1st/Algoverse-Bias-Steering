@@ -194,7 +194,11 @@ def check_model_loads(model):
             check("model registered", FAIL, f"{model} not in registry",
                   f"known: {sorted(MODELS)}")
             return
-        loaded = M.load(model)
+        # `models` exports load_model(spec, device) -- there is no `load`.
+        # This raised AttributeError, which the except below reported as
+        # 'model loads: FAIL', so preflight returned 1 and the overnight
+        # queue exited at its first gate. Nothing in it has ever run.
+        loaded = M.load_model(MODELS[model])
         n_l = loaded.model.cfg.n_layers
         d_m = loaded.model.cfg.d_model
         check("model loads", OK, f"{model}: {n_l} layers, d_model {d_m}")

@@ -46,7 +46,12 @@ def test_buckets_are_not_all_unparsed_on_real_bbq_rows():
             for i, r in enumerate(rows)]
     bk = bh.bucket_responses(rows, resp, min_bucket=1)
     assert bk["n_unparsed"] == 0
-    assert bk["n_biased"] + bk["n_refusal"] == len(rows)
+    # Distractors are their own class in BOTH labellers now: naming the
+    # non-stereotyped person is a choice, not an abstention, so it belongs to
+    # neither arm. Every item must still be accounted for somewhere.
+    assert (bk["n_biased"] + bk["n_refusal"] + bk["n_distractor"]
+            + bk["n_unparsed"]) == len(rows)
+    assert bk["n_biased"] > 0 and bk["n_refusal"] > 0
 
 
 # --------------------------------------------------------------------------- #
@@ -307,3 +312,35 @@ def test_topic_control_reports_no_when_there_is_nothing_to_find():
     fl = bh.bucket_floor(R, buckets, n_splits=15)
     ng = bh.shuffled_bucket_control(R, buckets, n_splits=15, n_shuffles=5)
     assert analysis.reproduces(fl, ng) != "YES"
+
+
+# --------------------------------------------------------------------------- #
+# Blockers found by an independent audit that the suite did not catch
+# --------------------------------------------------------------------------- #
+
+def test_persist_writes_the_declared_npy_path(tmp_path):
+    """np.save APPENDS .npy unless the name already ends in it, so a ".npy.tmp"
+    scratch name silently becomes ".npy.tmp.npy" and the rename-last crash-safety
+    step then fails on every capture. No test covered _persist, so a green suite
+    said nothing about it."""
+    import os as _os
+    out = r3._persist(str(tmp_path), "Religion", "ambig",
+                      [{"category": "Religion", "example_id": 0}],
+                      np.zeros((1, 2, 3), dtype=np.float32), {}, ["p"])
+    assert _os.path.exists(out), "the declared .npy path was not written"
+    left = _os.listdir(tmp_path / "residuals")
+    assert not any(f.endswith(".tmp") or f.endswith(".tmp.npy") for f in left), left
+
+
+def test_model_loader_entry_point_exists():
+    """`models` exports load_model(spec, device) and has no `load`. Three call
+    sites used `load`, including preflight -- which meant preflight FAILED and the
+    overnight queue exited at its first gate, so nothing in it ever ran."""
+    from src.bias_steer import models as M
+    from src.bias_steer.registry import MODELS as SPECS
+    assert hasattr(M, "load_model")
+    assert not hasattr(M, "load"), "if `load` now exists, re-check the call sites"
+    import inspect
+    src = inspect.getsource(M.load_model)
+    assert "default_padding_side" in src, "the judge's scoring needs left padding"
+    assert "qwen-1.8b" in SPECS and hasattr(SPECS["qwen-1.8b"], "hf_id")

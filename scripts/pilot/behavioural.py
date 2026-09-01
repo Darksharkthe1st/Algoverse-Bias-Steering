@@ -48,6 +48,7 @@ from src.bias_steer.bias_taxonomy import (assert_direction, parse_choice,
 from . import analysis
 
 BIASED, REFUSAL, UNPARSED = "biased", "refusal", "unparsed"
+DISTRACTOR = "distractor"
 
 #: `notes/13` §5 fixes the minimum at 32 per arm, following Arditi et al. and the
 #: reference paper, which reach floors of 0.95-0.99 at exactly that n.  A lower
@@ -109,7 +110,12 @@ def bucket_one(response: str, row: dict) -> str:
         return UNPARSED
     if idx == roles.unknown:
         return REFUSAL
-    return BIASED if idx == roles.biased else REFUSAL
+    # Naming the NON-stereotyped person is a choice, not an abstention. Folding
+    # it into `refusal` makes the contrast "stereotyped vs anything else", so the
+    # direction partly encodes WHICH PERSON was named -- the plan argues this at
+    # length for the judge path, and the fallback used to do the opposite. On 400
+    # real Age items the two conventions differed by 78 items.
+    return BIASED if idx == roles.biased else DISTRACTOR
 
 
 def bucket_responses(rows: list, responses: list, *, min_bucket: int = MIN_BUCKET) -> dict:
@@ -127,11 +133,13 @@ def bucket_responses(rows: list, responses: list, *, min_bucket: int = MIN_BUCKE
         idx[bucket_one(resp, r)].append(i)
 
     n_b, n_r = len(idx[BIASED]), len(idx[REFUSAL])
+    n_d = len(idx[DISTRACTOR])
     testable = n_b >= min_bucket and n_r >= min_bucket
     return {
         "biased_idx": idx[BIASED], "refusal_idx": idx[REFUSAL],
         "unparsed_idx": idx[UNPARSED],
-        "n_biased": n_b, "n_refusal": n_r, "n_unparsed": len(idx[UNPARSED]),
+        "n_biased": n_b, "n_refusal": n_r, "n_distractor": n_d,
+        "n_unparsed": len(idx[UNPARSED]),
         "n_total": len(rows),
         "refusal_rate": n_r / len(rows) if rows else float("nan"),
         "unparsed_rate": len(idx[UNPARSED]) / len(rows) if rows else float("nan"),
