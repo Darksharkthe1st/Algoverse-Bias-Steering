@@ -1,0 +1,3 @@
+[20260901-091213] loading model Qwen/Qwen3-8B
+[20260901-091826] building steering vector (buckets: {'neutral': 165, 'opinionated': 35})
+[20260901-093250] done
