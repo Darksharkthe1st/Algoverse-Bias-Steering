@@ -374,7 +374,18 @@ note "gate R3-2 (positive control): OK — run-3 nulls are interpretable"
 # gemma-2b is gated; it is best-effort, so a 403 costs the download attempt and
 # nothing else. The judge is qwen-1.8b for all five, INCLUDING when qwen-1.8b is
 # itself the target; that cell is cross-checked against $R3_JUDGE_ALT afterwards.
-for M in qwen-14b qwen-7b yi-6b gemma-2b qwen-1.8b; do
+# DECIDED 2026-09-01 by Jeremiah, ~16 h before the 5-page deadline: four
+# targets, three families (Qwen 14b/7b, Yi, Gemma). qwen-1.8b is dropped as a
+# TARGET -- it is the fastest model so this saves only ~20 min, but it removes
+# the one cell where judge == target, so the self-judge cross-check below is no
+# longer needed either. qwen-1.8b remains the JUDGE for all four.
+#
+# ORDER MATTERS FOR THE FALLBACK. Each model runs generate -> judge -> extract
+# -> toggle to completion before the next starts, so stopping the queue at any
+# point leaves COMPLETE results for every finished model rather than four
+# half-done ones. Largest first: if the window closes early, the model that
+# matters most is already finished.
+for M in qwen-14b qwen-7b yi-6b gemma-2b; do
     run "R3a_generate_${M}"         python3 -m scripts.run3_behavioural_contrast generate             --model "$M" --capture-index -1 --n-per-category 400 --n-control 100             --out "runs/r3_behavioural_${M}"
 
     run "R3b_judge_${M}"         python3 -m scripts.run3_behavioural_contrast judge             --out "runs/r3_behavioural_${M}"             --model "$M"             --judge-backend local --judge-local-model "$R3_JUDGE" --judge-swapped
@@ -385,37 +396,21 @@ for M in qwen-14b qwen-7b yi-6b gemma-2b qwen-1.8b; do
     run "R3d_toggle_${M}"         python3 -m scripts.run3_behavioural_contrast steer             --model "$M" --out "runs/r3_behavioural_${M}"             --judge-backend local --judge-local-model "$R3_JUDGE"             --alphas 0.5 1.0
 done
 
-# --- Self-judge cross-check. Settles the one cell where judge == target. ---- #
-# qwen-1.8b judged its own completions. That is a deliberate, recorded choice --
-# one judge across all five targets means a judge quirk cannot be mistaken for a
-# model difference. The residual worry is that a model may systematically misread
-# the phrasings it favours, making the labelling error correlate with the outputs
-# instead of being noise. Re-judge that one cell with an independent model and
-# report the agreement, so the question is measured rather than argued.
-run R3f_selfjudge_crosscheck     python3 -m scripts.run3_behavioural_contrast judge         --out runs/r3_behavioural_qwen-1.8b --model qwen-1.8b         --judge-backend local --judge-local-model "$R3_JUDGE_ALT"         --labels-out runs/r3_behavioural_qwen-1.8b/judge_labels_alt.jsonl
-
-python3 - <<'PY' | tee -a "$SUMMARY"
-import json, pathlib
-d = pathlib.Path("runs/r3_behavioural_qwen-1.8b")
-a, b = d / "judge_labels.jsonl", d / "judge_labels_alt.jsonl"
-if not (a.exists() and b.exists()):
-    print("  self-judge cross-check: not available (one of the labellings is missing)")
-else:
-    la = {json.loads(l)["item_id"]: json.loads(l)["label"]
-          for l in a.open(encoding="utf-8") if l.strip()}
-    lb = {json.loads(l)["item_id"]: json.loads(l)["label"]
-          for l in b.open(encoding="utf-8") if l.strip()}
-    both = sorted(set(la) & set(lb))
-    agree = sum(1 for k in both if la[k] == lb[k])
-    rate = agree / len(both) if both else float("nan")
-    print(f"  self-judge cross-check (qwen-1.8b vs {'yi-6b'}): "
-          f"{agree}/{len(both)} = {rate:.3f} agreement")
-    if rate >= 0.95:
-        print("  -> self-judging is not distorting the labels on this cell.")
-    else:
-        print("  -> DISAGREEMENT. Report the qwen-1.8b cell with this caveat, or")
-        print("     re-extract it from judge_labels_alt.jsonl.")
-PY
+# --- Self-judge cross-check: NOT NEEDED at the current model list ----------
+# It existed because qwen-1.8b was both a target and the judge. With qwen-1.8b
+# dropped as a target, no cell is self-judged and there is nothing to cross-
+# check. GUARDED rather than deleted: put qwen-1.8b back in the list above and
+# this runs again automatically. Without the guard it would reference a
+# directory that never gets created and log a [FAIL] for no reason.
+if [ -d "runs/r3_behavioural_qwen-1.8b" ]; then
+    run R3f_selfjudge_crosscheck \
+        python3 -m scripts.run3_behavioural_contrast judge \
+            --out runs/r3_behavioural_qwen-1.8b --model qwen-1.8b \
+            --judge-backend local --judge-local-model "$R3_JUDGE_ALT" \
+            --labels-out runs/r3_behavioural_qwen-1.8b/judge_labels_alt.jsonl
+else
+    note "self-judge cross-check: skipped (qwen-1.8b is not a target)"
+fi
 note ""
 
 # Phase 4.1 — cross-application, every vector onto every category.
