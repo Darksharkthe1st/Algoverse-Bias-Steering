@@ -365,3 +365,50 @@ def test_permutation_null_is_reproducible_across_processes():
     runs = {subprocess.run([_sys.executable, "-c", prog], capture_output=True,
                            text=True).stdout.strip() for _ in range(2)}
     assert len(runs) == 1, f"p-value differed across processes: {runs}"
+
+
+def test_steering_eval_items_are_held_out_from_extraction():
+    """The extraction draw and the steering draw are both evenly spaced, so they
+    overlapped 19-67% depending on category size -- evaluating the causal claim
+    partly on the items that built the vector, by an amount that varied per
+    category and so confounded the cross-category comparison too."""
+    for c in ("Religion", "Age", "Race_ethnicity"):
+        ex = {r["example_id"] for r in r3._load_rows([c], 400, "ambig")[c]}
+        st = {r["example_id"] for r in r3._load_rows([c], 120, "ambig",
+                                                     exclude_n=400)[c]}
+        assert len(st) == 120
+        assert not (ex & st), f"{c}: {len(ex & st)} steering items were in extraction"
+
+
+def test_random_control_is_covariance_matched_not_isotropic():
+    """notes/11 §8.3: covariance-matched, "not merely norm-matched". An i.i.d.
+    direction in high dimensions lands in the low-variance subspace the model
+    barely uses, so beating it shows almost nothing."""
+    rng = np.random.default_rng(0)
+    L, D, N = 4, 64, 300
+    basis = np.linalg.qr(rng.normal(size=(D, D)))[0]
+    scale = np.concatenate([np.full(5, 10.0), np.full(D - 5, 0.2)])
+    resid = np.stack([(rng.normal(size=(N, D)) * scale) @ basis.T for _ in range(L)],
+                     axis=1)
+    direction = np.stack([basis[:, 0] * 3 for _ in range(L)])
+
+    def share(v):
+        return float(((v @ basis)[:, :5] ** 2).sum() / (v ** 2).sum())
+
+    iid = r3._matched_random(direction, seed=1)
+    cov = r3._matched_random(direction, seed=1, resid=resid)
+    assert share(cov) > 0.8, "covariance-matched must live where the data lives"
+    assert share(iid) < 0.4, "the i.i.d. draw should miss the high-variance subspace"
+    # The dose must be unchanged -- only the direction's distribution differs.
+    for v in (iid, cov):
+        assert np.allclose(np.linalg.norm(v, axis=1),
+                           np.linalg.norm(direction, axis=1))
+
+
+def test_a_system_prompt_baseline_exists_and_is_plain():
+    """AGENTS.md §5 bars reporting any steering result without one: if a sentence
+    of English moves the number as far as the vector does, the vector bought
+    nothing. Kept short on purpose -- an engineered instruction would turn this
+    into a different experiment."""
+    assert r3.DEBIAS_SYS and len(r3.DEBIAS_SYS.split()) < 40
+    assert "stereotype" in r3.DEBIAS_SYS.lower()
