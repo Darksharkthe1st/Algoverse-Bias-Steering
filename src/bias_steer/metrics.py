@@ -7,9 +7,10 @@ and `TestResults` (did steering move each example the right way?).
 
 import csv
 import json
+import random
 from collections import Counter
 
-from .schema import INITIAL, STEERED_POS, STEERED_NEG
+from .schema import INITIAL, STEERED_POS, STEERED_NEG, PROMPT_POS, PROMPT_NEG
 
 # Columns of a run's results.csv — one row per (example, condition).
 RESULT_COLUMNS = [
@@ -23,8 +24,11 @@ EXAMPLE_COLUMNS = ["example_id", "dataset", "prompt", "category", "metadata_json
 
 def tidy_rows(results, *, run_id, model, dataset, opin_coeff, neut_coeff) -> list[dict]:
     """Flatten `Result`s into tidy rows. `coeff` records the signed strength that
-    produced each condition (initial=0, +opinion, -neutral)."""
-    coeff_for = {INITIAL: 0, STEERED_POS: opin_coeff, STEERED_NEG: -neut_coeff}
+    produced each condition (initial=0, +opinion, -neutral). The prompt-baseline
+    arms inject no vector, so their `coeff` is 0 — the intervention there is the
+    system prompt, recorded in the manifest, not a steering strength."""
+    coeff_for = {INITIAL: 0, STEERED_POS: opin_coeff, STEERED_NEG: -neut_coeff,
+                 PROMPT_POS: 0, PROMPT_NEG: 0}
     return [
         {
             "run_id": run_id, "model": model, "dataset": dataset,
@@ -133,13 +137,18 @@ def condition_verdict_counts(results) -> dict:
     return {cond: dict(counter) for cond, counter in out.items()}
 
 
-def steering_quality(results, *, pos_label, neg_label, nonsense_label="nonsense") -> dict:
-    """Did steering move each example the right way? Ports the notebook's TestResults.
+def steering_quality(results, *, pos_label, neg_label, nonsense_label="nonsense",
+                     init_cond=INITIAL, pos_cond=STEERED_POS, neg_cond=STEERED_NEG) -> dict:
+    """Did the intervention move each example the right way? Ports the notebook's
+    TestResults.
 
-    - opinion: comparing INITIAL vs STEERED_POS against `pos_label`
-    - neutral: comparing INITIAL vs STEERED_NEG against `neg_label`
-    - nonsense: whether steering pushed a coherent answer into `nonsense_label` (bad)
-      or rescued a nonsense one (good)
+    - opinion: comparing `init_cond` vs `pos_cond` against `pos_label`
+    - neutral: comparing `init_cond` vs `neg_cond` against `neg_label`
+    - nonsense: whether the intervention pushed a coherent answer into
+      `nonsense_label` (bad) or rescued a nonsense one (good)
+
+    `pos_cond`/`neg_cond` default to the steering arms, but pass the PROMPT arms to
+    score the prompt baseline with the identical rule (needed-experiments §14).
     """
     by_ex = _by_example(results)
     opinion = {"good": 0, "bad": 0, "same_good": 0, "same_bad": 0}
@@ -147,7 +156,7 @@ def steering_quality(results, *, pos_label, neg_label, nonsense_label="nonsense"
     nonsense = {"very_good": 0, "good": 0, "same": 0, "bad": 0, "very_bad": 0}
 
     for cond in by_ex.values():
-        init, pos, neg = cond.get(INITIAL), cond.get(STEERED_POS), cond.get(STEERED_NEG)
+        init, pos, neg = cond.get(init_cond), cond.get(pos_cond), cond.get(neg_cond)
 
         # opinion: want INITIAL -> STEERED_POS to reach pos_label
         if init != pos_label and pos == pos_label:
@@ -186,25 +195,134 @@ def steering_quality(results, *, pos_label, neg_label, nonsense_label="nonsense"
     return {"opinion": opinion, "neutral": neutral, "nonsense": nonsense}
 
 
+def arm_confusion(results, labels, *, base_cond=INITIAL, arm_cond) -> dict:
+    """Per-item confusion of `base_cond`'s verdict against `arm_cond`'s verdict.
+
+    Returns `{"labels": [...], "matrix": {base_label: {arm_label: count}}, "other": {...}}`
+    over the items where BOTH arms have a verdict. `labels` fixes the row/column order
+    (the judge's label set); verdicts outside it (e.g. an extraction-failure marker)
+    are bucketed into `other` rather than silently dropped or folded into a class
+    (AGENTS.md §3: `none` markers are extraction failures, not a behaviour). This is
+    the §14 requirement that steer-vs-control be a per-item comparison, not a
+    difference of two marginals.
+    """
+    by_ex = _by_example(results)
+    matrix = {a: {b: 0 for b in labels} for a in labels}
+    other: Counter = Counter()
+    for cond in by_ex.values():
+        a, b = cond.get(base_cond), cond.get(arm_cond)
+        if a is None or b is None:
+            continue
+        if a in matrix and b in matrix[a]:
+            matrix[a][b] += 1
+        else:
+            other[(a, b)] += 1
+    return {"labels": list(labels), "matrix": matrix,
+            "other": {f"{a}->{b}": n for (a, b), n in other.items()}}
+
+
+def beat_rate(results, *, target_label, steer_cond, prompt_cond,
+              n_boot=1000, seed=0, ci=0.90) -> dict | None:
+    """Does the steering arm reach `target_label` more often than the prompt arm?
+
+    Paired per-item over examples where BOTH arms have a verdict: `point` is the mean
+    of (steer hit − prompt hit), and the CI is a percentile item-bootstrap at level
+    `ci` (resample items with replacement `n_boot` times, seeded). `point > 0` with a
+    CI clear of 0 means the direction beat prompting; `point ≤ 0` (or a CI spanning 0)
+    is the honest boundary result the literature reports for single-direction additive
+    steering vs prompting (needed-experiments §14, FK-5) — report it, don't soften it.
+
+    Returns None if neither arm is present (e.g. a steer-only or prompt-only run).
+    """
+    by_ex = _by_example(results)
+    steer_hits, prompt_hits = [], []
+    for cond in by_ex.values():
+        s, p = cond.get(steer_cond), cond.get(prompt_cond)
+        if s is None or p is None:
+            continue
+        steer_hits.append(1 if s == target_label else 0)
+        prompt_hits.append(1 if p == target_label else 0)
+
+    n = len(steer_hits)
+    if n == 0:
+        return None
+    diffs = [s - p for s, p in zip(steer_hits, prompt_hits)]
+    point = sum(diffs) / n
+
+    rng = random.Random(seed)
+    boots = []
+    for _ in range(n_boot):
+        idx = [rng.randrange(n) for _ in range(n)]
+        boots.append(sum(diffs[i] for i in idx) / n)
+    boots.sort()
+    lo = boots[int(round((1 - ci) / 2 * (n_boot - 1)))]
+    hi = boots[int(round((1 + ci) / 2 * (n_boot - 1)))]
+    return {
+        "n": n, "target": target_label, "ci": ci,
+        "steer_rate": sum(steer_hits) / n, "prompt_rate": sum(prompt_hits) / n,
+        "point": point, "ci_lo": lo, "ci_hi": hi,
+    }
+
+
 def render_summary(*, run_id, label, model, dataset, coeffs, git, n_train, n_test,
-                   counts, quality) -> str:
-    """Human-readable per-run summary.md (committed)."""
+                   counts, quality, intervention="steer", prompt_quality=None,
+                   comparisons=None) -> str:
+    """Human-readable per-run summary.md (committed).
+
+    `quality` is the steering-arm quality (None for a prompt-only run); pass
+    `prompt_quality` to add the prompt-baseline block and `comparisons`
+    (`{"opinion": beat_rate(...), "neutral": beat_rate(...)}`) to add the per-item
+    steer-vs-prompt section (needed-experiments §14).
+    """
     def block(title, d):
         return f"### {title}\n" + "\n".join(f"- {k}: {v}" for k, v in d.items())
+
+    def quality_section(heading, q):
+        return (
+            f"## {heading}\n"
+            f"{block('opinion (toward pos)', q['opinion'])}\n\n"
+            f"{block('neutral (toward neg)', q['neutral'])}\n\n"
+            f"{block('nonsense', q['nonsense'])}\n"
+        )
 
     counts_md = "\n".join(
         f"- **{cond}**: " + ", ".join(f"{v}×{k}" for k, v in sorted(verds.items()))
         for cond, verds in counts.items()
     )
-    return (
-        f"# {label} — {model}\n\n"
+
+    sections = [
+        f"# {label} — {model}\n",
         f"- run_id: `{run_id}`\n"
-        f"- dataset: `{dataset}`  |  method coeffs: opinion={coeffs.opinion}, neutral={coeffs.neutral}\n"
+        f"- intervention: `{intervention}`  |  dataset: `{dataset}`  |  "
+        f"method coeffs: opinion={coeffs.opinion}, neutral={coeffs.neutral}\n"
         f"- git: `{git[0]}`{' (dirty)' if git[1] else ''}\n"
-        f"- train examples: {n_train}  |  test examples: {n_test}\n\n"
-        f"## Verdict counts by condition\n{counts_md}\n\n"
-        f"## Steering quality\n"
-        f"{block('opinion (toward pos)', quality['opinion'])}\n\n"
-        f"{block('neutral (toward neg)', quality['neutral'])}\n\n"
-        f"{block('nonsense', quality['nonsense'])}\n"
-    )
+        f"- train examples: {n_train}  |  test examples: {n_test}\n",
+        f"## Verdict counts by condition\n{counts_md}\n",
+    ]
+    if quality is not None:
+        sections.append(quality_section("Steering quality (vector)", quality))
+    if prompt_quality is not None:
+        sections.append(quality_section("Prompt-baseline quality (system prompt)",
+                                        prompt_quality))
+    if comparisons:
+        lines = []
+        for direction, br in comparisons.items():
+            if br is None:
+                continue
+            verdict = ("steer beats prompt" if br["ci_lo"] > 0
+                       else "prompt beats steer" if br["ci_hi"] < 0
+                       else "inconclusive (CI spans 0)")
+            lines.append(
+                f"- **{direction}** (target `{br['target']}`, n={br['n']}): "
+                f"steer {br['steer_rate']:.3f} vs prompt {br['prompt_rate']:.3f}  |  "
+                f"Δ={br['point']:+.3f}  [{int(br['ci']*100)}% CI "
+                f"{br['ci_lo']:+.3f}, {br['ci_hi']:+.3f}]  → {verdict}"
+            )
+        if lines:
+            sections.append(
+                "## Steer vs prompt (per-item, item-bootstrap CI)\n"
+                + "\n".join(lines)
+                + "\n\n_Δ>0 with a CI clear of 0 = the direction beats prompting; "
+                "otherwise report the bound (needed-experiments §14, FK-5)._\n"
+            )
+    return "\n".join(sections)

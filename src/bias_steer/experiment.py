@@ -26,7 +26,7 @@ from . import artifacts, datasets, metrics, models, steering
 from .config import ExperimentConfig
 from .logs import RunLogger
 from .registry import DATASETS, JUDGES, METHODS, MODELS, validate
-from .schema import INITIAL, STEERED_NEG, STEERED_POS, Result
+from .schema import INITIAL, STEERED_NEG, STEERED_POS, PROMPT_POS, PROMPT_NEG, Result
 from .tracking import append_index, git_sha, index_row, open_run
 
 
@@ -67,6 +67,32 @@ def _contrast(config: ExperimentConfig):
     second as the positive pole (matching the notebook's opinion − neutral)."""
     labels = config.judge.labels
     return labels[1], labels[0]
+
+
+def _build_arms(config: ExperimentConfig, method, vector, loaded):
+    """The eval arms for this run's `intervention`: `(condition, system_prompt, hooks)`.
+
+    `hooks=None` is a plain generate; a hook list is steered generation. INITIAL is
+    always the control (default system prompt, no steering). The steer arms exist
+    only when a vector is available (`steer`/`both`); the prompt arms swap in a
+    behaviour-inducing system prompt and add no hooks (`prompt`/`both`). This is the
+    single place the intervention mode fans out into conditions — see
+    needed-experiments §14. Hooks are built once here (torch-free closures over the
+    vector) and reused across every batch.
+    """
+    default_sys = config.system_prompt
+    arms = [(INITIAL, default_sys, None)]
+    if config.intervention in ("steer", "both"):
+        if vector is None:  # defended in _run_one; belt-and-braces against a silent no-op
+            raise ValueError(f"intervention={config.intervention!r} needs a steering vector")
+        arms.append((STEERED_POS, default_sys,
+                     method.apply(loaded.model, vector, config.coeffs.opinion)))
+        arms.append((STEERED_NEG, default_sys,
+                     method.apply(loaded.model, vector, -config.coeffs.neutral)))
+    if config.intervention in ("prompt", "both"):
+        arms.append((PROMPT_POS, config.pos_system_prompt, None))
+        arms.append((PROMPT_NEG, config.neg_system_prompt, None))
+    return arms
 
 
 def run(config: ExperimentConfig, *, vector_path=None, backend: Backend | None = None,
@@ -165,38 +191,38 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
     (run() snapshots train+test; apply snapshots the eval set); `n_train` and
     `phase_desc` only affect the summary/index label and the progress bar.
     """
-    sys_prompt = config.system_prompt
-
     # Move the vector on-device ONCE: it is applied at every layer on every forward
     # step of the TEST phase, so a per-hook-fire transfer would recopy it thousands
     # of times. `build`/`load_vector` produce a CPU tensor; one host->device copy
-    # here covers the whole phase (#9).
-    vector = vector.to(loaded.device)
+    # here covers the whole phase (#9). A prompt-only run carries no vector.
+    if vector is not None:
+        vector = vector.to(loaded.device)
 
-    # --- TEST: initial + steered (both directions), judge each -----------------
+    arms = _build_arms(config, method, vector, loaded)
+
+    # --- TEST: run every arm for this intervention, judge each ------------------
     results: list[Result] = []
     for batch in progress(list(_batches(eval_examples, config.batch_size)),
                           desc=f"{model_key} {phase_desc}"):
         prompts = [e.prompt for e in batch]
-        initial = backend.generate(loaded, prompts, config.max_tokens, sys_prompt)
-        pos_hooks = method.apply(loaded.model, vector, config.coeffs.opinion)
-        steered_pos = backend.generate_with_hooks(loaded, prompts, pos_hooks, config.max_tokens, sys_prompt)
-        neg_hooks = method.apply(loaded.model, vector, -config.coeffs.neutral)
-        steered_neg = backend.generate_with_hooks(loaded, prompts, neg_hooks, config.max_tokens, sys_prompt)
-
-        j_init = judge_fn(initial, batch, config.judge)
-        j_pos = judge_fn(steered_pos, batch, config.judge)
-        j_neg = judge_fn(steered_neg, batch, config.judge)
+        # Each arm is a plain generate (hooks None) or a steered one; they differ
+        # only in the system prompt and whether hooks are attached.
+        per_arm: dict = {}
+        for cond, arm_sys, hooks in arms:
+            if hooks is None:
+                resp = backend.generate(loaded, prompts, config.max_tokens, arm_sys)
+            else:
+                resp = backend.generate_with_hooks(loaded, prompts, hooks, config.max_tokens, arm_sys)
+            per_arm[cond] = (resp, judge_fn(resp, batch, config.judge))
 
         for i, ex in enumerate(batch):
             meta = {"category": ex.metadata.get("category")}
-            triple = [
-                Result(ex.id, INITIAL, initial[i], j_init[i], dict(meta)),
-                Result(ex.id, STEERED_POS, steered_pos[i], j_pos[i], dict(meta)),
-                Result(ex.id, STEERED_NEG, steered_neg[i], j_neg[i], dict(meta)),
+            row = [
+                Result(ex.id, cond, per_arm[cond][0][i], per_arm[cond][1][i], dict(meta))
+                for cond, _, _ in arms
             ]
-            results.extend(triple)
-            log.eval(ex, triple)
+            results.extend(row)
+            log.eval(ex, row)
 
     # --- metrics + persistence -------------------------------------------------
     rows = metrics.tidy_rows(
@@ -210,7 +236,31 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
                                dataset=config.dataset.name)
 
     counts = metrics.condition_verdict_counts(results)
-    quality = metrics.steering_quality(results, pos_label=contrast[0], neg_label=contrast[1])
+    pos_label, neg_label = contrast
+    has_steer = config.intervention in ("steer", "both")
+    has_prompt = config.intervention in ("prompt", "both")
+
+    # Score each present arm-pair with the identical rule; the prompt baseline reuses
+    # steering_quality pointed at the PROMPT arms (needed-experiments §14).
+    steer_quality = metrics.steering_quality(
+        results, pos_label=pos_label, neg_label=neg_label) if has_steer else None
+    prompt_quality = metrics.steering_quality(
+        results, pos_label=pos_label, neg_label=neg_label,
+        pos_cond=PROMPT_POS, neg_cond=PROMPT_NEG) if has_prompt else None
+
+    # The headline question — did the vector beat prompting? — is a per-item paired
+    # comparison, and only exists when BOTH arms ran (intervention="both").
+    comparisons = None
+    if has_steer and has_prompt:
+        comparisons = {
+            "opinion": metrics.beat_rate(results, target_label=pos_label,
+                                         steer_cond=STEERED_POS, prompt_cond=PROMPT_POS),
+            "neutral": metrics.beat_rate(results, target_label=neg_label,
+                                         steer_cond=STEERED_NEG, prompt_cond=PROMPT_NEG),
+        }
+
+    # Index headline: the vector arms when present, else the prompt arms.
+    headline = steer_quality or prompt_quality
 
     sha, dirty = git_sha()
     summary_md = handle.dir / "summary.md"
@@ -219,23 +269,29 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
     summary_md.write_text(encoding="utf-8", data=metrics.render_summary(
         run_id=handle.run_id, label=config.label, model=model_key,
         dataset=config.dataset.name, coeffs=config.coeffs, git=(sha, dirty),
-        n_train=n_train, n_test=len(eval_examples), counts=counts, quality=quality,
+        n_train=n_train, n_test=len(eval_examples), counts=counts,
+        quality=steer_quality, intervention=config.intervention,
+        prompt_quality=prompt_quality, comparisons=comparisons,
     ))
 
     # A run is "done" only if its evidence is on disk. Reaching this line is not
     # evidence (see assert_run_artifacts) — fail loudly rather than index a hollow run.
-    assert_run_artifacts(handle.dir)
+    # A prompt-only run produces no steering vector, so it is not required of one.
+    required = REQUIRED_RUN_ARTIFACTS
+    if vector is None:
+        required = tuple(a for a in required if a != "steering_vector.safetensors")
+    assert_run_artifacts(handle.dir, required)
 
     row = index_row(config, model_key, handle.run_id, sha, dirty, when, status="done")
     row.update({
         "n_train": n_train, "n_test": len(eval_examples),
-        "opin_good": quality["opinion"]["good"], "neut_good": quality["neutral"]["good"],
+        "opin_good": headline["opinion"]["good"], "neut_good": headline["neutral"]["good"],
     })
     append_index(index_path, row)
     log.event("done")
     on_phase("eval", handle.run_id)  # results + index persisted -> coordinator commits/pushes
 
-    return RunResult(handle.run_id, handle.dir, results_csv, summary_md, counts, quality)
+    return RunResult(handle.run_id, handle.dir, results_csv, summary_md, counts, headline)
 
 
 def _extract_vector(config, model_key, train, loaded, method, judge_fn, contrast,
@@ -308,7 +364,19 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     n_layers = loaded.model.cfg.n_layers
     d_model = loaded.model.cfg.d_model
 
-    if vector_path:
+    if config.intervention == "prompt":
+        # Pure prompt baseline: no steering vector is fit or loaded at all — the
+        # intervention is the system prompt (needed-experiments §14). No TRAIN split
+        # is needed, so the whole sampled set is evaluated. A supplied vector here is
+        # meaningless, so flag it rather than silently ignore it.
+        if vector_path:
+            log.event(
+                f"WARNING: intervention='prompt' — supplied vector ({vector_path}) is "
+                "IGNORED; this run steers by system prompt only, not by a direction."
+            )
+        vector = None
+        eval_examples, n_train_label, phase_desc = train + test, 0, "prompt"
+    elif vector_path:
         # A vector was supplied: skip extraction. A TRAIN split is not needed to
         # hold out here, so it is folded into the eval set rather than wasted — but
         # a *non-empty* train split usually means "please extract", so if one is
@@ -325,7 +393,8 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
                                  contrast, backend, handle, log, n_layers, d_model, progress)
         eval_examples, n_train_label, phase_desc = test, len(train), "eval"
 
-    on_phase("vector", handle.run_id)  # steering vector persisted -> coordinator commits/pushes
+    if vector is not None:
+        on_phase("vector", handle.run_id)  # steering vector persisted -> coordinator commits/pushes
 
     return _evaluate_and_persist(
         config, model_key, handle, log, loaded, vector,

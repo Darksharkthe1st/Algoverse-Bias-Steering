@@ -11,10 +11,15 @@ from dataclasses import dataclass, field
 
 # Steering-eval conditions (arch roadmap §5.2 / §7). A `Result` is produced once
 # per (example, condition).
-INITIAL = "initial"          # no steering
+INITIAL = "initial"          # no steering, default system prompt (the control arm)
 STEERED_POS = "steered_pos"  # steered toward the positive pole (e.g. opinionated)
 STEERED_NEG = "steered_neg"  # steered toward the negative pole (e.g. neutral)
-CONDITIONS = (INITIAL, STEERED_POS, STEERED_NEG)
+# Prompt-baseline arms (needed-experiments §14): the SAME target behaviour induced
+# by a system prompt instead of a vector, so "did the direction beat prompting?" is
+# a per-item comparison on identical prompts under the identical judge (AGENTS.md §5a).
+PROMPT_POS = "prompt_pos"    # opinion-inducing system prompt, NO steering
+PROMPT_NEG = "prompt_neg"    # neutrality-inducing system prompt, NO steering
+CONDITIONS = (INITIAL, STEERED_POS, STEERED_NEG, PROMPT_POS, PROMPT_NEG)
 
 
 @dataclass
