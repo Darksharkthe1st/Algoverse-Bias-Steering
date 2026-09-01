@@ -18,12 +18,15 @@
 #   R3 generate   400x10x2 ambig + 100x10 answerable, x5 models    45,000 gen
 #   R3 judge      one forward pass per completion (qwen-1.8b)      ~50,000
 #   R3 extract    CPU only, from the cached residuals              ~1.5 h
-#   R3d toggle    10 cells x 17 x 120, x5 models                  102,000 gen
+#   R3d toggle    10 cells x 10 sweeps x 200 items, x5 models   100,000 gen
+#                 (2 alphas, not 4: Phase 3 asks WHETHER the vectors do
+#                  anything, so the budget buys precision per point --
+#                  SE 0.035 at n=200 against 0.046 at n=120. Same cost.)
 #   R3e cross     DISABLED (RUN_R3E=0) -- would add 72,000 gen
 #   R1a           annotation contrast, qwen-14b, capture only      ~1 h
 #   R1b/R1c, P0-P3                                                 ~4 h
 #
-# 147,000 generations at 48 new tokens. TransformerLens `generate` is not a fast
+# 145,000 generations at 48 new tokens. TransformerLens `generate` is not a fast
 # serving path: at ~3-6 gen/s on a 14B that is 7-14 h of generation alone, so
 # budget 11-16 h for R3 and expect R1b/P0-P3 to be what runs out of window.
 #
@@ -323,7 +326,7 @@ for M in qwen-14b qwen-7b yi-6b gemma-2b qwen-1.8b; do
     run "R3c_extract_${M}"         python3 -m scripts.run3_behavioural_contrast extract             --out "runs/r3_behavioural_${M}" --n-splits 400
 
     # Phase 3 — the toggle test, each vector on its own category.
-    run "R3d_toggle_${M}"         python3 -m scripts.run3_behavioural_contrast steer             --model "$M" --out "runs/r3_behavioural_${M}"             --judge-backend local --judge-local-model "$R3_JUDGE"             --alphas 0.25 0.5 1.0 2.0 --n-eval 120
+    run "R3d_toggle_${M}"         python3 -m scripts.run3_behavioural_contrast steer             --model "$M" --out "runs/r3_behavioural_${M}"             --judge-backend local --judge-local-model "$R3_JUDGE"             --alphas 0.5 1.0
 done
 
 # --- Self-judge cross-check. Settles the one cell where judge == target. ---- #

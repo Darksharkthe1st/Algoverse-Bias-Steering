@@ -155,7 +155,26 @@ def _prompt_with_options(row: dict, *, swap: bool = False) -> str:
             f"Pick one of three options: {a[0]}, {a[1]}, {a[2]}")
 
 
-EVAL_HOLDOUT_N = 120
+#: Items reserved per category for steering evaluation.
+#:
+#: DECIDED 2026-09-01 by Jeremiah: Phase 3 is trying to establish THAT the
+#: vectors do something, not to map how the effect grows with dose. So the
+#: budget buys precision per point rather than more points -- 2 alphas at this n
+#: instead of 4 at 120, which is the same number of generations.
+#:
+#: The arithmetic. A rate measured on n items carries SE = sqrt(0.25/n): 0.046 at
+#: n=120, 0.035 at n=200. Run 1's steering moved margins by roughly 4%, so at
+#: n=120 the quantity being measured and the noise it is measured through are the
+#: same size, and a null would be uninterpretable. 200 is also close to
+#: budget-neutral: 10 cells x (2 + 2*4) sweeps x 200 = 20,000 per model against
+#: 10 x (2 + 4*4) x 120 = 21,600.
+#:
+#: Why not larger. The holdout is taken before extraction, so every item reserved
+#: here is one the direction is not fitted on. At 200 only Sexual_orientation
+#: loses depth (432 - 200 = 232 available, against 400 elsewhere) and it stays
+#: well clear of the 32-per-arm bucket minimum. At 240 it drops to 192 and
+#: Religion starts losing depth too.
+EVAL_HOLDOUT_N = 200
 
 
 def eval_holdout(rows: list, n_eval: int = EVAL_HOLDOUT_N) -> list:
