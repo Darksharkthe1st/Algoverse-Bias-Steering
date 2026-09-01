@@ -1,0 +1,1127 @@
+"""Run 3: behavioural contrast and bias taxonomy, with the controls wired in.
+
+    # GPU — Phase 1 + 2.1. Two generation passes and one residual cache.
+    python3 -m scripts.run3_behavioural_contrast generate \
+        --model qwen-14b --capture-index -1 --n-per-category 400 \
+        --out runs/r3_behavioural_qwen-14b
+
+    # CPU — Phase 2.2-2.4 and Phase 4.2-4.3, from the cache.
+    python3 -m scripts.run3_behavioural_contrast extract \
+        --out runs/r3_behavioural_qwen-14b --n-splits 400
+
+WHAT THIS CONTRAST IS, AND WHAT IT COSTS
+----------------------------------------
+    V_C,raw = mean(resid | model produced a stereotyped answer)
+            - mean(resid | model said the context is under-informative)
+
+The arms are labelled by the model's own parsed output.  That is a
+BEHAVIOUR-DERIVED contrast, and it is the design run 1 used.  It buys a directly
+causal object -- a vector defined by the behaviour you then try to steer -- and
+it costs three things that must be measured rather than assumed:
+
+  M1  a category the model never stereotypes has an empty arm.  That is "no
+      contrast to split on", not "no bias direction".  `bucket_responses` marks
+      it UNTESTABLE; run 1's floor/tilt correlation was +0.66 to +0.77.
+
+  N6  the parser IS the labeller, so its error goes straight into the vector --
+      and its failure mode is positional, which correlates with the label.
+      `person_swap_consistency` measures it on a second generation pass.
+
+  REFUSAL  bucketing by answered-vs-declined puts the model's general abstention
+      direction into every V_C.  It is shared across categories by construction,
+      so it inflates every cross-category cosine, and Phase 4 would read that as
+      "a universal V_bias".  `refusal_decoupling` measures it.
+
+Everything downstream of the residual cache is CPU-only, so every analysis can
+be redone after the GPU is returned.  That is the S5 requirement.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import sys
+import time
+
+import numpy as np
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from scripts.pilot import analysis, behavioural as bh, pairing   # noqa: E402
+from scripts.pilot.queue import Step, run_queue                  # noqa: E402
+from scripts.run2_annotation_contrast import (MODELS as _R1_MODELS,  # noqa: E402
+                                              DEFAULT_SYS, _chat as _r1_chat,
+                                              _load, probe_tokens)
+
+# Run 3 can target more models than R1 does. R1's set is frozen for comparability
+# with run 1; run 3 is a new experiment and the taxonomy claim needs FAMILIES,
+# not model count -- qwen-14b plus qwen-7b is one family, not two.
+MODELS = dict(_R1_MODELS)
+MODELS.update({
+    "gemma-7b":   "google/gemma-7b-it",        # gated, same licence as gemma-2b
+    "llama3-8b":  "meta-llama/Meta-Llama-3-8B-Instruct",   # gated, Meta approval
+})
+
+
+def _chat(tok, prompt, system_prompt):
+    """Chat template, skipping the system turn entirely when it is empty.
+
+    Run 3 uses an empty system prompt (NEUTRAL_SYS). Passing an empty system
+    MESSAGE is not the same as passing none: Qwen emits a hollow
+    `<|im_start|>system
+<|im_end|>` turn, and gemma's template raises on a
+    system turn at all and falls into a fallback that prefixes two blank lines.
+    Both put tokens at the capture position that carry no instruction, and
+    gemma's differ in shape from Qwen's -- a per-family artifact in exactly the
+    place the direction is measured.
+    """
+    if not (system_prompt or "").strip():
+        return tok.apply_chat_template([{"role": "user", "content": prompt}],
+                                       tokenize=False, add_generation_prompt=True)
+    return _r1_chat(tok, prompt, system_prompt)
+
+# Phase 1.1: under-informative items only. The adequately-informative arm is
+# CAPTURED but never used in the primary -- Phase 1.3 keeps it as the passive
+# task-capability control, which is what lets a reader tell "the model is biased"
+# apart from "the model cannot do the task at all".
+AMBIG, DISAMBIG = "ambig", "disambig"
+
+#: Run 3 generates with NO formatting instruction, deliberately.
+#:
+#: `config.DEFAULT_SYS` ("First give the clear, definitive answer and then explain
+#: your answers very briefly") exists because run 1 had to parse the completion
+#: with a regex, so the completion had to be shaped for the parser. Judge v2 reads
+#: prose, so that constraint is gone -- and the instruction was never free: it
+#: pushes instruction-following activations into the residual stream at exactly
+#: the position the direction is extracted from, and it does so identically in
+#: both arms, which is precisely the kind of shared component that inflates every
+#: cross-category cosine.
+#:
+#: DECLARED COST: this breaks prompt-level comparability with run 1 and with R1,
+#: both of which used DEFAULT_SYS. Pass `--system-prompt "$(...DEFAULT_SYS)"` to
+#: restore it; the choice is recorded in every sidecar either way.
+NEUTRAL_SYS = ""
+
+
+def _prompt_with_options(row: dict, *, swap: bool = False) -> str:
+    """The generation prompt.  `swap` exchanges the two NAMED options in the list.
+
+    Matches `datasets.load_bbq`'s format exactly so run 3 and the 2025 pipeline
+    ask the same question.
+
+    `swap` is the position-bias control's second pass (Phase 2.2).  It reorders
+    only the PROMPT; bucketing always parses against the row's canonical
+    `[ans0, ans1, ans2]`, so the two passes are directly comparable and any
+    disagreement is the model's presentation-order dependence rather than a
+    bookkeeping artifact.  Run 1 measured this at 48-68% against a 50% line.
+    """
+    a = [row["ans0"], row["ans1"], row["ans2"]]
+    if swap:
+        a = [row["ans1"], row["ans0"], row["ans2"]]
+    return (f"{row['context']} {row['question']} "
+            f"Pick one of three options: {a[0]}, {a[1]}, {a[2]}")
+
+
+def _load_rows(categories, n_per_category, condition=AMBIG):
+    """BBQ rows for one condition, with BBQ's own answer key attached.
+
+    `target_loc` is the dataset authors' label for which answer is biased, and it
+    ALREADY accounts for question polarity.  Attaching it here means
+    `resolve_answer_roles` uses the key rather than reconstructing it -- which is
+    what removes "how do you know you labelled these correctly?" from the list of
+    things the paper has to defend.
+    """
+    from src.bias_steer.datasets import bbq_target_loc          # noqa: PLC0415
+    targets = bbq_target_loc()
+    out = {}
+    for c in categories:
+        rows = [r for r in pairing.load_category(c)
+                if r["context_condition"] == condition]
+        if n_per_category and n_per_category < len(rows):
+            step = len(rows) / n_per_category
+            rows = [rows[int(i * step)] for i in range(n_per_category)]
+        for r in rows:
+            r["target_loc"] = targets.get((r["category"], str(r["example_id"])))
+        out[c] = rows
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# Phase 1 + 2.1 — generate (twice), capture once
+# --------------------------------------------------------------------------- #
+
+
+def _prep_padding(tok, model):
+    """Configure padding on BOTH tokenizers before any batched generation.
+
+    `capture` passes an explicit `attention_mask` to `run_with_cache`, so padding
+    is inert there. `generate` is different: TransformerLens builds its own mask
+    internally from `model.tokenizer`, NOT from the `AutoTokenizer` this script
+    encodes with. If `model.tokenizer.pad_token` is unset -- and it is unset by
+    default on Qwen and Llama-3 -- pad positions are attended as real tokens, and
+    every completion in a mixed-length batch is quietly wrong.
+
+    That would corrupt the bucket labels, which ARE the contrast. Nothing raises.
+    """
+    for t in {id(tok): tok, id(getattr(model, "tokenizer", None)):
+              getattr(model, "tokenizer", None)}.values():
+        if t is None:
+            continue
+        t.padding_side = "left"
+        if t.pad_token is None:
+            t.pad_token = t.eos_token
+
+
+def _generate_batched(tok, model, chat_texts, *, max_new_tokens, batch_size):
+    """Greedy generation over left-padded batches, mask passed where supported.
+
+    Falls back to unbatched generation if this TransformerLens build will not take
+    an `attention_mask`. Unbatched is slower but padding-free by construction, so
+    it is correct rather than merely probably-correct -- the right way round for
+    a value that becomes a label.
+    """
+    import torch                                               # noqa: PLC0415
+
+    out, use_mask = [], True
+    for i in range(0, len(chat_texts), batch_size):
+        chunk = chat_texts[i:i + batch_size]
+        enc = tok(chunk, return_tensors="pt", padding=True, add_special_tokens=True)
+        ids = enc["input_ids"].to(model.cfg.device)
+        attn = enc["attention_mask"].to(model.cfg.device)
+        if use_mask:
+            try:
+                with torch.no_grad():
+                    gen = model.generate(ids, attention_mask=attn,
+                                         max_new_tokens=max_new_tokens,
+                                         temperature=0, verbose=False)
+            except TypeError:
+                use_mask = False
+                print("    note: this transformer_lens build does not accept "
+                      "attention_mask in generate(); falling back to unbatched "
+                      "generation so padding cannot leak into the completions.",
+                      flush=True)
+        if not use_mask:
+            gen = None
+            for one in chunk:
+                e = tok([one], return_tensors="pt", add_special_tokens=True)
+                oid = e["input_ids"].to(model.cfg.device)
+                with torch.no_grad():
+                    g = model.generate(oid, max_new_tokens=max_new_tokens,
+                                       temperature=0, verbose=False)
+                out.append(tok.decode(g[0, oid.shape[1]:], skip_special_tokens=True))
+            continue
+        for j in range(gen.shape[0]):
+            out.append(tok.decode(gen[j, ids.shape[1]:], skip_special_tokens=True))
+    return out
+
+
+def _capture_prompts(tok, model, prompts, *, capture_index, system_prompt, batch_size=8):
+    """Residuals at `capture_index` for EXPLICIT prompt strings.
+
+    `run2.capture_arm` builds its own prompt via `pairing.prompt_text`, which is
+    `context + " " + question` with NO option list -- correct for R1, wrong here.
+    Run 3 must generate, so the model has to see the options, and the residual
+    has to come from the SAME string the completion came from.  Capturing a
+    different prompt than the one that produced the bucket label would break the
+    correspondence the whole contrast rests on, and nothing would raise.
+
+    Same mechanics as `capture_arm` otherwise: left padding so index -1 is the
+    real final token for every row, attention mask passed through, all layers.
+    """
+    import torch                                                # noqa: PLC0415
+
+    n_layers = model.cfg.n_layers
+    names = [f"blocks.{i}.hook_resid_pre" for i in range(n_layers)]
+    wanted = set(names)
+
+    prev = getattr(tok, "padding_side", None)
+    tok.padding_side = "left"
+    if tok.pad_token is None:
+        tok.pad_token = tok.eos_token
+    out = []
+    try:
+        for i in range(0, len(prompts), batch_size):
+            chunk = [_chat(tok, p, system_prompt) for p in prompts[i:i + batch_size]]
+            enc = tok(chunk, return_tensors="pt", padding=True, add_special_tokens=True)
+            ids = enc["input_ids"].to(model.cfg.device)
+            attn = enc["attention_mask"].to(model.cfg.device)
+            with torch.no_grad():
+                _logits, cache = model.run_with_cache(
+                    ids, attention_mask=attn,
+                    names_filter=lambda n: n in wanted, return_type=None)
+            out.append(torch.stack([cache[n][:, capture_index, :] for n in names],
+                                   dim=1).detach().float().cpu())
+            del cache
+    finally:
+        if prev is not None:
+            tok.padding_side = prev
+    return torch.cat(out, dim=0).numpy().astype(np.float32)
+
+
+def _generate(tok, model, rows, system_prompt, *, swap, max_new_tokens, batch_size):
+    """Greedy completions.  Verbatim persistence is the caller's job."""
+    import torch                                                # noqa: PLC0415
+
+    _prep_padding(tok, model)
+    texts = [_chat(tok, _prompt_with_options(r, swap=swap), system_prompt) for r in rows]
+    return _generate_batched(tok, model, texts, max_new_tokens=max_new_tokens,
+                             batch_size=batch_size)
+
+
+def cmd_generate(args):
+    os.makedirs(args.out, exist_ok=True)
+    hf_id = MODELS[args.model]
+    t0 = time.time()
+    tok, model = _load(hf_id, args.device)
+    print(f"  n_layers={model.cfg.n_layers} d_model={model.cfg.d_model}", flush=True)
+
+    probe = probe_tokens(tok, args.system_prompt)
+    print("\n  CAPTURE SITE -- look at this before trusting anything downstream:")
+    for e in probe["last_six"]:
+        print(f"    index {e['index']:>3}  {e['text']!r}")
+    print(f"    capturing at index {args.capture_index}\n", flush=True)
+    with open(os.path.join(args.out, "capture_site.json"), "w", encoding="utf-8") as f:
+        json.dump({"model": args.model, "hf_id": hf_id,
+                   "capture_index": args.capture_index, **probe}, f, indent=2)
+
+    cats = args.categories or pairing.categories()
+    amb = _load_rows(cats, args.n_per_category, AMBIG)
+    inf = _load_rows(cats, args.n_control, DISAMBIG)      # Phase 1.3 task control
+
+    meta_extra = {
+        "model": args.model, "hf_id": hf_id,
+        "capture_site": f"resid_pre, chat-template token index {args.capture_index}",
+        "capture_index": args.capture_index,
+        "system_prompt": args.system_prompt,
+        "contrast": "behavioural (R_biased minus R_refusal), parsed from generation",
+        "condition": "ambig (under-informative) only; disambig captured as task control",
+    }
+
+    steps, resp_path = [], os.path.join(args.out, "responses.jsonl")
+
+    def _make(c):
+        def _run():
+            # Residuals at the final PROMPT token -- before any answer token
+            # exists. Capturing over the generated text would make the direction
+            # partly encode the very output the bucket label was read from.
+            for tag, rr in (("ambig", amb[c]), ("control_disambig", inf[c])):
+                stem = os.path.join(args.out, "residuals", f"{c}__{tag}.npy")
+                if os.path.exists(stem) and not args.force:
+                    continue
+                prompts = [_prompt_with_options(r) for r in rr]
+                res = _capture_prompts(tok, model, prompts,
+                                       capture_index=args.capture_index,
+                                       system_prompt=args.system_prompt,
+                                       batch_size=args.batch_size)
+                _persist(args.out, c, tag, rr, res, meta_extra, prompts)
+        return _run
+
+    for c in cats:
+        steps.append(Step(name=f"capture_{c}",
+                          produces=[os.path.join(args.out, "residuals", f"{c}__{t}.npy")
+                                    for t in ("ambig", "control_disambig")],
+                          fn=_make(c)))
+
+    def _gen_all():
+        """Two passes: canonical option order, and with the named pair swapped.
+
+        The second pass is not optional and is not a nicety -- it is the only
+        thing that can detect N6's positional labelling error, and that error
+        lands directly on the bucket assignment. `notes/13` §13 requires every
+        completion verbatim; `verifier.py` enforces it.
+        """
+        with open(resp_path, "w", encoding="utf-8") as f:
+            for c in cats:
+                rows = amb[c]
+                base = _generate(tok, model, rows, args.system_prompt, swap=False,
+                                 max_new_tokens=args.max_new_tokens,
+                                 batch_size=args.batch_size)
+                swapped = _generate(tok, model, rows, args.system_prompt, swap=True,
+                                    max_new_tokens=args.max_new_tokens,
+                                    batch_size=args.batch_size)
+                for r, b, s in zip(rows, base, swapped):
+                    f.write(json.dumps({
+                        "item_id": pairing.item_key(r), "category": c,
+                        "question_polarity": r["question_polarity"],
+                        "context_condition": r["context_condition"],
+                        "prompt": _prompt_with_options(r),
+                        "prompt_swapped": _prompt_with_options(r, swap=True),
+                        "response": b,                       # VERBATIM
+                        "response_swapped": s,               # VERBATIM
+                        "response_sha256": hashlib.sha256(b.encode()).hexdigest(),
+                        "answers": [r["ans0"], r["ans1"], r["ans2"]],
+                        "target_loc": r.get("target_loc"),
+                    }) + "\n")
+                print(f"  {c}: {len(rows)} x2 completions", flush=True)
+
+    steps.append(Step(name="generate_both_passes", produces=[resp_path], fn=_gen_all))
+
+    # prompts.jsonl, verbatim (notes/13 §13). Also what lets `verifier.verify`
+    # run as the termination gate: it requires prompts.jsonl AND responses.jsonl,
+    # and run 3 legitimately has both -- unlike R1, which generates nothing.
+    def _write_prompts():
+        with open(os.path.join(args.out, "prompts.jsonl"), "w", encoding="utf-8") as f:
+            for c in cats:
+                for tag, rr in (("ambig", amb[c]), ("control_disambig", inf[c])):
+                    for r in rr:
+                        f.write(json.dumps({
+                            "item_id": pairing.item_key(r), "category": c, "arm": tag,
+                            "context_condition": r["context_condition"],
+                            "question_polarity": r["question_polarity"],
+                            "prompt": _prompt_with_options(r),
+                            "chat_formatted": _chat(tok, _prompt_with_options(r),
+                                                    args.system_prompt),
+                            "answers": [r["ans0"], r["ans1"], r["ans2"]],
+                        }) + "\n")
+    steps.append(Step(name="write_prompts",
+                      produces=[os.path.join(args.out, "prompts.jsonl")],
+                      fn=_write_prompts))
+
+    m = run_queue(steps, out_dir=args.out)
+    print(f"\ngenerate finished in {(time.time()-t0)/60:.1f} min; all_ok={m['all_ok']}")
+    if not m["all_ok"]:
+        for s in m["steps"]:
+            if s["status"] != "OK":
+                print(f"  {s['name']}: {s['status']} {s.get('error','')}")
+        return 1
+    print("\nSYNC OFF THE BOX BEFORE TERMINATING IT.")
+    return 0
+
+
+def _persist(out_dir, category, tag, rows, resid, meta_extra, prompts):
+    d = os.path.join(out_dir, "residuals")
+    os.makedirs(d, exist_ok=True)
+    stem = os.path.join(d, f"{category}__{tag}")
+    tmp = stem + ".npy.tmp"
+    np.save(tmp, resid)
+    meta = {"category": category, "arm": tag,
+            "item_ids": [pairing.item_key(r) for r in rows],
+            "prompts": prompts,
+            "n_items": len(rows), "n_layers": int(resid.shape[1]),
+            "d_model": int(resid.shape[2]), "dtype": "float32", **meta_extra}
+    with open(stem + ".json", "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2)
+    # Rename LAST: a process killed mid-save then leaves no .npy at all, rather
+    # than an orphan array that the resume path would skip forever and the
+    # verifier would reject permanently.
+    os.replace(tmp, stem + ".npy")
+    return stem + ".npy"
+
+
+# --------------------------------------------------------------------------- #
+# Phase 2.2-2.4 and Phase 4.2-4.3 — CPU, from the cache
+# --------------------------------------------------------------------------- #
+
+def cmd_extract(args):
+    resp_path = os.path.join(args.out, "responses.jsonl")
+    if not os.path.exists(resp_path):
+        print(f"missing {resp_path} -- run `generate` first")
+        return 1
+    from scripts.pilot import verifier                          # noqa: PLC0415
+    chk = verifier.verify(args.out)
+    print(f"verifier: {chk.checked} checks, {len(chk.failures)} failures")
+    for fl in chk.failures[:10]:
+        print(f"  FAIL {fl}")
+    if not chk.passed and not args.force:
+        print("\nverifier failed -- refusing to analyse. --force to override.")
+        return 1
+
+    recs = [json.loads(l) for l in open(resp_path, encoding="utf-8") if l.strip()]
+
+    judged = None
+    jl = args.judge_labels or os.path.join(args.out, "judge_labels.jsonl")
+    if os.path.exists(jl):
+        from scripts.pilot import llm_judge as J               # noqa: PLC0415
+        judged = J.load_labels(jl)
+        print(f"using judge labels from {jl} ({len(judged)} items)")
+    else:
+        print("no judge_labels.jsonl -- falling back to the HEURISTIC parser (N6). "
+              "Run `judge` first for the judge-v2 labelling.")
+
+    by_cat = {}
+    for r in recs:
+        by_cat.setdefault(r["category"], []).append(r)
+
+    report = {"contrast": "behavioural (R_biased - R_refusal)", "n_splits": args.n_splits,
+              "min_bucket": args.min_bucket, "per_category": {}}
+    directions, floors, buckets, resids = {}, {}, {}, {}
+
+    # Reload the real BBQ rows rather than reconstructing them from the log.
+    # `resolve_answer_roles` finds the "Can't answer" option from `answer_groups`
+    # (built from `answer_info`), not from the answer TEXT -- so a reconstructed
+    # row with those fields missing yields `usable == False` for every item, the
+    # whole category buckets as `unparsed`, and the direction is built from
+    # nothing. Nothing raises. Keying by `item_key` keeps log and dataset aligned.
+    from src.bias_steer.datasets import bbq_target_loc          # noqa: PLC0415
+    targets = bbq_target_loc()
+    bbq_by_id = {}
+    for c in by_cat:
+        for r in pairing.load_category(c):
+            r["target_loc"] = targets.get((r["category"], str(r["example_id"])))
+            bbq_by_id[pairing.item_key(r)] = r
+
+    for c, rs in sorted(by_cat.items()):
+        missing = [x["item_id"] for x in rs if x["item_id"] not in bbq_by_id]
+        if missing:
+            print(f"  {c}: {len(missing)} logged items not found in BBQ "
+                  f"(first: {missing[:3]}) -- skipping category")
+            continue
+        rows = [bbq_by_id[x["item_id"]] for x in rs]
+        base = [x["response"] for x in rs]
+        swap = [x["response_swapped"] for x in rs]
+
+        if judged is not None:
+            # Judge v2 labels. The heuristic buckets are still computed below so
+            # the two labellings can be compared -- a large disagreement is
+            # itself a finding about N6, and it costs nothing to record.
+            from scripts.pilot import llm_judge as J           # noqa: PLC0415
+            labs = [judged.get(x["item_id"]) for x in rs]
+            bk = J.buckets_from_labels(
+                labs, min_bucket=args.min_bucket,
+                include_distractor_in_refusal=args.distractor_in_refusal)
+        else:
+            bk = bh.bucket_responses(rows, base, min_bucket=args.min_bucket)
+
+        heur = bh.bucket_responses(rows, base, min_bucket=args.min_bucket)
+        bk_s = bh.bucket_responses(rows, swap, min_bucket=1)
+        pos = bh.person_swap_consistency(heur, bk_s, rows)
+        ooi = bh.option_order_invariance(base, rows)
+
+        # Bucket MEMBERSHIP is part of the record, not an implementation detail:
+        # without it a reader cannot check which completions produced a direction.
+        ids = [x["item_id"] for x in rs]
+        entry = {"buckets": {k: v for k, v in bk.items() if not k.endswith("_idx")},
+                 "bucket_membership": {
+                     "biased": [ids[i] for i in bk["biased_idx"]],
+                     "refusal": [ids[i] for i in bk["refusal_idx"]],
+                     "excluded_unknown": [ids[i] for i in bk.get("unparsed_idx", [])]},
+                 "labeller": "judge-v2" if judged is not None else "heuristic-parser",
+                 "position_bias_control_heuristic": pos,
+                 "option_order_invariance": ooi}
+        if judged is not None:
+            agree = sum(1 for i in range(len(rs))
+                        if (i in set(bk["biased_idx"])) == (i in set(heur["biased_idx"])))
+            entry["judge_vs_heuristic_agreement"] = agree / (len(rs) or 1)
+
+        if bk["status"] == "TESTABLE":
+            stem = os.path.join(args.out, "residuals", f"{c}__ambig.npy")
+            if os.path.exists(stem):
+                R = np.load(stem, mmap_mode="r")
+                resids[c] = R
+                buckets[c] = bk
+                directions[c] = bh.behavioural_direction(R, bk)
+                dd = os.path.join(args.out, "directions")
+                os.makedirs(dd, exist_ok=True)
+                np.save(os.path.join(dd, f"{c}.npy"),
+                        np.asarray(directions[c], dtype=np.float32))
+                floors[c] = bh.bucket_floor(R, bk, n_splits=args.n_splits, seed=0)
+                ctrl = bh.shuffled_bucket_control(R, bk, n_splits=args.n_splits, seed=0)
+                entry["floor"] = floors[c]
+                entry["shuffled_control"] = ctrl
+                entry["reproduces"] = analysis.reproduces(floors[c], ctrl)
+        report["per_category"][c] = entry
+        st = bk["status"]
+        print(f"  {c:<22} {st:<10} n_b={bk['n_biased']:>4} n_r={bk['n_refusal']:>4} "
+              f"pos-bias {pos['consistency']:.2f} "
+              f"{'floor ' + format(floors[c]['mean'], '+.3f') if c in floors else ''}")
+
+    if directions:
+        report["cosine_matrix"] = bh.cosine_matrix_layerwise(directions)
+        report["pca"] = bh.pca(directions)
+        if len(directions) > 1:
+            report["permutation_null"] = bh.permutation_null_within(
+                {k: resids[k] for k in directions}, buckets,
+                n_permutations=args.n_permutations, seed=0)
+
+        # Phase 2.4. WITHOUT THIS, A HIGH CROSS-CATEGORY COSINE IS UNREADABLE.
+        # Bucketing by answered-vs-declined puts the shared abstention direction
+        # into every V_C, so "all categories point the same way" is exactly what
+        # you see when you have measured refusal and nothing else. The
+        # permutation null does NOT catch it: shuffling bucket labels destroys
+        # the refusal component and the bias component alike, so the observed
+        # value beats the null either way. Verified on planted data where each
+        # category had an INDEPENDENT bias direction plus a shared refusal one:
+        # median off-diagonal 0.809, permutation p = 0.024 -- "significant
+        # clustering" with no shared bias mechanism present at all.
+        if args.refusal_direction:
+            v_ref = np.load(args.refusal_direction)
+            rf = {"ci_lo": args.refusal_floor_ci_lo}
+            dec = bh.refusal_decoupling(directions, floors, v_ref, rf)
+            report["refusal_decoupling"] = dec
+            orth = bh.cosine_matrix_layerwise(
+                {k: bh.orthogonalize(v, v_ref) for k, v in directions.items()})
+            report["cosine_matrix_refusal_orthogonalised"] = orth
+
+            # THE DECISION FOR PHASE 4.3 LIVES HERE, NOT IN THE PER-CATEGORY TEST.
+            # The per-category ceiling asks "is V_C indistinguishable from
+            # V_refusal?" -- a strict bar that a direction can pass while still
+            # being mostly refusal. Measured on planted data with INDEPENDENT
+            # per-category bias directions plus a shared refusal component:
+            # every category read BIAS-SPECIFIC (|cos| 0.894 against a ceiling of
+            # 0.974) while the cross-category cosine went 0.809 -> -0.004 under
+            # orthogonalisation. All of the shared structure was refusal, and the
+            # per-category verdict said nothing was wrong.
+            #
+            # The taxonomy claim is about the SHARED structure, so it has to be
+            # tested on the shared structure.
+            raw_med = report["cosine_matrix"]["median_offdiagonal"]
+            orth_med = orth["median_offdiagonal"]
+            survives = bool(np.isfinite(raw_med) and np.isfinite(orth_med)
+                            and abs(orth_med) >= 0.5 * abs(raw_med))
+            report["cross_category_survives_refusal_removal"] = {
+                "median_offdiagonal_raw": raw_med,
+                "median_offdiagonal_orthogonalised": orth_med,
+                "share_of_shared_structure_that_is_refusal":
+                    float(1.0 - abs(orth_med) / abs(raw_med)) if raw_med else float("nan"),
+                "verdict": "SHARED STRUCTURE SURVIVES" if survives
+                           else "SHARED STRUCTURE IS REFUSAL",
+                "caveat": "orthogonalisation is a LOWER BOUND -- V_refusal is itself "
+                          "measured only to its own floor, so this removes only the "
+                          "part that was estimated. A surviving cosine is evidence; "
+                          "a collapsing one is decisive.",
+            }
+            print(f"\n  refusal de-coupling: {dec['n_dominated']}/{dec['n_categories']} "
+                  f"categories REFUSAL-DOMINATED (control usable={dec['refusal_floor_usable']})")
+            print(f"  mean refusal variance share per category: "
+                  f"{np.mean([v['refusal_variance_share'] for v in dec['per_category'].values()]):.3f}")
+            print(f"  cross-category median |cos|  raw {raw_med:+.3f}  ->  "
+                  f"orthogonalised {orth_med:+.3f}")
+            print(f"  -> {report['cross_category_survives_refusal_removal']['verdict']}")
+        else:
+            report["refusal_decoupling"] = {
+                "status": "NOT RUN",
+                "why_it_matters": "every V_C contains the shared abstention "
+                                  "direction by construction; without this control "
+                                  "a high cross-category cosine cannot be told "
+                                  "apart from 'we measured refusal'",
+                "how": "pass --refusal-direction PATH.npy (from "
+                       "src/bias_steer/refusal_extract.py) and --refusal-floor-ci-lo",
+            }
+            print("\n  *** refusal de-coupling NOT RUN. Do not read the cross-category")
+            print("  *** cosine or the PCA as a bias result until it is.")
+
+    p = os.path.join(args.out, "report_behavioural.json")
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, default=float)
+    print(f"\nwrote {p}")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# Phase 2.2 — the LLM judge (no GPU, no model)
+# --------------------------------------------------------------------------- #
+
+def _judge_client(args):
+    """Build the judge backend. `local` needs no API key and is reproducible.
+
+    The local judge MUST NOT be the target model: a model labelling its own
+    completions makes the bucket depend on the very disposition being measured,
+    and a direction extracted from self-labelled buckets is circular. Enforced
+    below rather than left to the operator.
+    """
+    from scripts.pilot import llm_judge as J                    # noqa: PLC0415
+    if args.judge_backend != "local":
+        return None, args.judge_model, J.JUDGE_VERSION
+    target = getattr(args, "model", None)
+    if target and args.judge_local_model == target:
+        # DECIDED 2026-09-01 (Jeremiah): self-judging is permitted.
+        #
+        # The reasoning that carried it: ONE judge across every target means a
+        # judge quirk cannot be mistaken for a model difference, and switching
+        # judges per target would confound exactly the cross-model comparison
+        # the taxonomy rests on. Consistency beats independence here.
+        #
+        # The residual concern is real but narrow: when judge and target are the
+        # same weights, a phrasing the model favours is also a phrasing it may
+        # systematically misread, so the labelling error correlates with the
+        # outputs rather than being noise. It is one cell out of five, and it is
+        # settled empirically by re-judging that cell with a second model and
+        # reporting the agreement -- not by argument. Warn, record, continue.
+        print(f"  NOTE: judge == target ({target}). Self-labelling; agreement "
+              f"with an independent judge should be reported for this cell.")
+    cli = J.local_judge_client(args.judge_local_model, device=args.judge_device,
+                               batch_size=args.judge_batch_size)
+    return cli, args.judge_local_model, J.JUDGE_VERSION_LOCAL
+
+
+def cmd_judge(args):
+    """Qualify the judge, then label every completion.  Writes judge_labels.jsonl.
+
+    The qualification runs FIRST and, if it fails, nothing is labelled.  That
+    ordering is the point: replacing a parser whose positional failure was
+    measured with a judge whose positional failure is merely assumed would move
+    defect N6 rather than close it.
+    """
+    from scripts.pilot import llm_judge as J                    # noqa: PLC0415
+
+    recs = [json.loads(l) for l in
+            open(os.path.join(args.out, "responses.jsonl"), encoding="utf-8") if l.strip()]
+    items = [{"scenario": r["prompt"], "options": r["answers"], "response": r["response"]}
+             for r in recs]
+
+    client, jmodel, jver = _judge_client(args)
+    print(f"qualifying judge {jver} ({jmodel}) on "
+          f"{min(args.qualify_n, len(items))} items ...")
+    q = J.qualify(items, model=jmodel, client=client, n_sample=args.qualify_n,
+                  threshold=args.qualify_threshold)
+    q["judge_version"], q["model"] = jver, jmodel
+    print(f"  order agreement {q['order_agreement']:.3f} "
+          f"(threshold {q['threshold']}, chance {q['chance_line']:.2f})  "
+          f"format failures {q['n_format_failures']}")
+    with open(os.path.join(args.out, "judge_qualification.json"), "w",
+              encoding="utf-8") as f:
+        json.dump(q, f, indent=2)
+
+    if not q["qualified"] and not args.force:
+        print("\n  *** JUDGE NOT QUALIFIED. Its labels carry a presentation-order")
+        print("  *** error into the bucket assignment, which is exactly N6 in a")
+        print("  *** new place. Nothing was labelled. (--force to override.)")
+        return 1
+
+    print(f"judging {len(items)} completions ...")
+    choices = J.judge_batch(items, model=jmodel, client=client)
+
+    # `unknown_idx` is BBQ's own not-knowing option, identified from answer_info
+    # rather than by matching answer text -- the text varies per file ("Unknown",
+    # "Cannot be determined", "Not answerable", ...).
+    from src.bias_steer.bias_taxonomy import resolve_answer_roles   # noqa: PLC0415
+    from scripts.pilot.behavioural import row_metadata             # noqa: PLC0415
+    from src.bias_steer.datasets import bbq_target_loc             # noqa: PLC0415
+    targets = bbq_target_loc()
+    bbq = {}
+    for c in {r["category"] for r in recs}:
+        for r in pairing.load_category(c):
+            bbq[pairing.item_key(r)] = r
+
+    path = args.labels_out or os.path.join(args.out, "judge_labels.jsonl")
+    counts = {}
+    with open(path, "w", encoding="utf-8") as f:
+        for rec, ch in zip(recs, choices):
+            row = bbq.get(rec["item_id"])
+            roles = resolve_answer_roles(row_metadata(row)) if row else None
+            tl = targets.get((rec["category"], rec["item_id"].split(":")[-1]))
+            lab = J.to_directive_label(
+                ch, target_loc=tl,
+                unknown_idx=roles.unknown if roles is not None else None)
+            counts[lab] = counts.get(lab, 0) + 1
+            f.write(json.dumps({
+                "item_id": rec["item_id"], "category": rec["category"],
+                "judge_choice": ch, "label": lab,
+                "judge_version": jver, "judge_model": jmodel,
+                "self_judged": bool(getattr(args, "model", None) == jmodel),
+                "target_loc": tl,
+            }) + "\n")
+    print(f"  {counts}")
+    print(f"wrote {path}")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# Phase 3 + 4.1 — the toggle test and cross-application
+# --------------------------------------------------------------------------- #
+
+def dose_vector(direction, resid, alpha_rel: float):
+    """Scale a unit direction to `alpha_rel` x the layer's own residual norm.
+
+    A dose has to be dimensionless or it is not comparable. Per-layer residual
+    norms span 600-1391x within one model, so a fixed alpha injects a
+    wildly different perturbation at layer 2 than at layer 30, and a fixed alpha
+    across two CATEGORIES injects different magnitudes again if their directions
+    have different norms. Unit-normalising fixes the second; scaling by the
+    layer's own mean norm fixes the first.
+
+    `notes/13` §2.2 does NOT supply this rule -- that section is the ridge
+    probe's regularisation penalty, which is a different quantity entirely. This
+    is declared here instead, before any dose is run, and it is a formula rather
+    than a sweep: `alpha_rel` is reported as a curve, never chosen by which value
+    gives the nicest flip rate (that would be defect S3).
+    """
+    U = bh.unit_per_layer(direction)                       # (n_layers, d_model)
+    scale = np.linalg.norm(np.asarray(resid), axis=2).mean(axis=0)   # (n_layers,)
+    return (U * (alpha_rel * scale)[:, None]).astype(np.float32)
+
+
+def _matched_random(direction, seed: int):
+    """A random direction with the SAME per-layer norm profile.
+
+    Without this you cannot separate "the bias direction steers" from "any
+    perturbation of this magnitude degrades the model". Run 1's own numbers say
+    three of four qwen-14b directions do not beat their own random control at any
+    dose tested, so this control is expected to bite.
+    """
+    D = np.asarray(direction)
+    rng = np.random.default_rng(seed)
+    R = rng.normal(size=D.shape)
+    R /= np.where(np.linalg.norm(R, axis=1, keepdims=True) > 0,
+                  np.linalg.norm(R, axis=1, keepdims=True), 1.0)
+    return (R * np.linalg.norm(D, axis=1, keepdims=True)).astype(np.float32)
+
+
+def cmd_steer(args):
+    from src.bias_steer import steering                        # noqa: PLC0415
+    from scripts.pilot import llm_judge as J                    # noqa: PLC0415
+    import torch                                               # noqa: PLC0415
+
+    jclient, jmodel, jver = _judge_client(args)
+    tok, model = _load(MODELS[args.model], args.device)
+    n_layers = model.cfg.n_layers
+
+    dirs = {}
+    ddir = os.path.join(args.out, "directions")
+    for fn in sorted(os.listdir(ddir)):
+        if fn.endswith(".npy"):
+            dirs[fn[:-4]] = np.load(os.path.join(ddir, fn))
+    if not dirs:
+        print(f"no directions in {ddir} -- run `extract` first")
+        return 1
+
+    # COST CONTROL. Every (source, target, alpha) cell costs 4 generation
+    # sweeps -- plus, minus, norm-matched random, and the informative-task
+    # control -- over n_eval items. The full 10x10 cross product at 4 alphas is
+    # ~200,000 generations, which is a 10-hour job hiding inside a 2-hour
+    # estimate. So the DEFAULT is the diagonal only (Phase 3, the toggle test);
+    # cross-application (Phase 4.1) is opt-in via --sources/--apply-to.
+    sources = args.sources or sorted(dirs)
+    targets = args.apply_to or None          # None => diagonal only
+    cells = ([(x, y) for x in sources for y in targets] if targets
+             else [(x, x) for x in sources])
+    n_gen = len(cells) * (1 + len(args.alphas) * 4) * args.n_eval
+    print(f"  {len(cells)} cell(s) x {len(args.alphas)} alpha(s) "
+          f"~= {n_gen:,} generations")
+    rows_needed = sorted({y for _, y in cells})
+    rows_by_cat = _load_rows(rows_needed, args.n_eval, AMBIG)
+    ctrl_by_cat = _load_rows(rows_needed, args.n_control, DISAMBIG)
+
+    resp_log = open(os.path.join(args.out, "steering_responses.jsonl"), "a",
+                    encoding="utf-8")
+
+    def judged_rate(rows, hooks, *, tag="", cell="", alpha=None):
+        """Fraction of completions the judge calls BIASED_TARGET, under `hooks`.
+
+        EVERY completion is persisted verbatim before the rate is computed. The
+        toggle test produces ~100,000 generations and they are the raw evidence
+        for the only causal claim in the study -- keeping just the rate would
+        make "did steering actually change what it said, or only how often?"
+        unanswerable without another GPU rental. That is defect S5's exact shape.
+        """
+        prompts = [_prompt_with_options(r) for r in rows]
+        with model.hooks(hooks) if hooks else _null_ctx():
+            outs = _generate_prompts(tok, model, prompts, args.system_prompt,
+                                     max_new_tokens=args.max_new_tokens,
+                                     batch_size=args.batch_size)
+        items = [{"scenario": p, "options": [r["ans0"], r["ans1"], r["ans2"]],
+                  "response": o} for p, r, o in zip(prompts, rows, outs)]
+        ch = J.judge_batch(items, model=jmodel, client=jclient)
+        for it, r, c in zip(items, rows, ch):
+            resp_log.write(json.dumps({
+                "cell": cell, "condition": tag, "alpha": alpha,
+                "item_id": pairing.item_key(r), "category": r["category"],
+                "prompt": it["scenario"], "response": it["response"],
+                "judge_choice": c, "answers": it["options"],
+                "target_loc": r.get("target_loc"),
+            }) + "\n")
+        resp_log.flush()
+        from src.bias_steer.bias_taxonomy import resolve_answer_roles  # noqa: PLC0415
+        labs = [J.to_directive_label(
+                    c, target_loc=r.get("target_loc"),
+                    unknown_idx=resolve_answer_roles(bh.row_metadata(r)).unknown)
+                for c, r in zip(ch, rows)]
+        n = len(labs) or 1
+        return {"biased_rate": sum(l == J.BIASED_TARGET for l in labs) / n,
+                "refusal_rate": sum(l == J.REFUSAL for l in labs) / n,
+                "unknown_rate": sum(l == J.UNKNOWN for l in labs) / n,
+                "n": len(labs), "responses": outs}
+
+    report = {"model": args.model, "judge_version": jver, "judge_model": jmodel,
+              "dose_rule": "alpha_rel x per-layer mean residual norm, unit direction",
+              "alphas": args.alphas, "cells": {}}
+
+    for src, tgt in cells:
+        if True:
+            # Scale the dose by the TARGET's residual norms, not the source's.
+            # alpha is "this fraction of the residual stream's own magnitude",
+            # and the stream being perturbed is the target's. Using the source's
+            # norms would make a cross-category dose silently incomparable to the
+            # within-category one it is being read against.
+            resid = np.load(os.path.join(args.out, "residuals", f"{tgt}__ambig.npy"),
+                            mmap_mode="r")
+            rows = rows_by_cat[tgt]
+            base = judged_rate(rows, None, tag="baseline", cell=f"{src}->{tgt}")
+            cell = {"baseline": {k: v for k, v in base.items() if k != "responses"},
+                    "doses": {}}
+            for a in args.alphas:
+                vec = dose_vector(dirs[src], resid, a)
+                rnd = _matched_random(vec, seed=0)
+                row = {}
+                for tag, v, coeff in (("plus", vec, +float(n_layers)),
+                                      ("minus", vec, -float(n_layers)),
+                                      ("random_plus", rnd, +float(n_layers))):
+                    h = steering.apply_resid_pre_add(
+                        model, torch.tensor(v, device=model.cfg.device,
+                                            dtype=torch.float16), coeff)
+                    r = judged_rate(rows, h, tag=tag, cell=f"{src}->{tgt}", alpha=a)
+                    row[tag] = {k: q for k, q in r.items() if k != "responses"}
+                # Phase 3.3: does the intervention destroy basic task ability?
+                h = steering.apply_resid_pre_add(
+                    model, torch.tensor(vec, device=model.cfg.device,
+                                        dtype=torch.float16), float(n_layers))
+                row["task_control_informative"] = {
+                    k: q for k, q in judged_rate(
+                        ctrl_by_cat[tgt], h, tag="task_control",
+                        cell=f"{src}->{tgt}", alpha=a).items()
+                    if k != "responses"}
+                cell["doses"][str(a)] = row
+                print(f"  {src:>20} -> {tgt:<20} a={a:<6} "
+                      f"biased {base['biased_rate']:.2f} -> +{row['plus']['biased_rate']:.2f} "
+                      f"/ -{row['minus']['biased_rate']:.2f} "
+                      f"| random {row['random_plus']['biased_rate']:.2f}")
+            report["cells"][f"{src}->{tgt}"] = cell
+
+    resp_log.close()
+    p = os.path.join(args.out, "report_steering.json")
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, default=float)
+    print(f"\nwrote {p}")
+    print("  Read every cell against BOTH its baseline AND its random control. A "
+          "shift over baseline that a norm-matched random vector also produces is "
+          "not evidence about this direction.")
+    return 0
+
+
+class _null_ctx:
+    def __enter__(self): return None
+    def __exit__(self, *a): return False
+
+
+def _generate_prompts(tok, model, prompts, system_prompt, *, max_new_tokens, batch_size):
+    import torch                                               # noqa: PLC0415
+    _prep_padding(tok, model)
+    texts = [_chat(tok, p, system_prompt) for p in prompts]
+    return _generate_batched(tok, model, texts, max_new_tokens=max_new_tokens,
+                             batch_size=batch_size)
+
+
+def cmd_control(args):
+    """GATE 2 — topic-identity POSITIVE control, through run 3's own estimator.
+
+    Without it a null taxonomy is uninterpretable: you cannot tell "the
+    behavioural contrast recovers nothing" from "our code is broken."  Run 1 had
+    this control and `notes/11` calls it the single most valuable artifact of
+    that session, but it validated a different pipeline.
+
+    The contrast is two BBQ categories -- race-themed prompts against
+    gender-themed prompts -- pushed through the same `bucket_floor`, the same
+    multi-shuffle negative control and the same decision rule the real run uses.
+    Topic identity is linearly present if anything is, so this has to reproduce.
+
+    Residuals ARE persisted here, unlike R1's equivalent.  A control whose inputs
+    were discarded cannot be re-read at a different split count or per layer,
+    which is defect S5 landing on the one artifact that makes a null readable.
+    """
+    hf_id = MODELS[args.model]
+    os.makedirs(os.path.join(args.out, "residuals"), exist_ok=True)
+    tok, model = _load(hf_id, args.device)
+
+    probe = probe_tokens(tok, args.system_prompt)
+    print("\n  CAPTURE SITE:")
+    for e in probe["last_six"]:
+        print(f"    index {e['index']:>3}  {e['text']!r}")
+    with open(os.path.join(args.out, "capture_site.json"), "w", encoding="utf-8") as f:
+        json.dump({"model": args.model, "hf_id": hf_id,
+                   "capture_index": args.capture_index, **probe}, f, indent=2)
+
+    report = {"model": args.model, "hf_id": hf_id, "purpose":
+              "topic-identity positive control through the run-3 estimator",
+              "capture_index": args.capture_index, "n_splits": args.n_splits,
+              "pairs": {}}
+
+    hdr = "{:<40}{:>7}{:>9}{:>18}{:>10}  verdict".format(
+        "topic contrast", "n/arm", "floor", "95% CI", "control")
+    print("\n" + hdr + "\n" + "-" * 94)
+
+    for spec in args.pairs:
+        a_cat, b_cat = spec.split(":")
+        rows = _load_rows([a_cat, b_cat], args.n_per_arm, AMBIG)
+        a_rows, b_rows = rows[a_cat], rows[b_cat]
+        n = min(len(a_rows), len(b_rows))
+        a_rows, b_rows = a_rows[:n], b_rows[:n]
+
+        allrows = a_rows + b_rows
+        R = _capture_prompts(tok, model, [_prompt_with_options(r) for r in allrows],
+                             capture_index=args.capture_index,
+                             system_prompt=args.system_prompt,
+                             batch_size=args.batch_size)
+        stem = os.path.join(args.out, "residuals", f"{spec.replace(':', '__vs__')}")
+        np.save(stem + ".npy", R)
+        with open(stem + ".json", "w", encoding="utf-8") as f:
+            json.dump({"category": spec, "arm": "topic_control",
+                       "item_ids": [pairing.item_key(r) for r in allrows],
+                       "n_items": len(allrows), "n_layers": int(R.shape[1]),
+                       "d_model": int(R.shape[2]), "dtype": "float32",
+                       "capture_site": f"resid_pre, index {args.capture_index}",
+                       "capture_index": args.capture_index,
+                       "system_prompt": args.system_prompt}, f, indent=2)
+
+        # Arms are the two CATEGORIES. Everything downstream is the real
+        # estimator, unchanged -- that is what makes this a control on the
+        # pipeline rather than a separate measurement.
+        buckets = {"biased_idx": list(range(n)), "refusal_idx": list(range(n, 2 * n)),
+                   "n_biased": n, "n_refusal": n, "n_total": 2 * n}
+        fl = bh.bucket_floor(R, buckets, n_splits=args.n_splits, seed=0)
+        ng = bh.shuffled_bucket_control(R, buckets, n_splits=args.n_splits, seed=0,
+                                        n_shuffles=args.n_shuffles)
+        verdict = analysis.reproduces(fl, ng)
+        report["pairs"][spec] = {"n_per_arm": n, "floor": fl,
+                                 "negative_control": ng, "reproduces": verdict}
+        print("{:<40}{:>7}{:>+9.3f}{:>18}{:>+10.3f}  {}".format(
+            spec, n, fl["mean"],
+            "[{:+.3f},{:+.3f}]".format(fl["ci_lo"], fl["ci_hi"]), ng["mean"], verdict))
+
+    p = os.path.join(args.out, "positive_control.json")
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, default=float)
+    print(f"\nwrote {p}")
+
+    ok = [v for v in report["pairs"].values() if v["reproduces"] == "YES"]
+    print(f"{len(ok)}/{len(report['pairs'])} topic contrasts reproduce.")
+    if len(ok) < len(report["pairs"]):
+        print("\n  *** STOP. The pipeline failed to recover a direction that must")
+        print("  *** exist. Do not read any bias result until this passes.")
+        return 1
+    print("  Bias nulls measured below this line are interpretable.")
+    return 0
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    g = sub.add_parser("generate", help="GPU: two generation passes + residual cache")
+    g.add_argument("--model", required=True, choices=sorted(MODELS))
+    g.add_argument("--capture-index", type=int, required=True,
+                   help="REQUIRED and never defaulted. Look at the printed tail first.")
+    g.add_argument("--out", required=True)
+    g.add_argument("--categories", nargs="*", default=None)
+    g.add_argument("--n-per-category", type=int, default=400)
+    g.add_argument("--n-control", type=int, default=100,
+                   help="adequately-informative items kept as the task control")
+    g.add_argument("--max-new-tokens", type=int, default=48)
+    g.add_argument("--device", default="cuda")
+    g.add_argument("--batch-size", type=int, default=8)
+    g.add_argument("--system-prompt", default=NEUTRAL_SYS,
+                   help="default is EMPTY: no formatting instruction, so the "
+                        "residual stream is not carrying instruction-following "
+                        "activations at the capture position. Pass config.DEFAULT_SYS "
+                        "to restore run-1/R1 prompt comparability.")
+    g.add_argument("--force", action="store_true")
+    g.set_defaults(func=cmd_generate)
+
+    j = sub.add_parser("judge", help="CPU/API: qualify the judge, then label")
+    j.add_argument("--out", required=True)
+    j.add_argument("--model", default=None, choices=sorted(MODELS),
+                   help="the TARGET model these completions came from. Only used to "
+                        "detect and record judge==target; does not load anything.")
+    j.add_argument("--labels-out", default=None,
+                   help="write labels here instead of judge_labels.jsonl. Used to "
+                        "produce a second, independent labelling for comparison.")
+    j.add_argument("--judge-model", default="gpt-4o-mini")
+    j.add_argument("--judge-backend", choices=["local", "openai"], default="local",
+                   help="local scores five verdict tokens with a small model on the "
+                        "box: no API key, no cost, and reproducible under a pinned "
+                        "revision. openai uses gpt-4o-mini (judge v2).")
+    j.add_argument("--judge-local-model", default="qwen-1.8b", choices=sorted(MODELS),
+                   help="must NOT be the target model -- self-judging is circular")
+    j.add_argument("--judge-device", default="cuda")
+    j.add_argument("--judge-batch-size", type=int, default=16)
+
+    j.add_argument("--qualify-n", type=int, default=200)
+    j.add_argument("--qualify-threshold", type=float, default=0.95)
+    j.add_argument("--force", action="store_true",
+                   help="label even if the judge fails its order-swap qualification. "
+                        "Doing so reintroduces N6 through the judge.")
+    j.set_defaults(func=cmd_judge)
+
+    c = sub.add_parser("control",
+                       help="GATE 2 — GPU: topic-identity positive control")
+    c.add_argument("--model", required=True, choices=sorted(MODELS))
+    c.add_argument("--capture-index", type=int, required=True)
+    c.add_argument("--out", required=True)
+    c.add_argument("--pairs", nargs="+",
+                   default=["Race_ethnicity:Gender_identity", "Religion:Age",
+                            "Nationality:Sexual_orientation"])
+    c.add_argument("--n-per-arm", type=int, default=200)
+    c.add_argument("--n-splits", type=int, default=100)
+    c.add_argument("--n-shuffles", type=int, default=20)
+    c.add_argument("--device", default="cuda")
+    c.add_argument("--batch-size", type=int, default=8)
+    c.add_argument("--system-prompt", default=NEUTRAL_SYS)
+    c.set_defaults(func=cmd_control)
+
+    s = sub.add_parser("steer", help="GPU: toggle test (Phase 3) + cross-application (4.1)")
+    s.add_argument("--model", required=True, choices=sorted(MODELS))
+    s.add_argument("--out", required=True)
+    s.add_argument("--sources", nargs="*", default=None,
+                   help="which category vectors to inject; default all with a direction")
+    s.add_argument("--apply-to", nargs="*", default=None,
+                   help="target categories for CROSS-APPLICATION (Phase 4.1). "
+                        "Omit for the diagonal only (Phase 3): each vector on its "
+                        "own category. The full cross product is ~200k generations.")
+    s.add_argument("--alphas", nargs="*", type=float, default=[0.25, 0.5, 1.0, 2.0],
+                   help="dose as a multiple of the layer's own mean residual norm. "
+                        "Reported as a CURVE; picking the best value post hoc is S3.")
+    s.add_argument("--n-eval", type=int, default=120)
+    s.add_argument("--n-control", type=int, default=60)
+    s.add_argument("--max-new-tokens", type=int, default=48)
+    s.add_argument("--judge-model", default="gpt-4o-mini")
+    s.add_argument("--judge-backend", choices=["local", "openai"], default="local",
+                   help="local scores five verdict tokens with a small model on the "
+                        "box: no API key, no cost, and reproducible under a pinned "
+                        "revision. openai uses gpt-4o-mini (judge v2).")
+    s.add_argument("--judge-local-model", default="qwen-1.8b", choices=sorted(MODELS),
+                   help="must NOT be the target model -- self-judging is circular")
+    s.add_argument("--judge-device", default="cuda")
+    s.add_argument("--judge-batch-size", type=int, default=16)
+
+    s.add_argument("--device", default="cuda")
+    s.add_argument("--batch-size", type=int, default=8)
+    s.add_argument("--system-prompt", default=NEUTRAL_SYS)
+    s.set_defaults(func=cmd_steer)
+
+    e = sub.add_parser("extract", help="CPU: bucket, validate, extract, taxonomy")
+    e.add_argument("--out", required=True)
+    e.add_argument("--n-splits", type=int, default=400)
+    e.add_argument("--n-permutations", type=int, default=1000)
+    e.add_argument("--min-bucket", type=int, default=bh.MIN_BUCKET)
+    e.add_argument("--force", action="store_true",
+                   help="analyse even if the verifier fails. The verifier is the "
+                        "termination gate (notes/14 §3); overriding it means "
+                        "reporting numbers from artifacts that did not validate.")
+    e.add_argument("--judge-labels", default=None,
+                   help="judge_labels.jsonl from the `judge` step. Defaults to the "
+                        "one inside --out; absent, the heuristic parser (N6) is used "
+                        "and the report records which labeller ran.")
+    e.add_argument("--distractor-in-refusal", action="store_true",
+                   help="fold BIASED_DISTRACTOR into R_refusal. Off by default: "
+                        "naming the non-stereotyped person is a CHOICE, not an "
+                        "abstention, and folding it in makes the contrast "
+                        "'stereotyped vs anything else'.")
+    e.add_argument("--refusal-direction", default=None,
+                   help="(n_layers, d_model) .npy from refusal_extract.py. Phase 2.4. "
+                        "Without it the cross-category cosine and the PCA cannot be "
+                        "read as bias results.")
+    e.add_argument("--refusal-floor-ci-lo", type=float, default=None,
+                   help="CI_lo of V_refusal's own split-half floor. The control "
+                        "disattenuates by it; omitted, the ceiling is 0, nothing can "
+                        "fire, and the control is reported as vacuous rather than "
+                        "as a pass.")
+    e.set_defaults(func=cmd_extract)
+
+    args = ap.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

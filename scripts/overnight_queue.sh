@@ -12,6 +12,15 @@
 #   R1a  qwen-14b capture + fast read   25-70 min   <- the decisive answer
 #   R1b  the other four models          1-2 h
 #   R1c  n_splits=400 analysis, all 5   ~37 min CPU
+#
+# ALL FOUR GATES RUN FIRST, before any long job. Once they are green the rest
+# is unattended, so that is the point at which you can go to bed:
+#   GATE 1    R1 capture smoke, qwen-1.8b   ~2 min
+#   GATE 2    R1 positive control           ~10 min
+#   GATE R3-1 R3 generate+judge+extract     ~5 min
+#   GATE R3-2 R3 positive control           ~10 min
+#   -> ~30 min of gates, plus model download time, then unattended.
+#   R3   generate/judge/extract/steer    2-4 h    <- the taxonomy
 #   P0-P3                               ~3 h
 #   TOTAL                               6-9 h
 #
@@ -22,7 +31,13 @@
 #
 # ORDER, AND WHY
 # --------------
-# R1 runs FIRST because it is the actual redo. notes/17 concluded that run 1's
+# R3 (the behavioural contrast and the taxonomy) runs FIRST, because it is the
+# active programme and the phase that needs the most GPU. R1a follows: it is the
+# cheap decisive read on the ALTERNATIVE contrast, and one hour spent on it is
+# one hour not spent on cross-application. If the window ends early, R3 is the
+# part you wanted.
+#
+# R1 exists because it is the actual redo. notes/17 concluded that run 1's
 # floors collapsed because the CONTRAST was labelled by the model's own
 # behaviour: items were ranked by their stereotype margin and the extremes taken
 # as poles. Joad et al. get within-category floors of 0.95-0.99 from 32 items
@@ -186,6 +201,177 @@ if ! python3 -m scripts.run2_annotation_contrast control \
 fi
 note "gate 2 (positive control): OK — bias nulls below this line are interpretable"
 
+# ============================================================================ #
+# RUN 3 — behavioural contrast and bias taxonomy.
+#
+# Placed after R1a (the cheap decisive annotation-contrast read) and before R1b,
+# because run 3 is the active programme and R1b/R1c are replication breadth.
+#
+# GATE R3-1 and R3-2 exist for the reason commit 6bc9a90 added gates 1 and 2 to
+# R1: this GPU path has never executed anywhere, and a null taxonomy measured
+# with broken code is indistinguishable from a real one.
+#
+# JUDGE MODEL: must not be the target (self-labelling is circular; the runner
+# refuses it). yi-6b is ungated and a different family from the Qwen targets.
+# ============================================================================ #
+R3_JUDGE=qwen-1.8b        # one judge for EVERY target: a judge quirk then cannot
+                          # be mistaken for a model difference. Self-judging on the
+                          # qwen-1.8b cell is permitted and cross-checked below.
+R3_JUDGE_ALT=yi-6b        # independent second opinion for the self-judged cell
+
+say "GATE R3-1 — smoke test (qwen-1.8b, one category, ~3 min)"
+if ! python3 -m scripts.run3_behavioural_contrast generate \
+        --model qwen-1.8b --capture-index -1 \
+        --categories Disability_status --n-per-category 24 --n-control 8 \
+        --out runs/_smoke_r3 2>&1 | tee "$LOGDIR/gate_r3_1_${STAMP}.log"; then
+    note "GATE R3-1 FAILED — the run-3 generate path is broken. Nothing else ran."
+    exit 1
+fi
+python3 - <<'PY' || { note "GATE R3-1 FAILED — run-3 artifacts are malformed."; exit 1; }
+import json, pathlib, sys
+import numpy as np
+d = pathlib.Path("runs/_smoke_r3")
+npys = sorted((d / "residuals").glob("*.npy"))
+if len(npys) != 2:
+    print(f"  expected 2 residual files, found {len(npys)}"); sys.exit(1)
+for f in npys:
+    a = np.load(f, mmap_mode="r")
+    m = json.loads(f.with_suffix(".json").read_text(encoding="utf-8"))
+    print(f"  {f.name}: shape={a.shape} ids={len(m['item_ids'])}")
+    if a.ndim != 3 or a.shape[0] != len(m["item_ids"]):
+        print("  shape/id mismatch"); sys.exit(1)
+    if not np.isfinite(np.asarray(a)).all():
+        print("  non-finite residuals"); sys.exit(1)
+recs = [json.loads(l) for l in (d / "responses.jsonl").open(encoding="utf-8") if l.strip()]
+if not recs:
+    print("  responses.jsonl is empty"); sys.exit(1)
+blank = sum(1 for r in recs if not r["response"].strip())
+same = sum(1 for r in recs if r["response"] == r["response_swapped"])
+print(f"  {len(recs)} completions; {blank} blank; {same}/{len(recs)} identical under option swap")
+if blank > len(recs) // 4:
+    print("  too many empty completions -- check the chat template"); sys.exit(1)
+print("  run-3 generate path works.")
+PY
+# The smoke must also cover judge and extract, or those paths first execute on
+# the real run at hour three. This loads $R3_JUDGE early -- a cost, not a waste:
+# R1b downloads it anyway. --min-bucket 2 because 24 items cannot clear 32; the
+# NUMBERS here are meaningless and are not read, only the exit codes.
+if ! python3 -m scripts.run3_behavioural_contrast judge         --out runs/_smoke_r3 --judge-backend local --judge-local-model "$R3_JUDGE"         --qualify-n 16 2>&1 | tee -a "$LOGDIR/gate_r3_1_${STAMP}.log"; then
+    note "GATE R3-1 FAILED — the judge path is broken (or the judge did not"
+    note "qualify). Read $LOGDIR/gate_r3_1_${STAMP}.log"
+    exit 1
+fi
+if ! python3 -m scripts.run3_behavioural_contrast extract         --out runs/_smoke_r3 --n-splits 10 --n-permutations 10 --min-bucket 2         2>&1 | tee -a "$LOGDIR/gate_r3_1_${STAMP}.log"; then
+    note "GATE R3-1 FAILED — the extract path is broken."
+    exit 1
+fi
+note "gate R3-1 (smoke: generate + judge + extract): OK"
+
+say "GATE R3-2 — positive control (topic identity, qwen-1.8b, ~10 min)"
+if ! python3 -m scripts.run3_behavioural_contrast control \
+        --model qwen-1.8b --capture-index -1 --n-per-arm 200 --n-splits 100 \
+        --out runs/_control_r3_qwen-1.8b 2>&1 \
+        | tee "$LOGDIR/gate_r3_2_${STAMP}.log"; then
+    note "GATE R3-2 FAILED — run 3's estimator cannot recover a direction that"
+    note "must exist. STOP: a bias null below this line would be uninterpretable."
+    exit 1
+fi
+note "gate R3-2 (positive control): OK — run-3 nulls are interpretable"
+
+
+# --- R3: the real run. Two targets, so the taxonomy is not single-model. ---- #
+# notes/13 §1 sets the bar at "at least two model families". qwen-14b is the
+# discovery model; qwen-7b replicates. The judge is yi-6b for both: ungated, and
+# a different family from the targets (the runner refuses judge == target, and
+# same-family judging is a weaker form of the same circularity).
+#
+# STAGED DELIBERATELY. Phase 3 (the diagonal toggle test) runs BEFORE Phase 4.1
+# (cross-application) for every model, because cross-application is only
+# meaningful if a vector is causal on its own category. If the window runs out
+# mid-queue you still have the phase that gates the other.
+# Five targets across three families: Qwen (14b, 7b, 1.8b), Yi (6b), Gemma (2b).
+# notes/13 §1 asks for at least two families -- the three Qwens are one.
+# gemma-2b is gated; it is best-effort, so a 403 costs the download attempt and
+# nothing else. The judge is qwen-1.8b for all five, INCLUDING when qwen-1.8b is
+# itself the target; that cell is cross-checked against $R3_JUDGE_ALT afterwards.
+for M in qwen-14b qwen-7b yi-6b gemma-2b qwen-1.8b; do
+    run "R3a_generate_${M}"         python3 -m scripts.run3_behavioural_contrast generate             --model "$M" --capture-index -1 --n-per-category 400 --n-control 100             --out "runs/r3_behavioural_${M}"
+
+    run "R3b_judge_${M}"         python3 -m scripts.run3_behavioural_contrast judge             --out "runs/r3_behavioural_${M}"             --model "$M"             --judge-backend local --judge-local-model "$R3_JUDGE"
+
+    run "R3c_extract_${M}"         python3 -m scripts.run3_behavioural_contrast extract             --out "runs/r3_behavioural_${M}" --n-splits 400
+
+    # Phase 3 — the toggle test, each vector on its own category.
+    run "R3d_toggle_${M}"         python3 -m scripts.run3_behavioural_contrast steer             --model "$M" --out "runs/r3_behavioural_${M}"             --judge-backend local --judge-local-model "$R3_JUDGE"             --alphas 0.25 0.5 1.0 2.0 --n-eval 120
+done
+
+# --- Self-judge cross-check. Settles the one cell where judge == target. ---- #
+# qwen-1.8b judged its own completions. That is a deliberate, recorded choice --
+# one judge across all five targets means a judge quirk cannot be mistaken for a
+# model difference. The residual worry is that a model may systematically misread
+# the phrasings it favours, making the labelling error correlate with the outputs
+# instead of being noise. Re-judge that one cell with an independent model and
+# report the agreement, so the question is measured rather than argued.
+run R3f_selfjudge_crosscheck     python3 -m scripts.run3_behavioural_contrast judge         --out runs/r3_behavioural_qwen-1.8b --model qwen-1.8b         --judge-backend local --judge-local-model "$R3_JUDGE_ALT"         --labels-out runs/r3_behavioural_qwen-1.8b/judge_labels_alt.jsonl
+
+python3 - <<'PY' | tee -a "$SUMMARY"
+import json, pathlib
+d = pathlib.Path("runs/r3_behavioural_qwen-1.8b")
+a, b = d / "judge_labels.jsonl", d / "judge_labels_alt.jsonl"
+if not (a.exists() and b.exists()):
+    print("  self-judge cross-check: not available (one of the labellings is missing)")
+else:
+    la = {json.loads(l)["item_id"]: json.loads(l)["label"]
+          for l in a.open(encoding="utf-8") if l.strip()}
+    lb = {json.loads(l)["item_id"]: json.loads(l)["label"]
+          for l in b.open(encoding="utf-8") if l.strip()}
+    both = sorted(set(la) & set(lb))
+    agree = sum(1 for k in both if la[k] == lb[k])
+    rate = agree / len(both) if both else float("nan")
+    print(f"  self-judge cross-check (qwen-1.8b vs {'yi-6b'}): "
+          f"{agree}/{len(both)} = {rate:.3f} agreement")
+    if rate >= 0.95:
+        print("  -> self-judging is not distorting the labels on this cell.")
+    else:
+        print("  -> DISAGREEMENT. Report the qwen-1.8b cell with this caveat, or")
+        print("     re-extract it from judge_labels_alt.jsonl.")
+PY
+note ""
+
+# Phase 4.1 — cross-application, every vector onto every category. The most
+# expensive step in the queue (~200k generations at n_eval 80) and the last
+# thing R3 needs, so it runs after BOTH models have their toggle results.
+run R3e_cross_application_qwen-14b     python3 -m scripts.run3_behavioural_contrast steer         --model qwen-14b --out runs/r3_behavioural_qwen-14b         --judge-backend local --judge-local-model "$R3_JUDGE"         --apply-to Age Disability_status Gender_identity Nationality                    Physical_appearance Race_ethnicity Race_x_SES Race_x_gender                    Religion Sexual_orientation         --alphas 0.5 1.0 --n-eval 80
+
+say "R3 READ THIS"
+python3 - <<'PY' | tee -a "$SUMMARY"
+import json, pathlib
+for MODEL in ("qwen-14b", "qwen-7b", "yi-6b", "gemma-2b", "qwen-1.8b"):
+  p = pathlib.Path(f"runs/r3_behavioural_{MODEL}/report_behavioural.json")
+  print("")
+  print(f"  --- {MODEL} ---")
+  if not p.exists():
+    print("  no report — see the logs.")
+  else:
+    r = json.loads(p.read_text(encoding="utf-8"))
+    pc = r.get("per_category", {})
+    testable = [k for k, v in pc.items() if v.get("buckets", {}).get("status") == "TESTABLE"]
+    repro = [k for k in testable if pc[k].get("reproduces") == "YES"]
+    print(f"  {len(testable)}/{len(pc)} categories testable; {len(repro)} reproduce")
+    cm = r.get("cosine_matrix", {})
+    print(f"  cross-category median |cos|: {cm.get('median_offdiagonal')}")
+    sv = r.get("cross_category_survives_refusal_removal")
+    if sv:
+        print(f"  refusal de-coupling: {sv['verdict']}  "
+              f"(raw {sv['median_offdiagonal_raw']:+.3f} -> "
+              f"orth {sv['median_offdiagonal_orthogonalised']:+.3f})")
+    else:
+        print("  *** refusal de-coupling NOT RUN — the cross-category number")
+        print("  *** cannot be read as a bias result. Pass --refusal-direction.")
+PY
+note ""
+
+
 # --- R1a: qwen-14b alone, fast read. 25-70 min. --------------------------- #
 # One model answers the question. qwen-14b is the strongest and produced the
 # most reproducible categories in run 1, so if the annotation contrast works
@@ -223,6 +409,7 @@ else:
     print(f"  cross-category median |cos|: {cc.get('median_offdiagonal'):+.3f}")
 PY
 note ""
+
 
 # --- R1b: the other four models. 1-2 h. ----------------------------------- #
 # These run regardless, because a one-model result is not a result -- the
@@ -314,6 +501,17 @@ for M in qwen-14b qwen-7b gemma-2b yi-6b; do
             --method extremes --tail-trim 0.05 --cluster-usable-only \
             --margins-cache runs/_margins_cache --out-dir "runs/full_${M}_trim05"
 done
+
+# --------------------------------------------------------------------------- #
+# COLLECT — everything into one folder, per the standing rule that every piece
+# of data is saved and a finished experiment lives somewhere a reader can open
+# without knowing where anything was originally written.
+#
+# Residual tensors are too large for GitHub, so they are recorded by manifest
+# (shape, size, sha256) rather than dropped: the collection stays complete and a
+# copy fetched from external storage can be verified as the one used here.
+# --------------------------------------------------------------------------- #
+run COLLECT_results     python3 -m scripts.collect_run3 --out "results/run3_$(date +%Y-%m-%d)"
 
 # --------------------------------------------------------------------------- #
 say "DONE"

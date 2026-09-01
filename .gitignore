@@ -253,3 +253,8 @@ experiments/annotation_pools/
 # GPU-captured residual tensors (~250MB/category) - checkpoint off-box, never commit
 runs/_residuals/
 runs/**/residuals_*.npz
+
+# Residual tensors from R1/R3: several GB per model, and the larger files are
+# over GitHub's 100 MiB hard limit. Checkpoint them off-box (scp/rsync via
+# sync_from_box.ps1), never commit them.
+runs/**/residuals/*.npy
