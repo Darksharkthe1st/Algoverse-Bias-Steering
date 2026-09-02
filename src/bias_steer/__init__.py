@@ -29,6 +29,7 @@ from . import datasets
 from . import models
 from . import steering
 from . import judges
+from . import contrasts
 from .datasets import sample
 from .steering import SteeringMethod
 from .models import LoadedModel, load_model
@@ -60,7 +61,7 @@ __all__ = [
     "ExperimentConfig", "ModelSpec", "DatasetSpec", "SampleSpec", "JudgeSpec",
     "Coeffs", "from_dict", "DEFAULT_SYS", "DEFAULT_JUDGE_RUBRIC",
     # science
-    "datasets", "models", "steering", "judges",
+    "datasets", "models", "steering", "judges", "contrasts",
     "sample", "SteeringMethod", "LoadedModel", "load_model", "parse_verdict",
     "refusal", "RefusalDirection", "load_refusal_direction",
     "refusal_extract",
