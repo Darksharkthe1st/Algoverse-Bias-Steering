@@ -6,6 +6,14 @@ Labels should match docs/RUBRIC_v2.md (after freeze).
 
   python3 scripts/kappa_from_csv.py \\
       --a path/annotator_A.csv --b path/annotator_B.csv
+
+STATUS (2026-09-02): the judge↔human κ pass for the v2 calibration battery is
+BLOCKED on human labels — collecting those takes a while, so this is intentionally
+left untouched for now. When the human sheets arrive, revisit this script to (a)
+collapse both sides through the judge v2.1 6-way mapping (5 behaviors + `ignored`,
+folding nonsense/unjudgeable/incoherent/meta-comment/unclassifiable -> `ignored`)
+before scoring, and (b) run it against the OAI judge's judged_v2.1.csv from
+fk/calib-v2-gpu-run. Until then, no changes needed here.
 """
 
 from __future__ import annotations
