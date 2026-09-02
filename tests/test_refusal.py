@@ -18,7 +18,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import src.bias_steer as bs  # noqa: E402
-from src.bias_steer import refusal, registry, artifacts, steering, datasets, judge, refusal_extract  # noqa: E402
+from src.bias_steer import refusal, registry, artifacts, steering, datasets, refusal_extract  # noqa: E402
+from src.bias_steer.judges import base as judge  # noqa: E402
 from src.bias_steer.config import DatasetSpec, JudgeSpec  # noqa: E402
 
 try:

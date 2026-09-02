@@ -16,8 +16,7 @@ No torch, no openai — pure config, so it imports anywhere.
 
 from __future__ import annotations
 
-from .config import JudgeSpec
-from .judge import UNMATCHED
+from ..config import JudgeSpec
 
 # The full 9 rubric labels the JUDGE emits (docs/RUBRIC_v2.md cascade order).
 # Slugs, not numbers: parse_verdict matches a label as a substring after ANSWER:,

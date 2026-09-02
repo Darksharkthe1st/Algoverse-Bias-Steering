@@ -21,7 +21,7 @@ if _REPO_ROOT not in sys.path:
 import src.bias_steer as bs  # noqa: E402
 from src.bias_steer import registry, steering, models  # noqa: E402
 from src.bias_steer.datasets import sample, load_bbq  # noqa: E402
-from src.bias_steer.judge import parse_verdict, UNMATCHED  # noqa: E402
+from src.bias_steer.judges import parse_verdict, UNMATCHED  # noqa: E402
 from src.bias_steer.config import (  # noqa: E402
     DatasetSpec, SampleSpec, ExperimentConfig, JudgeSpec, Coeffs,
 )
@@ -39,7 +39,7 @@ except Exception:
 def test_package_imports_without_ml_stack():
     # The mere fact this file imported bias_steer proves the package (and its
     # Phase 1 submodules) load without torch/openai installed.
-    for name in ("datasets", "models", "steering", "judge"):
+    for name in ("datasets", "models", "steering", "judges"):
         assert hasattr(bs, name), f"submodule {name} not exposed"
 
 
@@ -249,7 +249,7 @@ def _reply(content):
 
 def _run_retry(client, transient, stats):
     import asyncio
-    from src.bias_steer import judge
+    from src.bias_steer.judges import base as judge
     orig = judge._backoff_seconds
     judge._backoff_seconds = lambda attempt: 0          # no real sleeps in tests
     try:
@@ -302,7 +302,7 @@ def test_judge_fails_fast_on_non_transient():
 
 def test_judge_reraises_after_exhausting_retries():
     # not-C: a terminal transient failure still propagates loudly (no UNMATCHED swallow)
-    from src.bias_steer import judge
+    from src.bias_steer.judges import base as judge
 
     class _Transient(Exception):
         pass

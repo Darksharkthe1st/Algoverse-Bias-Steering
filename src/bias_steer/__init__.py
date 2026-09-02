@@ -28,11 +28,11 @@ from . import tracking
 from . import datasets
 from . import models
 from . import steering
-from . import judge
+from . import judges
 from .datasets import sample
 from .steering import SteeringMethod
 from .models import LoadedModel, load_model
-from .judge import parse_verdict
+from .judges import parse_verdict
 
 # Refusal-direction repro (arXiv:2406.11717): loaders for the paper's published
 # steering vectors. Import-safe without torch (lazy-imported at load time).
@@ -60,7 +60,7 @@ __all__ = [
     "ExperimentConfig", "ModelSpec", "DatasetSpec", "SampleSpec", "JudgeSpec",
     "Coeffs", "from_dict", "DEFAULT_SYS", "DEFAULT_JUDGE_RUBRIC",
     # science
-    "datasets", "models", "steering", "judge",
+    "datasets", "models", "steering", "judges",
     "sample", "SteeringMethod", "LoadedModel", "load_model", "parse_verdict",
     "refusal", "RefusalDirection", "load_refusal_direction",
     "refusal_extract",

@@ -8,7 +8,7 @@ label set is a config change (`JudgeSpec`), not a code edit.
 
 import logging
 
-from .registry import register, JUDGES
+from ..registry import register, JUDGES
 
 _ANSWER = "answer:"
 
@@ -19,7 +19,7 @@ UNMATCHED = "nonsense"
 _MAX_RETRIES = 4
 _CONCURRENCY = 8
 
-_log = logging.getLogger("bias_steer.judge")
+_log = logging.getLogger("bias_steer.judges")
 
 
 def _backoff_seconds(attempt: int) -> float:

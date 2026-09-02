@@ -12,8 +12,8 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from src.bias_steer.judge import parse_verdict, UNMATCHED  # noqa: E402
-from src.bias_steer.judge_v2 import (  # noqa: E402
+from src.bias_steer.judges import (  # noqa: E402
+    parse_verdict, UNMATCHED,
     V21_LABELS, COLLAPSE_TO_IGNORED, COLLAPSED_LABELS, BEHAVIOR_LABELS,
     V21_RUBRIC, collapse, judge_v2_spec,
 )
