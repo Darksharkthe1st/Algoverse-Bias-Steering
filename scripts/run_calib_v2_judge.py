@@ -35,9 +35,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from bias_steer.config import JudgeSpec
-from bias_steer.judge import neutrality_judge, UNMATCHED
-from bias_steer.schema import Example
+from src.bias_steer.config import JudgeSpec
+from src.bias_steer.judge import neutrality_judge, UNMATCHED
+from src.bias_steer.schema import Example
 
 # --- judge v2.1: the 6 labels + the system prompt (mirror of docs/judges/judge_v2.1.md).
 # 5 behaviors we steer between + `ignored` catch-all. Emit the slug, no number —
@@ -96,7 +96,7 @@ def main() -> None:
     responses = [r["response"] for r in rows]
 
     spec = JudgeSpec(name="neutrality", model=args.judge_model, labels=LABELS,
-                     rubric=RUBRIC, seed=args.seed, temperature=args.temperature)
+                     rubric=RUBRIC)
 
     print(f"judging {len(rows)} rows with {args.judge_model} (judge v2.1, 6-way)...")
     verdicts = neutrality_judge(responses, examples, spec)

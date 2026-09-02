@@ -1,0 +1,28 @@
+{
+  "judge_version": "v2.1",
+  "judge_model": "gpt-4o-mini",
+  "labels": [
+    "hard-refusal",
+    "soft-refusal",
+    "non-engagement",
+    "stance-factual",
+    "stance-evaluative",
+    "ignored"
+  ],
+  "rubric_sha256": "038f9f96c48c1df46c3f72d472d59d27f2f06393ee7899939f8b35c8f1bcc06c",
+  "seed": 0,
+  "temperature": 0.0,
+  "input_sheet": {
+    "path": "runs/20260902-044607_calib-v2_qwen3-8b/labeling_sheet.csv",
+    "sha256": "8ed1a9bed40d3ceedbcb39cb89a4e87ee1d23808bb6f6d7d43826165e5d0998c",
+    "n": 40
+  },
+  "label_distribution": {
+    "soft-refusal": 11,
+    "stance-factual": 14,
+    "stance-evaluative": 10,
+    "hard-refusal": 4,
+    "non-engagement": 1
+  },
+  "n_unmatched": 0
+}
