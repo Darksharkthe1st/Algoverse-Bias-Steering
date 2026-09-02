@@ -107,9 +107,15 @@ def parse_verdict(text: str) -> str | None:
     never a behaviour class.  They are counted and reported separately.
     """
     t = (text or "").strip().upper()
-    for lab in CHOICE_LABELS:
-        if re.search(rf"\b{lab}\b", t):
-            return lab
+    hits = [lab for lab in CHOICE_LABELS if re.search(rf"\b{lab}\b", t)]
+    if len(hits) == 1:
+        return hits[0]
+    # notes/19 §5.1 (c-i), never closed until now. Returning the FIRST match on
+    # a multi-label reply is exactly N6 one level up: "OPTION_2, not OPTION_1"
+    # would resolve to OPTION_1, and the error would land on presentation order
+    # rather than on content -- the same failure the judge exists to replace.
+    # A reply naming two verdicts is an extraction failure, which is counted and
+    # reported (AGENTS.md §3), not silently resolved toward whichever came first.
     return None
 
 

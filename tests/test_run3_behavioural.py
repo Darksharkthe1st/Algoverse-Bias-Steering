@@ -494,3 +494,14 @@ def test_local_judge_prompt_ends_with_a_space_so_digits_can_compete():
     import inspect
     src = inspect.getsource(J.local_judge_client)
     assert 'Answer: "' in src, "the trailing space after Answer: is load-bearing"
+
+def test_parse_verdict_refuses_to_resolve_a_multi_label_reply():
+    """notes/19 §5.1 (c-i). Returning the FIRST match is N6 one level up: the
+    error would land on presentation order rather than on content."""
+    assert J.parse_verdict("OPTION_2") == "OPTION_2"
+    assert J.parse_verdict("  option_3  ") == "OPTION_3"
+    # two labels named -> extraction failure, NOT the first one
+    assert J.parse_verdict("OPTION_2, not OPTION_1") is None
+    assert J.parse_verdict("REFUSED or maybe OPTION_1") is None
+    assert J.parse_verdict("") is None
+    assert J.parse_verdict("I am not sure") is None
