@@ -354,6 +354,39 @@ result is a real null, not a silent load bug. **Priority: HIGH** (unlocks the re
 
 ---
 
+## 13. Determinism check: same config + same code, run twice  — never verified
+
+**Status:** the pipeline threads seeds through sampling and the train/test shuffle and
+records them in each manifest *for* reproducibility, but no run has ever verified that two
+identical runs actually produce identical results. Accidental nondeterminism (an unseeded
+`random`/`torch` call, dict-ordering leakage) would go unnoticed.
+
+**Goal:** confirm the reproducibility guarantee the seeds are meant to provide — identical
+config + identical code ⇒ identical results — so any future accidental randomness is caught.
+
+**Setup:** run the *exact same config* on the *exact same commit* twice, back to back.
+Two layers:
+- **Hermetic (do first, cheap):** with the stub model + stub judge already used in the phase
+  tests, run `experiment.run` twice and diff outputs — belongs in the test suite / CI.
+- **Full-stack:** run a small real config (e.g. 1 model, small n) twice on one GPU box.
+
+**Log:** for both runs — the sampled example ids, the train/test split, the steering vector
+(bytes / hash), `results.csv`, and the per-condition verdict counts.
+
+**Data needed to conclude:** a diff of the two runs. **Deterministic parts must match
+exactly:** sampled subset, train/test partition, response ordering, and — given identical
+residuals — the built steering vector. **Known non-deterministic confounds to exclude from
+the equality check:** the GPT judge (nondeterministic, §0.2 — pin/mock it or compare only
+pre-judge artifacts) and CUDA float nondeterminism (can perturb generations/residuals). So
+the hermetic stubbed run is the real determinism gate; the full-stack run compares only the
+stable artifacts. Success = deterministic artifacts are bit-identical across the two runs.
+
+**Effort:** low (hermetic) / low–medium (full-stack). **Priority: HIGH (validation)** — it
+underpins every reproducibility claim the manifests make. (Engineering note mirrored in
+`rewrite_notes.md` §8.)
+
+---
+
 ## Priority summary
 
 | # | experiment | effort | priority | blocked by |
@@ -371,6 +404,40 @@ result is a real null, not a silent load bug. **Priority: HIGH** (unlocks the re
 | 10 | synthetic steering v2 | med | LOW | 0.1 |
 | 11 | refusal (coherence-gated) | med | LOW | 0.3 |
 | 12 | reproduce refusal in our convention (extract → compare → validate) | low–med | **HIGH** | — (ready) |
+| 13 | determinism double-run check | low | HIGH (validation) | — |
+
+---
+
+## 14. System-prompt control as a native steering-comparison baseline  — not yet built (2026-09-01)
+
+**Motivation.** AGENTS.md §5a requires a *system-prompt baseline on the same prompts* before any
+steering result is reportable — i.e. show that our difference-of-means direction beats simply
+*asking* the model (in the system prompt) to exhibit the target behaviour. AxBench (arXiv:2501.17148)
+makes this concrete: a natural-language "Prompt" instruction is a surprisingly strong steering
+method, so a residual-stream direction only earns its keep if it beats prompting head-to-head.
+
+**Scope decision (FK, 2026-09-01):** this is **not an AxBench-only change**. It should be a
+*natively-supported control-experiment capability* — the pipeline should be able to run any eval
+prompt set under (a) a control system prompt, (b) a behaviour-inducing system prompt, and (c) our
+steering vector, on the *same* prompts under the *same* judge, and report all three side by side.
+An earlier attempt (a standalone `axbench.py` prompting-baseline driver) was **deleted** because it
+lived off to the side of `experiment.run` and duplicated wiring; the right shape is a control-arm
+option inside the existing run path, not a parallel module.
+
+- **What to run:** on one eval battery (start with the S2 stance items, then IssueBench), score
+  three arms — `control` (default system prompt, no steering), `prompt` (system prompt instructs the
+  target behaviour, no steering), `steer` (our diff-of-means vector, default system prompt) — same
+  prompts, same pinned judge (§0.2), same coherence gate (§0.3).
+- **What to log:** per-example verdicts for all three arms (not just marginals) and the 3×3
+  confusion between `control` and each of `prompt` / `steer`, so "did steering beat prompting" is a
+  per-item comparison, not a difference of two rates.
+- **Data required to draw a conclusion:** the prompting arm must use a *frozen, documented* system
+  prompt (it is part of the method — record it like a judge version), and the comparison is only
+  meaningful once the injection convention (§0.1) and judge (§0.2) are locked. Report whether
+  `steer` beats `prompt` and by how much, with an item-bootstrap CI.
+- **Boundary-claim tie-in (FK-5):** if single-direction additive steering does *not* beat the
+  prompting baseline on IssueBench / AxBench-style tasks, that IS the boundary result the literature
+  reports — log it as an honest negative, do not soften it.
 
 ---
 

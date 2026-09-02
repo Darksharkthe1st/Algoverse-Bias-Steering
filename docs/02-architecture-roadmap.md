@@ -107,7 +107,14 @@ DATASETS = {"bbq": load_bbq, "crows": load_crows, "plain": load_plain, ...}
   in `metadata`. Generic stages ignore it; a dataset-aware judge or metric reads it.
 - **Adding one:** write `load_x() -> list[Example]`, add a line to `DATASETS`. Nothing downstream
   changes. ← directly kills "rewrite a chunk all datasets share."
-- Existing `src/data.py` loaders become the bodies of these functions.
+- Existing `src/data.py` loaders **become the bodies** of these functions — inlined, not
+  imported. **Rule:** `src/bias_steer/` must not import from the legacy notebook-owned
+  modules (`src/data.py`, `src/main.py`, `src/stereoset-dataloader.py`); those are owned by
+  the notebooks (`examples/`, `experiments/`) and are frozen. The one sanctioned `src.*`
+  dependency is `src/utils.py` (small, stdlib-only shared helpers). This keeps the package
+  self-contained so the two layers can diverge safely; the inlined copy is the sole source of
+  truth going forward. The `tests/` may import `src.data` *only* as a frozen-legacy
+  equivalence anchor (proving an inlined body stayed byte-identical to the legacy output).
 
 **Selecting representative samples** (e.g. BBQ's categories) is a *separate, dataset-agnostic*
 step — not per-loader code — precisely because the category already lives in `Example.metadata`.
@@ -266,7 +273,7 @@ Algoverse-Bias-Steering/
 │       ├── config.py           # ExperimentConfig + sub-specs — every lever (§4)
 │       ├── schema.py           # Example, Result — the shared contract currency (§3.2)
 │       ├── registry.py         # DATASETS / MODELS / METHODS / JUDGES dicts + register() (§3)
-│       ├── datasets.py         # load_* -> list[Example] + sample() (wraps src/data.py) (§3.3)
+│       ├── datasets.py         # load_* -> list[Example] + sample() (loader bodies inlined, not src/data.py) (§3.3)
 │       ├── models.py           # ModelSpec loader + tokenize/chat-template + generation (§3.4)
 │       ├── steering.py         # capture / build / apply (+ optional SteeringMethod/METHODS) (§3.5)
 │       ├── judge.py            # judge_* evaluators + ANSWER parsing + retry (§3.6)
@@ -313,6 +320,7 @@ for each model key in config.models:                     [tqdm: outer bar over m
    │
    └─ WRITE (experiment.py + tracking.py) ────────────────
        manifest.json              full config + git SHA + timestamp + sample seed
+       examples.csv               tidy: one row per Example (frozen sampled subset)  ← parent table
        results.csv                tidy: one row per (example × condition)  ← analysis input
        steering_vector.safetensors
        residuals.safetensors      (git-ignored — bulky)
@@ -415,6 +423,7 @@ runs/                                   # C  committed by default
   _discard/                             # I  throwaway runs you don't want tracked
   <run_id>/                             # C  <date>_<label>_<model> slug
     manifest.json                       # C  full config + git SHA + timestamp (traceability)
+    examples.csv                        # C  tidy: one row per Example (frozen sampled subset — parent table)
     results.csv                         # C  tidy: one row per (example × condition)
     steering_vector.safetensors         # C  the DELIVERABLE — tiny (<1MB)
     residuals.safetensors               # I  bulky (~200MB+), regenerable — NOT backed up

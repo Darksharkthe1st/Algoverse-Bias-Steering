@@ -1,0 +1,40 @@
+{
+  "_comment": "Third-party dataset artifacts from the IssueBench release (Röttger et al., 2025; arXiv:2502.08395), hosted at hf.co/datasets/Paul/IssueBench (CC-BY-4.0). Fetched by scripts/fetch_issuebench.py; NOT committed to this repo (see README.md). Byte sizes are the values reported by the HF tree API at the pinned commit; the fetcher verifies them.",
+  "source_repo": "Paul/IssueBench",
+  "source_commit": "636e2da6ad80ef9ffcd67850d29fa5b068587f8b",
+  "source_last_modified": "2025-02-21",
+  "raw_base_url": "https://huggingface.co/datasets/Paul/IssueBench/resolve/636e2da6ad80ef9ffcd67850d29fa5b068587f8b/",
+  "dest_root": "third_party/issuebench/",
+  "splits": ["debug", "sample", "full"],
+  "files": [
+    {
+      "_comment": "Issue metadata (212 political issues; topic_id -> topic_neutral/pro/con framings, tags, source proportions). Small; fetched with every split so the loader can join richer per-issue fields if needed.",
+      "path": "issues/issues-00000-of-00001.parquet",
+      "bytes": 440710,
+      "split": "meta"
+    },
+    {
+      "_comment": "150-prompt debug split — the default fetch. Cheap enough for CI and a boundary-check pilot.",
+      "path": "prompts/prompts_debug-00000-of-00001.parquet",
+      "bytes": 6946,
+      "split": "debug"
+    },
+    {
+      "_comment": "636k-prompt sample split (a stratified subsample of the full 2.49m).",
+      "path": "prompts/prompts_sample-00000-of-00001.parquet",
+      "bytes": 20669585,
+      "split": "sample"
+    },
+    {
+      "_comment": "Full 2.49m-prompt set, sharded in two parquet files. ~79 MB; only fetch if you actually need the whole bench.",
+      "path": "prompts/prompts_full-00000-of-00002.parquet",
+      "bytes": 39755076,
+      "split": "full"
+    },
+    {
+      "path": "prompts/prompts_full-00001-of-00002.parquet",
+      "bytes": 39431391,
+      "split": "full"
+    }
+  ]
+}

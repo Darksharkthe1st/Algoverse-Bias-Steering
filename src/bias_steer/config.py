@@ -92,6 +92,11 @@ class JudgeSpec:
     model: str = "gpt-4o-mini"
     labels: list = field(default_factory=lambda: ["neutral", "opinionated"])
     rubric: str = DEFAULT_JUDGE_RUBRIC
+    # Best-effort reproducibility: OpenAI honours `seed` + `temperature=0` per
+    # `system_fingerprint`, so two runs on the same backend give the same verdicts
+    # (recorded in the manifest alongside SampleSpec.seed).
+    seed: int = 0
+    temperature: float = 0.0
 
 
 @dataclass

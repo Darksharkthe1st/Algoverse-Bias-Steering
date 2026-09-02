@@ -95,6 +95,12 @@ def _register_p3_fakes():
         registry.register(registry.JUDGES, "p3judge", lambda responses, examples, spec: list(responses))
 
 
+class _FakeVector:
+    """Opaque steering vector; needs only `.to()` (run() moves it to device, #9)."""
+    def to(self, device):
+        return self
+
+
 class _FakeMethod:
     name = "p3method"
 
@@ -102,7 +108,7 @@ class _FakeMethod:
         return ("resid", n_layers)
 
     def build(self, resids_by_label, contrast):
-        return "VECTOR"
+        return _FakeVector()
 
     def apply(self, model, vector, coeff):
         return [("sign", 1 if coeff >= 0 else -1)]
@@ -114,7 +120,7 @@ class _FakeMethod:
 def _fake_backend():
     def load(spec):
         return types.SimpleNamespace(
-            model=types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2)),
+            model=types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4)),
             tokenizer=None, spec=spec, device="cpu",
         )
 
@@ -132,8 +138,8 @@ def _fake_backend():
     return experiment.Backend(
         load=load, generate=generate, generate_with_cache=generate_with_cache,
         generate_with_hooks=generate_with_hooks,
-        save_vector=lambda p, v: Path(p).write_text("v"),
-        save_residuals=lambda p, r: Path(p).write_text("r"),
+        save_vector=lambda p, v, **kw: Path(p).write_text("v"),
+        save_residuals=lambda p, r, **kw: Path(p).write_text("r"),
     )
 
 

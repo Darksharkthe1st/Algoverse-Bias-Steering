@@ -108,6 +108,24 @@ def test_coordinator_runs_commits_per_phase_and_marks_done():
         assert _git(repo, "ls-files", "runs").stdout.strip() != ""
 
 
+def test_coordinator_shows_queue_position():
+    # run-level banner "[i/total]" per queue item + queue_pos/queue_total in status.
+    import io
+    from contextlib import redirect_stdout
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _make_repo(tmp)
+        coord = _coordinator(repo, _good_runner, configs=("c1.py", "c2.py", "c3.py"))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            coord.run()
+        out = buf.getvalue()
+        assert "=== [1/3] exp / c1.py ===" in out
+        assert "=== [2/3] exp / c2.py ===" in out
+        assert "=== [3/3] exp / c3.py ===" in out
+        status = json.loads((repo / "_coordinator" / "status.json").read_text())
+        assert status["queue_pos"] == 3 and status["queue_total"] == 3
+
+
 def test_coordinator_batch_restart_skips_done():
     with tempfile.TemporaryDirectory() as tmp:
         repo = _make_repo(tmp)
@@ -182,10 +200,12 @@ def _register_p4_fakes():
     if "p4model" not in registry.MODELS:
         registry.register(registry.MODELS, "p4model", ModelSpec("p4model", "fake/m", True, "S"))
     if "p4method" not in registry.METHODS:
+        # opaque steering vector; needs only .to() (run() moves it to device, #9)
+        fake_vec = types.SimpleNamespace(to=lambda device: fake_vec)
         m = types.SimpleNamespace(
             name="p4method",
             capture=lambda cache, n: ("r", n),
-            build=lambda rbl, contrast: "VEC",
+            build=lambda rbl, contrast: fake_vec,
             apply=lambda model, vec, coeff: [("sign", 1 if coeff >= 0 else -1)],
             names=lambda n: [f"blocks.{i}.hook_resid_pre" for i in range(n)],
         )
@@ -197,15 +217,15 @@ def _register_p4_fakes():
 def _p4_backend():
     return experiment.Backend(
         load=lambda spec: types.SimpleNamespace(
-            model=types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2)),
+            model=types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4)),
             tokenizer=None, spec=spec, device="cpu"),
         generate=lambda l, p, m, s: ["opinionated"] * len(p),
         generate_with_cache=lambda l, p, m, s, capture_names=None: (
             ["opinionated" if i % 2 == 0 else "neutral" for i in range(len(p))], [None] * len(p)),
         generate_with_hooks=lambda l, p, h, m, s: [
             ("opinionated" if (h and h[0][1] > 0) else "neutral")] * len(p),
-        save_vector=lambda p, v: Path(p).write_text("v"),
-        save_residuals=lambda p, r: Path(p).write_text("r"),
+        save_vector=lambda p, v, **kw: Path(p).write_text("v"),
+        save_residuals=lambda p, r, **kw: Path(p).write_text("r"),
     )
 
 

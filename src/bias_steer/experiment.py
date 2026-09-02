@@ -15,13 +15,14 @@ whole wiring runs without torch/OpenAI; the numeric correctness of capture/build
 lives in the (torch-gated) steering tests.
 """
 
+import json
 import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
 from ..utils import get_current_time_str
-from . import artifacts, datasets, metrics, models
+from . import artifacts, datasets, metrics, models, steering
 from .config import ExperimentConfig
 from .logs import RunLogger
 from .registry import DATASETS, JUDGES, METHODS, MODELS, validate
@@ -40,6 +41,10 @@ class Backend:
     generate_with_hooks: Callable = models.generate_with_hooks
     save_vector: Callable = artifacts.save_vector
     save_residuals: Callable = artifacts.save_residuals
+    # Read a saved (n_layers, d_model) vector back off disk — the input to the
+    # apply-only path (apply_vector). Appended last so existing Backend(...) calls
+    # are unaffected. Tests inject a fake to avoid a real safetensors read.
+    load_vector: Callable = artifacts.load_vector
 
 
 @dataclass
@@ -64,14 +69,22 @@ def _contrast(config: ExperimentConfig):
     return labels[1], labels[0]
 
 
-def run(config: ExperimentConfig, *, backend: Backend | None = None,
+def run(config: ExperimentConfig, *, vector_path=None, backend: Backend | None = None,
         runs_dir="runs", index_path=None, progress=None, on_phase=None) -> list[RunResult]:
     """Run `config` for each of its models; returns one `RunResult` per model.
 
+    By default each model extracts a steering vector from the TRAIN split and
+    evaluates it on TEST. If `vector_path` (or `config.vector_path`) names a saved
+    `steering_vector.safetensors`, extraction is **skipped** and that vector is
+    evaluated instead — the same eval path, just fed a pre-existing direction (the
+    FK-5 generalization test: apply a direction fit on one battery to another). A
+    supplied vector needs no TRAIN split; if one is present anyway it is folded
+    into the eval set and a loud warning is logged (not an error).
+
     `on_phase(phase, run_id)` is called at each persistence boundary ("vector" after
-    the steering vector is saved, "eval" after results/index are written). run()
-    stays git-agnostic; the coordinator (§10) supplies this callback to commit/push
-    per phase. Default None = no-op.
+    the steering vector is saved/loaded, "eval" after results/index are written).
+    run() stays git-agnostic; the coordinator (§10) supplies this callback to
+    commit/push per phase. Default None = no-op.
     """
     backend = backend or Backend()
     progress = progress or (lambda it, **kw: it)
@@ -79,6 +92,7 @@ def run(config: ExperimentConfig, *, backend: Backend | None = None,
     config.validate()
     validate(config)
 
+    vector_path = vector_path or getattr(config, "vector_path", None)
     index_path = Path(index_path) if index_path else Path(runs_dir) / "index.csv"
 
     # Resolve + materialize the dataset once (shared across this config's models).
@@ -95,7 +109,8 @@ def run(config: ExperimentConfig, *, backend: Backend | None = None,
 
     return [
         _run_one(config, model_key, train, test, method, judge_fn, contrast,
-                 backend, runs_dir, index_path, progress, on_phase)
+                 backend, runs_dir, index_path, progress, on_phase,
+                 vector_path=vector_path)
         for model_key in config.models
     ]
 
@@ -136,41 +151,32 @@ def assert_run_artifacts(run_dir, required=REQUIRED_RUN_ARTIFACTS) -> None:
         )
 
 
-def _run_one(config, model_key, train, test, method, judge_fn, contrast,
-             backend, runs_dir, index_path, progress, on_phase) -> RunResult:
-    when = get_current_time_str()
-    handle = open_run(config, model_key, runs_dir=runs_dir, when=when)
-    log = RunLogger(handle.dir)
-    spec = MODELS[model_key]
+def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
+                          method, judge_fn, contrast, eval_examples, snapshot_examples,
+                          n_train, backend, index_path, when, progress, on_phase,
+                          phase_desc="eval") -> RunResult:
+    """Shared eval + persist tail for BOTH steering paths.
+
+    `run()` builds the vector from a TRAIN split; `apply_vector()` loads it from
+    disk. Those are the only steps that differ — from here (apply the vector, run
+    the TEST phase, score, write the run folder) the two are byte-for-byte the same
+    code, so they share it rather than each keeping a copy (DRY). `eval_examples`
+    is what the TEST phase scores; `snapshot_examples` is what examples.csv records
+    (run() snapshots train+test; apply snapshots the eval set); `n_train` and
+    `phase_desc` only affect the summary/index label and the progress bar.
+    """
     sys_prompt = config.system_prompt
 
-    log.event(f"loading model {spec.hf_id}")
-    loaded = backend.load(spec)
-    n_layers = loaded.model.cfg.n_layers
-
-    # --- TRAIN: capture residuals, judge, bucket by verdict --------------------
-    resids_by_label: dict = {}
-    for batch in progress(list(_batches(train, config.batch_size)), desc=f"{model_key} train"):
-        prompts = [e.prompt for e in batch]
-        responses, caches = backend.generate_with_cache(
-            loaded, prompts, config.max_tokens, sys_prompt,
-            capture_names=method.names(n_layers),
-        )
-        verdicts = judge_fn(responses, batch, config.judge)
-        for ex, resp, cache, verdict in zip(batch, responses, caches, verdicts):
-            resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))
-            log.train(ex, resp, verdict)
-
-    log.event(f"building steering vector (buckets: "
-              f"{ {k: len(v) for k, v in resids_by_label.items()} })")
-    vector = method.build(resids_by_label, contrast)
-    backend.save_vector(handle.dir / "steering_vector.safetensors", vector)
-    backend.save_residuals(handle.dir / "residuals.safetensors", resids_by_label)
-    on_phase("vector", handle.run_id)  # steering vector persisted -> coordinator commits/pushes
+    # Move the vector on-device ONCE: it is applied at every layer on every forward
+    # step of the TEST phase, so a per-hook-fire transfer would recopy it thousands
+    # of times. `build`/`load_vector` produce a CPU tensor; one host->device copy
+    # here covers the whole phase (#9).
+    vector = vector.to(loaded.device)
 
     # --- TEST: initial + steered (both directions), judge each -----------------
     results: list[Result] = []
-    for batch in progress(list(_batches(test, config.batch_size)), desc=f"{model_key} eval"):
+    for batch in progress(list(_batches(eval_examples, config.batch_size)),
+                          desc=f"{model_key} {phase_desc}"):
         prompts = [e.prompt for e in batch]
         initial = backend.generate(loaded, prompts, config.max_tokens, sys_prompt)
         pos_hooks = method.apply(loaded.model, vector, config.coeffs.opinion)
@@ -199,32 +205,136 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     )
     results_csv = handle.dir / "results.csv"
     metrics.write_csv(results_csv, rows)
+    # Snapshot the frozen subset this run used, so the folder holds its own inputs.
+    metrics.write_examples_csv(handle.dir / "examples.csv", snapshot_examples,
+                               dataset=config.dataset.name)
 
     counts = metrics.condition_verdict_counts(results)
     quality = metrics.steering_quality(results, pos_label=contrast[0], neg_label=contrast[1])
 
     sha, dirty = git_sha()
     summary_md = handle.dir / "summary.md"
-    summary_md.write_text(metrics.render_summary(
+    # encoding pinned: render_summary emits non-ASCII and the default write_text
+    # codec is cp1252 on Windows, where a future non-cp1252 glyph would raise.
+    summary_md.write_text(encoding="utf-8", data=metrics.render_summary(
         run_id=handle.run_id, label=config.label, model=model_key,
         dataset=config.dataset.name, coeffs=config.coeffs, git=(sha, dirty),
-        n_train=len(train), n_test=len(test), counts=counts, quality=quality,
+        n_train=n_train, n_test=len(eval_examples), counts=counts, quality=quality,
     ))
 
     # A run is "done" only if its evidence is on disk. Reaching this line is not
-    # evidence: the Aug-9 campaign logged "done" for 13 runs and 12 of them were
-    # later found holding a 167-byte log and nothing else (the artifacts turned
-    # out to be recoverable from phase commits, but nothing here would have
-    # noticed either way). Fail loudly rather than index a hollow run.
+    # evidence (see assert_run_artifacts) — fail loudly rather than index a hollow run.
     assert_run_artifacts(handle.dir)
 
     row = index_row(config, model_key, handle.run_id, sha, dirty, when, status="done")
     row.update({
-        "n_train": len(train), "n_test": len(test),
+        "n_train": n_train, "n_test": len(eval_examples),
         "opin_good": quality["opinion"]["good"], "neut_good": quality["neutral"]["good"],
     })
     append_index(index_path, row)
     log.event("done")
     on_phase("eval", handle.run_id)  # results + index persisted -> coordinator commits/pushes
+
+    return RunResult(handle.run_id, handle.dir, results_csv, summary_md, counts, quality)
+
+
+def _extract_vector(config, model_key, train, loaded, method, judge_fn, contrast,
+                    backend, handle, log, n_layers, d_model, progress):
+    """Generate the steering vector from the TRAIN split (the default source).
+
+    TRAIN phase: generate on `train`, judge each response, bucket residuals by the
+    verdict, then `method.build` the mean-difference direction. Persists the vector
+    and the per-bucket residuals into the run folder. Called by `_run_one` ONLY
+    when no vector was supplied — it is the "make a new vector" half of a run.
+    """
+    sys_prompt = config.system_prompt
+    resids_by_label: dict = {}
+    for batch in progress(list(_batches(train, config.batch_size)), desc=f"{model_key} train"):
+        prompts = [e.prompt for e in batch]
+        responses, caches = backend.generate_with_cache(
+            loaded, prompts, config.max_tokens, sys_prompt,
+            capture_names=method.names(n_layers),
+        )
+        verdicts = judge_fn(responses, batch, config.judge)
+        for ex, resp, cache, verdict in zip(batch, responses, caches, verdicts):
+            resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))
+            log.train(ex, resp, verdict)
+
+    log.event(f"building steering vector (buckets: "
+              f"{ {k: len(v) for k, v in resids_by_label.items()} })")
+    vector = method.build(resids_by_label, contrast)
+    backend.save_vector(handle.dir / "steering_vector.safetensors", vector,
+                        n_layers=n_layers, d_model=d_model)
+    backend.save_residuals(handle.dir / "residuals.safetensors", resids_by_label,
+                           n_layers=n_layers, d_model=d_model)
+    return vector
+
+
+def _load_provided_vector(backend, vector_path, handle, log, n_layers, d_model):
+    """Load a pre-extracted steering vector from disk, in place of extraction.
+
+    Vouches for its `(n_layers, d_model)` shape (CLAUDE.md §6: a silently 1-D
+    vector broadcasts a DC offset instead of steering — the 2025 bug), snapshots it
+    into the run folder so the run is self-contained, and records its source.
+    """
+    log.event(f"loading steering vector from {vector_path}")
+    vector = backend.load_vector(vector_path)
+    steering.assert_steering_shape(vector, n_layers, d_model)
+    backend.save_vector(handle.dir / "steering_vector.safetensors", vector,
+                        n_layers=n_layers, d_model=d_model)
+    (handle.dir / "applied_vector.json").write_text(json.dumps(
+        {"source_vector_path": str(vector_path), "n_layers": n_layers, "d_model": d_model},
+        indent=2))
+    return vector
+
+
+def _run_one(config, model_key, train, test, method, judge_fn, contrast,
+             backend, runs_dir, index_path, progress, on_phase, vector_path=None) -> RunResult:
+    """One model's run: obtain a steering vector, then evaluate + persist it.
+
+    The vector comes from ONE of two sources, and that is the *only* branch — a
+    supplied `vector_path` is loaded (extraction skipped); otherwise it is
+    generated from the TRAIN split (`_extract_vector`). Everything after — the TEST
+    phase, metrics, run folder — is the single shared tail, so a generated vector
+    and a provided one are evaluated by identical code.
+    """
+    when = get_current_time_str()
+    handle = open_run(config, model_key, runs_dir=runs_dir, when=when)
+    log = RunLogger(handle.dir)
+    spec = MODELS[model_key]
+
+    log.event(f"loading model {spec.hf_id}")
+    loaded = backend.load(spec)
+    n_layers = loaded.model.cfg.n_layers
+    d_model = loaded.model.cfg.d_model
+
+    if vector_path:
+        # A vector was supplied: skip extraction. A TRAIN split is not needed to
+        # hold out here, so it is folded into the eval set rather than wasted — but
+        # a *non-empty* train split usually means "please extract", so if one is
+        # present say so loudly (not an error): we are NOT extracting from it.
+        if train:
+            log.event(
+                f"WARNING: steering vector supplied ({vector_path}) — NOT extracting. "
+                f"The {len(train)} TRAIN examples will be evaluated, not used to fit a vector."
+            )
+        vector = _load_provided_vector(backend, vector_path, handle, log, n_layers, d_model)
+        eval_examples, n_train_label, phase_desc = train + test, 0, "apply"
+    else:
+        vector = _extract_vector(config, model_key, train, loaded, method, judge_fn,
+                                 contrast, backend, handle, log, n_layers, d_model, progress)
+        eval_examples, n_train_label, phase_desc = test, len(train), "eval"
+
+    on_phase("vector", handle.run_id)  # steering vector persisted -> coordinator commits/pushes
+
+    return _evaluate_and_persist(
+        config, model_key, handle, log, loaded, vector,
+        method=method, judge_fn=judge_fn, contrast=contrast,
+        eval_examples=eval_examples, snapshot_examples=train + test, n_train=n_train_label,
+        backend=backend, index_path=index_path, when=when, progress=progress,
+        on_phase=on_phase, phase_desc=phase_desc,
+    )
+
+
 
     return RunResult(handle.run_id, handle.dir, results_csv, summary_md, counts, quality)

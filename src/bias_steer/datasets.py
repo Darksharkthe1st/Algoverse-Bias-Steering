@@ -10,6 +10,7 @@ Loaders are registered in `DATASETS`. This module is stdlib-only (no torch), so
 it imports and runs anywhere.
 """
 
+import csv
 import json
 import random
 from pathlib import Path
@@ -22,9 +23,25 @@ from .schema import Example
 
 def _resolve(path: str) -> Path:
     """Resolve a config path: absolute as-is, else relative to the repo root
-    (so configs are portable across machines and cwds)."""
+    (so configs are portable across machines and cwds).
+
+    Fails loud and early if the resolved path doesn't exist. The ambiguity is
+    fundamental — a bare relative string can't distinguish "relative to root" from
+    "relative to root's parent" — so the natural mistake (a path that starts with the
+    repo dir name, e.g. copied from a file browser) silently doubles the repo name
+    (`<root>/Algoverse-Bias-Steering/...`) and would otherwise surface as an opaque
+    FileNotFoundError deep in a loader's open(), with no hint that resolution was the
+    culprit. We name the input, the resolved path, and the root instead of guessing."""
     p = Path(path)
-    return p if p.is_absolute() else get_repo_root() / p
+    resolved = p if p.is_absolute() else get_repo_root() / p
+    if not resolved.exists():
+        raise FileNotFoundError(
+            f"dataset path does not exist: {resolved}\n"
+            f"  (from config path {path!r}, resolved under repo root {get_repo_root()})\n"
+            f"  a bare parent-relative path like 'Algoverse-Bias-Steering/...' doubles "
+            f"the repo name — use a path relative to the repo root, or an absolute path."
+        )
+    return resolved
 
 
 @register(DATASETS, "bbq")
@@ -59,17 +76,28 @@ def load_bbq(spec: DatasetSpec) -> list[Example]:
 
 @register(DATASETS, "plain")
 def load_plain(spec: DatasetSpec) -> list[Example]:
-    """One prompt per line (wraps `src.data.load_plain_dataset`)."""
-    from src.data import load_plain_dataset
-    rows = load_plain_dataset(str(_resolve(spec.path)))
+    """One prompt per line.
+
+    Inlined from legacy `src.data.load_plain_dataset` (arch §3.3: legacy loaders
+    *become the bodies*, not imports). Byte-for-byte: strip every line, blanks kept.
+    """
+    with open(_resolve(spec.path)) as f:
+        rows = [line.strip() for line in f]
     return [Example(id=f"plain-{i}", prompt=s) for i, s in enumerate(rows)]
 
 
 @register(DATASETS, "crows")
 def load_crows(spec: DatasetSpec) -> list[Example]:
-    """CrowS-Pairs CSV cells (wraps `src.data.load_crows_pairs`)."""
-    from src.data import load_crows_pairs
-    cells = load_crows_pairs(str(_resolve(spec.path)))
+    """CrowS-Pairs CSV cells.
+
+    Inlined from legacy `src.data.load_crows_pairs` (flatten every cell of every
+    row into one list, `newline=''` for the csv reader). The non-empty filter drops
+    the blank cells that flattening produces.
+    """
+    cells: list = []
+    with open(_resolve(spec.path), newline="") as f:
+        for row in csv.reader(f):
+            cells += row
     return [
         Example(id=f"crows-{i}", prompt=s)
         for i, s in enumerate(cells)
@@ -117,10 +145,19 @@ def load_crows_questions(spec: DatasetSpec) -> list[Example]:
 
 @register(DATASETS, "hidden_bias")
 def load_hidden_bias(spec: DatasetSpec) -> list[Example]:
-    """Hidden-bias CSV -> two-option questions (wraps
-    `src.data.load_hidden_bias_dataset`)."""
-    from src.data import load_hidden_bias_dataset
-    rows = load_hidden_bias_dataset(str(_resolve(spec.path)))
+    """Hidden-bias CSV -> two-option questions.
+
+    Inlined from legacy `src.data.load_hidden_bias_dataset`; the prompt string is
+    byte-identical to that loader's `get_question`. Note the csv reader here has NO
+    `newline=''` (legacy differs from crows on this) — preserved deliberately.
+    """
+    rows: list[str] = []
+    with open(_resolve(spec.path)) as f:
+        for r in csv.reader(f, delimiter=",", quotechar='"'):
+            rows.append(
+                f"{r[0]} What happened? Pick one of two options: "
+                f"(1) {r[1]}, (2) {r[2]}"
+            )
     return [Example(id=f"hidden-{i}", prompt=s) for i, s in enumerate(rows)]
 
 
@@ -259,13 +296,189 @@ def load_refusal_contrast(spec: DatasetSpec) -> list[Example]:
     return examples
 
 
+# --------------------------------------------------------------------------- #
+# IssueBench (Röttger et al., 2025; arXiv:2502.08395): realistic writing-
+# assistance prompts (template × political issue) for measuring issue bias.
+# Fetched from hf.co/datasets/Paul/IssueBench by scripts/fetch_issuebench.py into
+# third_party/issuebench/prompts/ as parquet. FK-5 in the fk task-list: the
+# boundary check for the single-direction story.
+# --------------------------------------------------------------------------- #
+
+# Worktree root -> the fetched parquet. Same rationale as _REFUSAL_SPLITS_DIR:
+# parents[2] (not get_repo_root()) stays inside a git worktree, where `.git` is a
+# file rather than a directory.
+_ISSUEBENCH_DIR = (
+    Path(__file__).resolve().parents[2] / "third_party" / "issuebench"
+)
+_ISSUEBENCH_SPLITS = ("debug", "sample", "full")
+
+
+@register(DATASETS, "issuebench")
+def load_issuebench(spec: DatasetSpec) -> list[Example]:
+    """IssueBench prompt split -> Examples (arXiv:2502.08395).
+
+    `spec.path` names the split: "debug" (150 prompts, the default), "sample"
+    (636k), or "full" (2.49m, sharded across two parquet files). The split must
+    already be fetched:
+
+        python scripts/fetch_issuebench.py --split <split>
+
+    Each row's `prompt_text` (the fully-materialised user prompt) becomes
+    `Example.prompt`; the rest of the release's schema is preserved in
+    `metadata`. `category` is set to `topic_polarity` (neutral/pro/con) so the
+    generic `sample(per_group=("category", n))` stratifier balances across issue
+    framings without any IssueBench-specific code.
+
+    Ad-hoc `spec.max_rows` (int, optional) caps how many rows are materialised at
+    load time — the full split is 2.49m prompts, and a pilot rarely wants every
+    Example object in memory. It slices in file order *before* any `SampleSpec`
+    sampling; leave it None to load the whole split.
+
+    pandas is imported lazily (like torch in steering.py) so this module still
+    imports without it; only actually loading IssueBench pays for pandas.
+    """
+    split = (spec.path or "debug").strip()
+    if split not in _ISSUEBENCH_SPLITS:
+        raise ValueError(
+            f"issuebench split {split!r} must be one of {_ISSUEBENCH_SPLITS}; "
+            f"pass it as DatasetSpec(name='issuebench', path='debug')"
+        )
+
+    shards = sorted(_ISSUEBENCH_DIR.glob(f"prompts/prompts_{split}-*.parquet"))
+    if not shards:
+        raise FileNotFoundError(
+            f"no IssueBench '{split}' parquet under {_ISSUEBENCH_DIR / 'prompts'}\n"
+            f"Fetch it first:\n"
+            f"    python scripts/fetch_issuebench.py --split {split}"
+        )
+
+    import pandas as pd  # lazy: keeps datasets.py importable without pandas
+
+    frames = [pd.read_parquet(s) for s in shards]
+    df = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
+
+    max_rows = getattr(spec, "max_rows", None)
+    if max_rows is not None:
+        df = df.head(int(max_rows))
+
+    examples: list[Example] = []
+    for i, row in enumerate(df.itertuples(index=False)):
+        r = row._asdict()
+        examples.append(Example(
+            id=f"issuebench-{split}-{i}",
+            prompt=r["prompt_text"],
+            metadata={
+                "category": r.get("topic_polarity"),  # neutral/pro/con — stratify key
+                "topic_id": r.get("topic_id"),
+                "topic_text": r.get("topic_text"),
+                "topic_polarity": r.get("topic_polarity"),
+                "template_id": r.get("template_id"),
+                "split": split,
+            },
+        ))
+    return examples
+
+
+# --------------------------------------------------------------------------- #
+# AxBench Concept500 (Wu et al., 2025; arXiv:2501.17148): per-concept labelled
+# positive (concept-present) / negative (unsteered) instruction+response pairs.
+# Fetched from hf.co/datasets/pyvene/axbench-concept500 by scripts/fetch_axbench.py
+# into third_party/axbench/<variant>/<split>/data.parquet. FK-5: run OUR
+# difference-of-means steering on it and measure single-direction effectiveness.
+# --------------------------------------------------------------------------- #
+
+_AXBENCH_DIR = (
+    Path(__file__).resolve().parents[2] / "third_party" / "axbench"
+)
+_AXBENCH_VARIANTS = ("2b/l10", "2b/l20", "9b/l20", "9b/l31")
+_AXBENCH_SPLITS = ("train", "test")
+
+
+@register(DATASETS, "axbench")
+def load_axbench(spec: DatasetSpec) -> list[Example]:
+    """AxBench Concept500 -> Examples (arXiv:2501.17148).
+
+    `spec.path` selects the released copy to read as ``"<variant>/<split>"`` —
+    e.g. ``"2b/l20/train"`` (the default when `spec.path` is empty is
+    ``"2b/l20/train"``). Fetch it first:
+
+        python scripts/fetch_axbench.py --variant 2b/l20
+
+    Mapping (see third_party/axbench/README.md): `input` -> `Example.prompt`;
+    `metadata` carries **`label`** = `category` (``positive``/``negative`` — the
+    DiffMean contrast, so a label-bucketed extraction can group residuals by it),
+    **`category`** = `concept_genre` (the coarse stratify key, matching how other
+    loaders use `category`), plus `concept_id`, `output_concept`, and the
+    reference `output`. Filter to one concept with
+    ``SampleSpec(filter={"concept_id": [<id>]})``.
+
+    Two intended uses, per FK-5 (run separately):
+      - **label-bucketed (AxBench-native)**: bucket residuals by `metadata["label"]`
+        (``positive``/``negative``) to build a diff-of-means direction the way
+        AxBench's DiffMean does. Contrast = ``("positive", "negative")``.
+      - **judge-bucketed (ours)**: feed the prompts through the standard
+        judge-bucketed pipeline, same as the bias battery.
+
+    Ad-hoc `spec.max_rows` caps rows at load time (Concept500 is large). pandas is
+    imported lazily so this module still imports without it.
+    """
+    sel = (spec.path or "2b/l20/train").strip().strip("/")
+    parts = sel.split("/")
+    if len(parts) != 3 or f"{parts[0]}/{parts[1]}" not in _AXBENCH_VARIANTS or parts[2] not in _AXBENCH_SPLITS:
+        raise ValueError(
+            f"axbench path {spec.path!r} must be '<variant>/<split>' with variant in "
+            f"{_AXBENCH_VARIANTS} and split in {_AXBENCH_SPLITS}, e.g. '2b/l20/train'"
+        )
+    variant, split = f"{parts[0]}/{parts[1]}", parts[2]
+
+    path = _AXBENCH_DIR / variant / split / "data.parquet"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"missing AxBench parquet {path}\nFetch it first:\n"
+            f"    python scripts/fetch_axbench.py --variant {variant}"
+        )
+
+    import pandas as pd  # lazy: keeps datasets.py importable without pandas
+
+    df = pd.read_parquet(path)
+    max_rows = getattr(spec, "max_rows", None)
+    if max_rows is not None:
+        df = df.head(int(max_rows))
+
+    tag = sel.replace("/", "-")
+    examples: list[Example] = []
+    for i, row in enumerate(df.itertuples(index=False)):
+        r = row._asdict()
+        examples.append(Example(
+            id=f"axbench-{tag}-{i}",
+            prompt=r["input"],
+            metadata={
+                "label": r.get("category"),          # positive/negative — DiffMean contrast
+                "category": r.get("concept_genre"),  # text/code/math — coarse stratify key
+                "concept_id": r.get("concept_id"),
+                "output_concept": r.get("output_concept"),
+                "output": r.get("output"),           # reference (concept-bearing if positive)
+                "variant": variant,
+                "split": split,
+            },
+        ))
+    return examples
+
+
 def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     """Filter + stratify + cap, deterministically by `spec.seed` (arch §3.3).
 
     Order: (1) keep Examples whose `metadata[k]` is in `spec.filter[k]` for every
     key; (2) if `per_group=(key, n)`, keep up to `n` random Examples per distinct
     `metadata[key]` (balanced/representative); (3) if `limit` is set, randomly cap
-    the total. All randomness is seeded, so the same spec yields the same subset.
+    the total; (4) shuffle so the result is de-blocked (interleaved), not grouped by
+    category. All randomness is seeded, so the same spec yields the same subset.
+
+    The final shuffle is part of the contract: `sample()` returns a *randomly-ordered*
+    representative subset, so a positional train/test slice over it is balanced without
+    the caller having to know to shuffle first. It uses a fresh `Random(spec.seed)` (not
+    the stream already advanced by steps 2-3) so the order is bit-identical to the
+    historical caller-side shuffle it replaces — a pure refactor, reproducible splits.
     """
     rng = random.Random(spec.seed)
     out = examples
@@ -293,6 +506,11 @@ def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
         keep_idx = set(idx[: spec.limit])
         out = [e for i, e in enumerate(out) if i in keep_idx]
 
+    # De-block: a fresh Random(seed) so the permutation matches the caller-side
+    # shuffle this replaces (see docstring), keeping historical splits reproducible.
+    if out is examples:
+        out = list(out)  # never shuffle the caller's list in place
+    random.Random(spec.seed).shuffle(out)
     return out
 
 

@@ -94,6 +94,19 @@ the Arditi hard-refusal direction. Revival sprint, Aug 2026; 2025 assets
    following the existing `Log_N_*` convention. No hand-edited conclusions.
 8. **Open-weight models only.** Steering needs residual-stream access.
 
+## Running long jobs on this box
+
+Claude Code sessions are ephemeral and can die mid-task (SSH drop, harness
+restart, session timeout) independent of any child process they spawned. Any
+long-running job (vector extraction, apply-battery eval, anything running
+against an 8B+ model) must be launched **detached** from the session, e.g.:
+
+    nohup python -m src.bias_steer run <config> > log.txt 2>&1 & disown
+
+Do not rely on the harness's own background-task tracking (`run_in_background`)
+alone for anything that must survive an agent restart — that ties the child
+process to the session's process tree, so it dies with the session.
+
 ## Key docs
 
 - `docs/SOURCES_OF_TRUTH.md` — **the fact-ownership registry; read first**

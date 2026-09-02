@@ -229,11 +229,27 @@ runs/_discard/
 # src/bias_steer/ and IS committed:
 _coordinator/
 
+# Claude Code local settings / worktrees
+.claude/
 # --- third-party refusal-direction artifacts (fetched, not committed) ---
 # Downloaded by scripts/fetch_refusal_artifacts.py; provenance in the pinned
 # manifest.json. Only the manifest, README, and fetch script are committed.
 third_party/refusal_direction/runs/
 third_party/refusal_direction/dataset/
+
+# --- third-party IssueBench parquet (fetched, not committed) ---
+# Downloaded by scripts/fetch_issuebench.py; provenance in the pinned
+# manifest.json. Only the manifest, README, and fetch script are committed.
+third_party/issuebench/prompts/
+third_party/issuebench/issues/
+third_party/issuebench/templates/
+
+# --- third-party AxBench Concept500 parquet (fetched, not committed) ---
+# Downloaded by scripts/fetch_axbench.py; provenance in the pinned manifest.json.
+# Only the manifest, README, and fetch script are committed. The variant folders
+# (2b/, 9b/) hold the fetched data.parquet files.
+third_party/axbench/2b/
+third_party/axbench/9b/
 
 # Community Discord harvest — raw dumps have usernames/PII; keep local only
 experiments/community_methods/raw/
