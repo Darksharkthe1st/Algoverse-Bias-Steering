@@ -26,7 +26,21 @@ likely to the deadline, and cannot execute. Every Edward-owned blocking package
 is reassigned below (WP-11, WP-25, the WP-06 validator seat); non-blocking ones
 are deferred or folded. Ratified by this PR's review.
 
-## Critical path
+## A7 submission — InterpScience @ NeurIPS 2026 (2026-08-30)
+
+Contract §12 A7 governs. These packages are the critical path until the
+2026-09-01 AoE deadline; the hedging-paper table below is paused at WP-05 (G1),
+unchanged.
+
+| ID | Objective | Status | Owner | Definition of done | Evidence required | Blocks? |
+|---|---|---|---|---|---|---|
+| **WP-40** | Manuscript: *The Extraction Floor* | **draft complete** | Edward (science + writing; took over Farhan's role 2026-08-30) · Jeremiah reads as builder of the evidence | Full draft on the team Overleaf, anonymized, NeurIPS format, ≤9pp + refs/appendix | Overleaf `main.tex`; compiles clean, 9pp total | Y |
+| **WP-41** | Every manuscript number recounts from artifacts | **done** | Claude | Recount script exits 0 against `runs/` | `scripts/recount_taxonomy_paper.py` → `RECOUNT CLEAN` | Y |
+| **WP-42** | OpenReview submission + reciprocal reviewer | **not started** | Jeremiah (submit) · reviewer TBD by team | Submission confirmed before 2026-09-01 AoE; one member committed to the Sep 3–17 review window | OpenReview confirmation | Y |
+| **WP-43** | Pre-deadline GPU hardening (optional) / camera-ready hardening (required) | **staged — code pre-written and tested, run-only** | Jeremiah executes (A100 cluster request + runs); Edward validates from artifacts | The runs in `docs/HANDOFF_GPU_HARDENING.md`, in priority order | Run dirs pushed to a branch | N (submission) · Y (camera-ready) |
+| **WP-44** | Artifact provenance backfill + gemma verdict regeneration (CPU) | **not started** | any agent | The schema diff and two companion fixes from `results/writeups/09-open-questions-answered.md`, applied with `backfilled-` tags | Diff + regenerated `report.json` fields | N |
+
+
 
 | ID | Objective | Depends | Status | Owner | Definition of done | Evidence required | Validation | Blocks? |
 |---|---|---|---|---|---|---|---|---|

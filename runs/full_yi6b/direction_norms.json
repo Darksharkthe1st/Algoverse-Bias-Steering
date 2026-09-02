@@ -1,0 +1,74 @@
+[
+  {
+    "category": "Physical_appearance",
+    "frobenius_norm": 125.49058344195268,
+    "max_layer_norm": 56.2608719793557,
+    "mean_layer_norm": 13.198679635908453,
+    "floor": 0.6141175951303681,
+    "quintile_separation": 7.291093341509502
+  },
+  {
+    "category": "Disability_status",
+    "frobenius_norm": 148.59097873513704,
+    "max_layer_norm": 64.65636747166555,
+    "mean_layer_norm": 16.023979832316936,
+    "floor": 0.6052217974896923,
+    "quintile_separation": 11.344985824823379
+  },
+  {
+    "category": "Nationality",
+    "frobenius_norm": 68.21892487379337,
+    "max_layer_norm": 30.564773366606126,
+    "mean_layer_norm": 7.406181733256288,
+    "floor": 0.296347965510635,
+    "quintile_separation": 4.839606351653735
+  },
+  {
+    "category": "Race_x_gender",
+    "frobenius_norm": 62.916895100230825,
+    "max_layer_norm": 28.79146848209189,
+    "mean_layer_norm": 6.8465156556699895,
+    "floor": 0.203500197745412,
+    "quintile_separation": 5.484541015326977
+  },
+  {
+    "category": "Age",
+    "frobenius_norm": 82.64578094309365,
+    "max_layer_norm": 36.59337189827233,
+    "mean_layer_norm": 8.722983469672798,
+    "floor": 0.17693673497883994,
+    "quintile_separation": 5.668212673068046
+  },
+  {
+    "category": "Race_x_SES",
+    "frobenius_norm": 55.09705951933517,
+    "max_layer_norm": 25.27973269219719,
+    "mean_layer_norm": 5.8326106364440005,
+    "floor": 0.08894132250280251,
+    "quintile_separation": 2.876411180694898
+  },
+  {
+    "category": "Race_ethnicity",
+    "frobenius_norm": 68.81732667339553,
+    "max_layer_norm": 31.95291971102422,
+    "mean_layer_norm": 7.092105592635798,
+    "floor": -0.2295083787449837,
+    "quintile_separation": 5.854490078488986
+  },
+  {
+    "category": "Sexual_orientation",
+    "frobenius_norm": 67.1450824897549,
+    "max_layer_norm": 30.018725459253734,
+    "mean_layer_norm": 7.028854438707272,
+    "floor": -0.30430850463937076,
+    "quintile_separation": 4.66906679231067
+  },
+  {
+    "category": "Religion",
+    "frobenius_norm": 55.89610802956588,
+    "max_layer_norm": 25.116685640749598,
+    "mean_layer_norm": 5.846140569426744,
+    "floor": -0.4544207171635423,
+    "quintile_separation": 3.898925693829854
+  }
+]

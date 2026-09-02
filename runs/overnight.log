@@ -1,0 +1,299 @@
+gpu free (0 MiB) after 0s
+
+
+########## transfer_qwen14b  [04:11:07] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_qwen14b --model qwen-14b --items 80 --coeff 8.0
+[transfer_qwen14b] exit=0
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       -0.1569    -0.1229   SAME SIGN - generic damage?
+Disability_status         -0.1509    -0.3511   SAME SIGN - generic damage?
+Gender_identity           +0.0679    -0.2045   sign flips (good)
+Nationality               +0.0406    -0.0379   sign flips (good)
+Physical_appearance       -0.1735    -0.1285   SAME SIGN - generic damage?
+Race_ethnicity            -0.0730    +0.0650   sign flips (good)
+Race_x_SES                +0.0518    -0.0099   sign flips (good)
+Race_x_gender             +0.1343    -0.1027   sign flips (good)
+Religion                  -0.0089    +0.0490   sign flips (good)
+Sexual_orientation        -0.0416    +0.0111   sign flips (good)
+
+summary
+  mean effect, own direction        : -0.0310
+  mean effect, cross direction      : +0.0166
+  mean |effect|, random control     : +0.0283
+  specificity (own - cross)         : -0.0476
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> not causal at all
+
+  Say 'a direction', never 'the direction' (arXiv:2602.06801):
+  steering success does not identify the representation.
+
+written to runs/full_qwen14b/transfer_test.json
+gpu free (0 MiB) after 0s
+
+
+########## h2_age_qwen14b  [06:19:09] ##########
+$ python3 scripts/h2_dose_response.py --model qwen-14b --category Age --bucket 90
+[h2_age_qwen14b] exit=0
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+Moving model to device:  cuda
+qwen-14b  n_layers=40 d_model=5120
+category: Age
+
+margins: loaded from cache (600 items)
+
+subset        n/pole   mean neg   mean pos  separation  floor q05   median   reproduces?
+----------------------------------------------------------------------------------------
+extremes          90     -2.873     +5.802       8.675      0.795    0.856   YES
+moderate          90     -0.489     +2.570       3.058      0.480    0.710   no
+null-tilt         90     +0.636     +1.310       0.674      0.065    0.205   no
+
+prediction was floor(extremes) > floor(moderate) > floor(null-tilt)
+observed: 0.795 > 0.480 > 0.065   -> SUPPORTED
+null-tilt subset reproduces: False (H2 predicts False, at identical n)
+
+written to runs/_h2_dose_qwen-14b_Age.json
+
+n is identical across the three subsets, so a monotone result cannot
+be explained by sample size — which is the mechanical worry about the
+between-category correlation.
+gpu free (0 MiB) after 0s
+
+
+########## h2_disability_qwen14b  [06:20:31] ##########
+$ python3 scripts/h2_dose_response.py --model qwen-14b --category Disability_status --bucket 90
+[h2_disability_qwen14b] exit=0
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+Moving model to device:  cuda
+qwen-14b  n_layers=40 d_model=5120
+category: Disability_status
+
+margins: loaded from cache (600 items)
+
+subset        n/pole   mean neg   mean pos  separation  floor q05   median   reproduces?
+----------------------------------------------------------------------------------------
+extremes          90     -6.293     +8.371      14.664      0.809    0.895   YES
+moderate          90     -3.149     +5.438       8.587      0.759    0.857   YES
+null-tilt         90     -0.398     +1.361       1.758      0.079    0.279   no
+
+prediction was floor(extremes) > floor(moderate) > floor(null-tilt)
+observed: 0.809 > 0.759 > 0.079   -> SUPPORTED
+null-tilt subset reproduces: False (H2 predicts False, at identical n)
+
+written to runs/_h2_dose_qwen-14b_Disability_status.json
+
+n is identical across the three subsets, so a monotone result cannot
+be explained by sample size — which is the mechanical worry about the
+between-category correlation.
+gpu free (0 MiB) after 0s
+
+
+########## gemma2b_control  [06:21:52] ##########
+$ python3 scripts/extraction_positive_control.py --model gemma-2b --items 160 --out runs/_extraction_control_gemma2b.json
+[gemma2b_control] exit=0
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loaded pretrained model google/gemma-2b-it into HookedTransformer
+Moving model to device:  cuda
+model gemma-2b  n_layers=18 d_model=2048
+random-direction floor (1/sqrt d) = 0.0221
+
+topic contrast                                 n  floor q05   median   verdict
+----------------------------------------------------------------------------------
+Race_ethnicity vs Gender_identity            320      0.915    0.925   REPRODUCIBLE
+Religion vs Age                              320      0.912    0.926   REPRODUCIBLE
+Nationality vs Sexual_orientation            320      0.860    0.888   REPRODUCIBLE
+
+Compare against the bias-margin floors from the full run:
+  Age 0.423 | Race_x_gender 0.138 | Nationality 0.057 | Race_x_SES 0.017
+  Religion -0.008 | Gender_identity -0.072 | Race_ethnicity -0.115 | Sexual_orientation -0.202   (q05)
+
+If the topic floors are high and those are ~0, extraction works and
+the stereotype-margin contrast is what has no stable correlate.
+
+written to runs/_extraction_control_gemma2b.json
+gpu free (0 MiB) after 0s
+
+
+########## gemma2b_extremes  [06:22:28] ##########
+$ python3 scripts/bias_taxonomy_run.py --model gemma-2b --method extremes --ambig-limit 600 --control-limit 150 --permutations 200 --cluster-usable-only --out-dir runs/full_gemma2b
+[gemma2b_extremes] exit=0
+  Age                    n=240   -> direction (18, 2048)
+  Nationality            n=240   -> direction (18, 2048)
+  Physical_appearance    n=240   -> direction (18, 2048)
+  Disability_status      n=240   -> direction (18, 2048)
+  Sexual_orientation     n=172   -> direction (18, 2048)
+  Race_x_gender          n=240   -> direction (18, 2048)
+  Race_x_SES             n=240   -> direction (18, 2048)
+
+=== STAGE 4 - extraction floor (re-extract the SAME category from halves)
+  category                     n floor q05    median
+  Race_x_SES                 240    -0.165     0.183
+  Religion                   240    -0.163     0.101
+  Race_x_gender              240    -0.044     0.120
+  Nationality                240    -0.038     0.228
+  Race_ethnicity             240    -0.013     0.146
+  Sexual_orientation         172     0.056     0.235
+  Age                        240     0.161     0.333
+  Physical_appearance        240     0.511     0.854
+  Disability_status          240     0.818     0.919
+
+  n spread across categories: 1.4x
+
+=== STAGE 5 - cosine matrix, clustering, permutation null
+  clustering only the 2 reproducible categories
+  excluded (floor below 0.5): ['Religion', 'Race_ethnicity', 'Age', 'Nationality', 'Sexual_orientation', 'Race_x_gender', 'Race_x_SES']
+
+  fewer than 3 reproducible directions — nothing to cluster.
+
+=== VERDICT
+  NO STRUCTURE: 2/9 categories produce reproducible directions, and their clustering is within the permutation null (p=1.000). This IS a finding — the measurement had the precision to detect separable subtypes and did not.
+gpu free (0 MiB) after 0s
+
+
+########## transfer_gemma2b  [06:43:24] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_gemma2b --model gemma-2b --items 80 --coeff 5.0
+[transfer_gemma2b] exit=0
+control - sign flip on own category (coeff=-5.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       -0.0286    +0.0618   sign flips (good)
+Disability_status         -0.4131    -0.2338   SAME SIGN - generic damage?
+Nationality               +0.0716    -0.0476   sign flips (good)
+Physical_appearance       -0.2932    -0.4204   SAME SIGN - generic damage?
+Race_ethnicity            -0.0200    +0.0323   sign flips (good)
+Race_x_SES                +0.0529    -0.0323   sign flips (good)
+Race_x_gender             -0.0389    +0.0523   sign flips (good)
+Religion                  +0.1529    +0.0266   SAME SIGN - generic damage?
+Sexual_orientation        +0.0260    -0.1367   sign flips (good)
+
+summary
+  mean effect, own direction        : -0.0545
+  mean effect, cross direction      : -0.0171
+  mean |effect|, random control     : +0.0180
+  specificity (own - cross)         : -0.0374
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> not causal at all
+
+  Say 'a direction', never 'the direction' (arXiv:2602.06801):
+  steering success does not identify the representation.
+
+written to runs/full_gemma2b/transfer_test.json
+gpu free (0 MiB) after 0s
+
+
+########## yi6b_control  [07:13:21] ##########
+$ python3 scripts/extraction_positive_control.py --model yi-6b --items 160 --out runs/_extraction_control_yi6b.json
+[yi6b_control] exit=0
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loaded pretrained model 01-ai/Yi-6B-Chat into HookedTransformer
+Moving model to device:  cuda
+model yi-6b  n_layers=32 d_model=4096
+random-direction floor (1/sqrt d) = 0.0156
+
+topic contrast                                 n  floor q05   median   verdict
+----------------------------------------------------------------------------------
+Race_ethnicity vs Gender_identity            320      0.862    0.897   REPRODUCIBLE
+Religion vs Age                              320      0.864    0.882   REPRODUCIBLE
+Nationality vs Sexual_orientation            320      0.879    0.891   REPRODUCIBLE
+
+Compare against the bias-margin floors from the full run:
+  Age 0.423 | Race_x_gender 0.138 | Nationality 0.057 | Race_x_SES 0.017
+  Religion -0.008 | Gender_identity -0.072 | Race_ethnicity -0.115 | Sexual_orientation -0.202   (q05)
+
+If the topic floors are high and those are ~0, extraction works and
+the stereotype-margin contrast is what has no stable correlate.
+
+written to runs/_extraction_control_yi6b.json
+gpu free (0 MiB) after 0s
+
+
+########## yi6b_extremes  [07:14:33] ##########
+$ python3 scripts/bias_taxonomy_run.py --model yi-6b --method extremes --ambig-limit 600 --control-limit 150 --permutations 200 --cluster-usable-only --out-dir runs/full_yi6b
+[yi6b_extremes] exit=0
+  Age                    n=240   -> direction (32, 4096)
+  Nationality            n=240   -> direction (32, 4096)
+  Physical_appearance    n=240   -> direction (32, 4096)
+  Disability_status      n=240   -> direction (32, 4096)
+  Sexual_orientation     n=172   -> direction (32, 4096)
+  Race_x_gender          n=240   -> direction (32, 4096)
+  Race_x_SES             n=240   -> direction (32, 4096)
+
+=== STAGE 4 - extraction floor (re-extract the SAME category from halves)
+  category                     n floor q05    median
+  Religion                   240    -0.454    -0.039
+  Sexual_orientation         172    -0.304    -0.084
+  Race_ethnicity             240    -0.230     0.023
+  Race_x_SES                 240     0.089     0.247
+  Age                        240     0.177     0.361
+  Race_x_gender              240     0.204     0.362
+  Nationality                240     0.296     0.569
+  Disability_status          240     0.605     0.879
+  Physical_appearance        240     0.614     0.732
+
+  n spread across categories: 1.4x
+
+=== STAGE 5 - cosine matrix, clustering, permutation null
+  clustering only the 2 reproducible categories
+  excluded (floor below 0.5): ['Religion', 'Race_ethnicity', 'Age', 'Nationality', 'Sexual_orientation', 'Race_x_gender', 'Race_x_SES']
+
+  fewer than 3 reproducible directions — nothing to cluster.
+
+=== VERDICT
+  NOT CLUSTERABLE: only 2 of 9 categories produce a direction that reproduces against itself (floor q05 >= 0.5) — ['Physical_appearance', 'Disability_status']. Three are needed to cluster, so no similarity structure was computed and no permutation null was run. This is neither evidence for nor against separable subtypes.
+gpu free (0 MiB) after 0s
+
+
+########## transfer_yi6b  [07:48:21] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_yi6b --model yi-6b --items 80 --coeff 8.0
+[transfer_yi6b] exit=0
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       +0.0618    -0.0255   sign flips (good)
+Disability_status         +0.0113    +0.0212   SAME SIGN - generic damage?
+Nationality               +0.0033    -0.0055   sign flips (good)
+Physical_appearance       -0.0266    +0.0557   sign flips (good)
+Race_ethnicity            -0.0124    +0.0696   sign flips (good)
+Race_x_SES                -0.0139    -0.0053   SAME SIGN - generic damage?
+Race_x_gender             +0.0925    -0.0113   sign flips (good)
+Religion                  -0.0222    -0.0226   SAME SIGN - generic damage?
+Sexual_orientation        -0.0385    +0.0106   sign flips (good)
+
+summary
+  mean effect, own direction        : +0.0061
+  mean effect, cross direction      : -0.0035
+  mean |effect|, random control     : +0.0177
+  specificity (own - cross)         : +0.0097
+  sign-flip control passed          : 6/9
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_yi6b/transfer_test.json
+gpu free (0 MiB) after 0s
+
+
+########## qwen7b_extremes  [08:35:38] ##########
+$ python3 scripts/bias_taxonomy_run.py --model qwen-7b --method extremes --ambig-limit 600 --control-limit 150 --permutations 200 --cluster-usable-only --out-dir runs/full_qwen7b

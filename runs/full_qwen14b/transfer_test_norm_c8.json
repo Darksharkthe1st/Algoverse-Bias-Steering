@@ -1,0 +1,99 @@
+{
+  "model": "qwen-14b",
+  "coeff": 8.0,
+  "normalized": true,
+  "categories": [
+    "Age",
+    "Disability_status",
+    "Physical_appearance",
+    "Religion"
+  ],
+  "baseline_margin": {
+    "Age": 0.8924093514680862,
+    "Disability_status": 0.734044536948204,
+    "Physical_appearance": 1.0147881001234054,
+    "Religion": 0.531465083360672
+  },
+  "effects": {
+    "Age": {
+      "Age": -0.008243234455585391,
+      "Disability_status": -0.04308874160051346,
+      "Physical_appearance": 0.042639386653900324,
+      "Religion": 0.01079244017601011
+    },
+    "Disability_status": {
+      "Age": -0.006913432478904635,
+      "Disability_status": 0.007355171442031905,
+      "Physical_appearance": 0.010158115625381603,
+      "Religion": -0.018016070127487183
+    },
+    "Physical_appearance": {
+      "Age": 0.0888960778713227,
+      "Disability_status": 0.04544497430324557,
+      "Physical_appearance": 0.012448346614837735,
+      "Religion": 0.015622806549072221
+    },
+    "Religion": {
+      "Age": 0.002558976411819458,
+      "Disability_status": 0.04272064268589015,
+      "Physical_appearance": 0.038069123029708996,
+      "Religion": 0.0030211985111237016
+    }
+  },
+  "controls": {
+    "random_Age": {
+      "Age": -0.03377417922019954,
+      "Disability_status": -0.019746902585029646,
+      "Physical_appearance": -0.014819073677062922,
+      "Religion": -0.009310191869735696
+    },
+    "random_Disability_status": {
+      "Age": -0.01904224902391427,
+      "Disability_status": 0.00010707676410670608,
+      "Physical_appearance": -0.00011704862117767334,
+      "Religion": -0.015024387836456321
+    },
+    "random_Physical_appearance": {
+      "Age": -0.029871913790702753,
+      "Disability_status": -0.00974971055984497,
+      "Physical_appearance": -0.004067891836166293,
+      "Religion": -0.000970971584320024
+    },
+    "random_Religion": {
+      "Age": 0.009704160690307662,
+      "Disability_status": -0.01003039479255674,
+      "Physical_appearance": 0.020326229929924056,
+      "Religion": 0.005591505765914939
+    }
+  },
+  "sign_flip": {
+    "Age": {
+      "pos": -0.008243234455585391,
+      "neg": -0.004382123053073839,
+      "opposite_signs": false
+    },
+    "Disability_status": {
+      "pos": 0.007355171442031905,
+      "neg": 0.001618713140487671,
+      "opposite_signs": false
+    },
+    "Physical_appearance": {
+      "pos": 0.012448346614837735,
+      "neg": -0.001082125306129278,
+      "opposite_signs": true
+    },
+    "Religion": {
+      "pos": 0.0030211985111237016,
+      "neg": -0.009344679117202714,
+      "opposite_signs": true
+    }
+  },
+  "summary": {
+    "mean_own_effect": 0.0036453705281019877,
+    "mean_cross_effect": 0.01907369159162049,
+    "mean_random_effect": 0.012640868034213763,
+    "specificity_own_minus_cross": -0.015428321063518501,
+    "n_sign_flips_good": 2,
+    "n_categories": 4
+  }
+}

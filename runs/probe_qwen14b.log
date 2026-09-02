@@ -1,0 +1,75 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+run dir: runs/probe_qwen14b
+model  : qwen-14b  (Qwen/Qwen1.5-14B-Chat)
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:   9%|▊         | 42/483 [00:00<00:01, 339.87it/s]Loading weights:  16%|█▌        | 78/483 [00:00<00:01, 348.35it/s]Loading weights:  23%|██▎       | 113/483 [00:00<00:01, 334.86it/s]Loading weights:  30%|███       | 147/483 [00:00<00:01, 322.97it/s]Loading weights:  37%|███▋      | 180/483 [00:00<00:00, 307.02it/s]Loading weights:  45%|████▍     | 216/483 [00:00<00:00, 311.66it/s]Loading weights:  51%|█████▏    | 248/483 [00:00<00:00, 300.51it/s]Loading weights:  58%|█████▊    | 279/483 [00:00<00:00, 295.70it/s]Loading weights:  64%|██████▍   | 309/483 [00:01<00:00, 295.73it/s]Loading weights:  71%|███████   | 341/483 [00:01<00:00, 298.99it/s]Loading weights:  77%|███████▋  | 372/483 [00:01<00:00, 290.08it/s]Loading weights:  83%|████████▎ | 402/483 [00:01<00:00, 280.08it/s]Loading weights:  91%|█████████▏| 441/483 [00:01<00:00, 296.21it/s]Loading weights: 100%|██████████| 483/483 [00:01<00:00, 310.90it/s]
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+Moving model to device:  cuda
+         n_layers=40 d_model=5120
+
+=== STAGE 1 - positive control (disambiguated, no option list)
+category                   n      acc       z   gate
+----------------------------------------------------
+Religion                 150    77.3%   +11.4   PASS
+Race_ethnicity           150    89.3%   +14.5   PASS
+Gender_identity          150    74.0%   +10.6   PASS
+Age                      150    83.3%   +13.0   PASS
+Nationality              150    87.3%   +14.0   PASS
+Physical_appearance      150    68.7%    +9.2   PASS
+Disability_status        150    67.3%    +8.8   PASS
+Sexual_orientation       150    80.7%   +12.3   PASS
+Race_x_gender            150    86.0%   +13.7   PASS
+Race_x_SES               150    81.3%   +12.5   PASS
+
+usable categories: 10/10
+
+=== STAGE 2 - stereotype margins on ambiguous items
+margin cache: runs/_margins_cache
+category                   n     mean      sd    top_q    bot_q   sign split
+--------------------------------------------------------------------------
+Religion                 600   +0.573   2.068   +3.568   -2.127   opposite signs
+Race_ethnicity           600   -0.075   3.409   +4.760   -4.788   opposite signs
+Gender_identity          598   +1.076   5.497   +8.856   -6.590   opposite signs
+Age                      600   +1.139   2.835   +5.100   -2.355   opposite signs
+Nationality              600   +0.326   2.766   +4.322   -3.464   opposite signs
+Physical_appearance      600   +0.897   3.380   +5.176   -3.559   opposite signs
+Disability_status        600   +0.856   4.826   +7.940   -5.686   opposite signs
+Sexual_orientation       432   +0.055   2.434   +3.422   -3.438   opposite signs
+Race_x_gender            600   +0.155   2.894   +4.170   -3.964   opposite signs
+Race_x_SES               600   +0.016   1.513   +2.110   -2.093   opposite signs
+
+=== STAGE 3 - extract a direction per category  (method: probe)
+  Religion               n=600   -> direction (40, 5120)
+  Race_ethnicity         n=600   -> direction (40, 5120)
+  Gender_identity        n=598   -> direction (40, 5120)
+  Age                    n=600   -> direction (40, 5120)
+  Nationality            n=600   -> direction (40, 5120)
+  Physical_appearance    n=600   -> direction (40, 5120)
+  Disability_status      n=600   -> direction (40, 5120)
+  Sexual_orientation     n=432   -> direction (40, 5120)
+  Race_x_gender          n=600   -> direction (40, 5120)
+  Race_x_SES             n=600   -> direction (40, 5120)
+
+=== STAGE 4 - extraction floor (re-extract the SAME category from halves)
+  category                     n floor q05    median
+  Race_ethnicity             600     0.000     0.040
+  Race_x_SES                 600     0.036     0.063
+  Gender_identity            598     0.087     0.108
+  Race_x_gender              600     0.090     0.101
+  Nationality                600     0.113     0.155
+  Religion                   600     0.176     0.208
+  Sexual_orientation         432     0.203     0.242
+  Age                        600     0.264     0.304
+  Physical_appearance        600     0.328     0.402
+  Disability_status          600     0.457     0.481
+
+  n spread across categories: 1.4x
+
+=== STAGE 5 - cosine matrix, clustering, permutation null
+  clustering only the 0 reproducible categories
+  excluded (floor below 0.5): ['Religion', 'Race_ethnicity', 'Gender_identity', 'Age', 'Nationality', 'Physical_appearance', 'Disability_status', 'Sexual_orientation', 'Race_x_gender', 'Race_x_SES']
+
+  fewer than 3 reproducible directions — nothing to cluster.
+
+=== VERDICT
+  UNMEASURABLE: only 0 of 10 categories produce a direction that reproduces against itself (floor q05 >= 0.5). Worst is Race_ethnicity at 0.000. Cosines between non-reproducing directions carry no information, so no pair verdict is available — this is neither evidence for nor against separable subtypes.
