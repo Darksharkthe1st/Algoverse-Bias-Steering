@@ -73,10 +73,11 @@ COLLAPSED_LABELS = [
 
 def collapse(label: str) -> str:
     """Fold a fine 9-way verdict to the 6-way behavior view (filters -> ignored).
-    UNMATCHED (judge named no label) also goes to `ignored` — an unparseable
-    verdict is, behaviorally, nothing we steer on."""
-    if label == UNMATCHED:
-        return "ignored"
+
+    UNMATCHED (the judge's reply named no label) is a JUDGE-side extraction
+    failure and passes through UNCHANGED — it must never be folded into `ignored`
+    or any class (CLAUDE.md §3/§4). `ignored` is the model-broke guard; a judge
+    parse failure is a different thing and has to stay visible."""
     return COLLAPSE_TO_IGNORED.get(label, label)
 
 
@@ -161,7 +162,7 @@ def main() -> None:
         "input_sheet": {"path": str(sheet.relative_to(_REPO_ROOT)), "sha256": _sha256(sheet), "n": len(rows)},
         "label_distribution": dict(dist),                    # raw 9-way (audit trail)
         "label_distribution_collapsed": dict(dist_collapsed),  # 6-way (what downstream uses)
-        "n_unmatched": n_unmatched,  # judge reply named no label -> folded into `ignored`
+        "n_unmatched": n_unmatched,  # judge reply named no label; kept separate (NOT in `ignored`)
     }
     (out.parent / "judge_manifest.json").write_text(json.dumps(manifest, indent=2))
 
@@ -175,6 +176,8 @@ def main() -> None:
     print("\ncollapsed distribution (6-way, what downstream uses):")
     for lbl in COLLAPSED_LABELS:
         print(f"  {lbl:18} {dist_collapsed.get(lbl, 0)}")
+    if n_unmatched:
+        print(f"  {UNMATCHED:18} {n_unmatched}   <- judge parse failure, kept separate from ignored")
 
 
 if __name__ == "__main__":
