@@ -111,14 +111,32 @@ note "preflight: OK"
 # --- a box that bills until you terminate it.
 git config user.email >/dev/null 2>&1 || git config user.email "run3@box.local"
 git config user.name  >/dev/null 2>&1 || git config user.name  "run3 box"
-if git push -q origin HEAD > "$LOGDIR/push_probe_${STAMP}.log" 2>&1; then
-    note "push probe: OK — commits will reach the remote"
-else
-    note "PUSH PROBE FAILED — nothing would survive this box. Fix the remote or"
-    note "the credentials before spending GPU hours."
-    note "See $LOGDIR/push_probe_${STAMP}.log"
-    exit 1
-fi
+# Push is DELIBERATELY disabled on a box with no credentials: an interactive
+# git auth prompt inside tmux hung this queue for 1h41m while the instance
+# billed, and killing it was the only way out. The push URL is pointed at a
+# dead path so git fails in 0s instead of blocking. Artifacts leave by scp
+# (sync_from_box.ps1 / notes/25), which is the route notes/14 §3 wants anyway
+# because the verifier must run against the LAPTOP copy.
+#
+# So: probe, and only HARD FAIL when push is supposed to work and does not.
+PUSH_URL="$(git remote get-url --push origin 2>/dev/null)"
+case "$PUSH_URL" in
+  *push-disabled*)
+    note "push: DISABLED on purpose ($PUSH_URL)"
+    note "*** NOTHING LEAVES THIS BOX BY GIT. Pull artifacts with scp/rsync"
+    note "*** BEFORE terminating, or it is defect S5 all over again."
+    ;;
+  *)
+    if git push -q origin HEAD > "$LOGDIR/push_probe_${STAMP}.log" 2>&1; then
+        note "push probe: OK — commits will reach the remote"
+    else
+        note "PUSH PROBE FAILED — nothing would survive this box. Fix the remote"
+        note "or the credentials before spending GPU hours."
+        note "See $LOGDIR/push_probe_${STAMP}.log"
+        exit 1
+    fi
+    ;;
+esac
 
 : "${RESID_BACKUP:=}"
 if [ -z "$RESID_BACKUP" ]; then
