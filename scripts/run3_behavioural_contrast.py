@@ -1158,12 +1158,36 @@ def cmd_judge(args):
     client, jmodel, jver = _judge_client(args)
     print(f"qualifying judge {jver} ({jmodel}) on "
           f"{min(args.qualify_n, len(items))} items ...")
+    # C-1 is scored on the DIRECTIVE LABEL -- the thing that reaches the buckets
+    # -- not on the intermediate OPTION_n. notes/19 §5.2 disqualifies a judge
+    # whose labels carry a presentation-order error INTO the bucket assignment,
+    # and OPTION_n-on-the-unknown-slot and REFUSED are the same bucket by
+    # design. The raw figure is still computed and reported alongside.
+    from src.bias_steer.bias_taxonomy import resolve_answer_roles as _rar   # noqa: PLC0415
+    from scripts.pilot.behavioural import row_metadata as _rm               # noqa: PLC0415
+    from src.bias_steer.datasets import bbq_target_loc as _btl              # noqa: PLC0415
+    _targets = _btl()
+    _bbq = {}
+    for _c in {r["category"] for r in recs}:
+        for _r in pairing.load_category(_c):
+            _bbq[pairing.item_key(_r)] = _r
+
+    def _to_label(canon_choice, item_index):
+        rec = recs[item_index]
+        row = _bbq.get(rec["item_id"])
+        roles = _rar(_rm(row)) if row else None
+        tl = _targets.get((rec["category"], rec["item_id"].split(":")[-1]))
+        return J.to_directive_label(canon_choice, target_loc=tl,
+                                    unknown_idx=roles.unknown if roles is not None else None)
+
     q = J.qualify(items, model=jmodel, client=client, n_sample=args.qualify_n,
-                  threshold=args.qualify_threshold)
+                  threshold=args.qualify_threshold, to_label=_to_label)
     q["judge_version"], q["model"] = jver, jmodel
-    print(f"  order agreement {q['order_agreement']:.3f} "
-          f"(threshold {q['threshold']}, chance {q['chance_line']:.2f})  "
-          f"format failures {q['n_format_failures']}")
+    q["resolved_model"] = getattr(J, "RESOLVED_JUDGE_MODEL", None)
+    print(f"  order agreement {q['order_agreement']:.3f} on {q['scored_on']} "
+          f"(threshold {q['threshold']}, chance {q['chance_line']:.2f})")
+    print(f"  raw OPTION_n agreement {q['order_agreement_raw_option']:.3f} "
+          f"(sensitivity, not the gate)  format failures {q['n_format_failures']}")
     with open(os.path.join(args.out, "judge_qualification.json"), "w",
               encoding="utf-8") as f:
         json.dump(q, f, indent=2)
