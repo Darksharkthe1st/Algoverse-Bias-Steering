@@ -1,0 +1,11 @@
+{
+  "n_layers": 6,
+  "d_model": 32,
+  "coeff": 8.0,
+  "seed": 0,
+  "adaptive_max_abs_post_projection": 0.0,
+  "adaptive_mean_abs_post_projection": 0.0,
+  "fixed_add_max_within_layer_shift_spread_across_tokens": 2.000000000279556e-06,
+  "adaptive_max_within_layer_removed_spread_across_tokens": 3.9420010000000003,
+  "csv": "experiments\\adaptive_vs_fixed\\mechanism.csv"
+}

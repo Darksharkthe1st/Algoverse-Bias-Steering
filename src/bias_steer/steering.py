@@ -124,6 +124,123 @@ def apply_resid_pre_add(model, vector, coeff: float):
     ]
 
 
+def unit_perlayer(vector):
+    """Per-layer unit-normalize a `(n_layers, d_model)` stack: row L -> `r̂_L`.
+
+    `vector / (‖vector‖_row + 1e-8)` along the last axis, matching
+    `unit_direction`'s epsilon. Distinct from `unit_direction`, which flattens a
+    *single* `(d_model,)` direction; this keeps each layer's row separate because
+    the per-layer convention gives every layer its own direction. The two must
+    never be crossed (CLAUDE.md §6)."""
+    return vector / (vector.norm(dim=-1, keepdim=True) + 1e-8)
+
+
+def apply_adaptive_ablation_perlayer(model, vector, coeff: float | None = None,
+                                     *, all_resid_points: bool = False):
+    """Adaptively ablate a per-layer `(n_layers, d_model)` stack — remove, at each
+    layer, that layer's OWN direction from the residual stream:
+
+        at layer L, r̂_L = unit(vector[L]);  x ← x − (x · r̂_L) r̂_L
+
+    The coefficient is not a hand-tuned scalar: it is the per-position projection
+    `(x · r̂_L)`, computed inside the hook, so it adapts to every token and no
+    coeff sweep is needed (the dot product sets the dose). `coeff` is accepted but
+    ignored (ablation has no dose) so the signature matches the standard
+    `apply(model, vector, coeff)` method contract.
+
+    This is `apply_directional_ablation`'s per-layer sibling. The difference is the
+    convention: that function takes ONE `(d_model,)` direction reused across every
+    layer and routes it through `check_direction` (the 1-D guard); this one takes
+    the `(n_layers, d_model)` bias-steering stack (from `build_mean_difference`)
+    and uses `assert_steering_shape`. Keeping the two conventions apart is
+    load-bearing — a 1-D vector reaching per-layer indexing yields a scalar and
+    silently broadcasts a DC offset, the class of bug that voided the 2025 refusal
+    arms (CLAUDE.md §6, docs/REVIVAL_AUDIT.md). A 1-D vector fails loud here.
+
+    `all_resid_points=False` (default) hooks only each layer's `resid_pre`, matching
+    `apply_resid_pre_add`'s surface so additive-vs-adaptive is a like-for-like
+    comparison. `all_resid_points=True` also hooks `attn_out`/`mlp_out` at every
+    layer (like `apply_directional_ablation`), removing the direction from the whole
+    residual stream. In both modes every hook at layer L uses `r̂_L` — the point
+    where the residual is read decides *where*, the layer decides *which* direction.
+    """
+    import functools
+
+    n_layers = model.cfg.n_layers
+    assert_steering_shape(vector, n_layers, getattr(model.cfg, "d_model", None))
+    r_hat = unit_perlayer(vector)  # (n_layers, d_model), each row a unit direction
+
+    def _ablate(value, hook, r):
+        r = r.to(value.dtype).to(value.device)
+        proj = (value @ r).unsqueeze(-1) * r  # (batch, seq, 1) * (d_model,)
+        value -= proj
+        return value
+
+    if all_resid_points:
+        # Three hook points per layer, each keyed to that layer's row, so
+        # attn_out/mlp_out get r̂_L too. `_grouped_resid_points` yields (layer, name).
+        return [
+            (name, functools.partial(_ablate, r=r_hat[layer]))
+            for layer, name in _grouped_resid_points(n_layers)
+        ]
+    return [
+        (name, functools.partial(_ablate, r=r_hat[layer]))
+        for layer, name in enumerate(resid_pre_hook_names(n_layers))
+    ]
+
+
+def _grouped_resid_points(n_layers: int):
+    """Yield `(layer, hook_name)` for all three residual points of every layer:
+    `resid_pre`, `attn_out`, `mlp_out`. Same hook set as
+    `all_resid_stream_hook_names`, but paired with the layer index so a per-layer
+    method can key each hook to that layer's direction row `r̂_L`. Kept separate
+    from `all_resid_stream_hook_names` (a pure name list, for the single-direction
+    ablation) so that function's contract is unchanged."""
+    for layer in range(n_layers):
+        for point in ("hook_resid_pre", "hook_attn_out", "hook_mlp_out"):
+            yield layer, f"blocks.{layer}.{point}"
+
+
+def apply_adaptive_additive_perlayer(model, vector, coeff: float,
+                                     *, all_resid_points: bool = False):
+    """Adaptive *additive* steering — the removal's counterpart. Instead of zeroing
+    the projection, drive it to a target magnitude `coeff` regardless of where it
+    started, at each layer along that layer's own direction:
+
+        at layer L, r̂_L = unit(vector[L]);  x ← x + (coeff − (x · r̂_L)) r̂_L
+
+    After the hook, `(x · r̂_L) == coeff` at every position — a self-scaling
+    alternative to the swept scalar in `apply_resid_pre_add`, where the amount
+    added depends on how far the residual already sat along the direction. This is
+    distinct from removal: ablation is the `coeff → 0` special case. Use it to
+    *set* the opinion component rather than nudge it.
+
+    Same convention guard as `apply_adaptive_ablation_perlayer`: takes the
+    `(n_layers, d_model)` stack, per-layer unit-normalizes, and a 1-D vector fails
+    loud."""
+    import functools
+
+    n_layers = model.cfg.n_layers
+    assert_steering_shape(vector, n_layers, getattr(model.cfg, "d_model", None))
+    r_hat = unit_perlayer(vector)
+
+    def _drive(value, hook, r, target):
+        r = r.to(value.dtype).to(value.device)
+        delta = (target - (value @ r)).unsqueeze(-1) * r  # pin projection to target
+        value += delta
+        return value
+
+    if all_resid_points:
+        return [
+            (name, functools.partial(_drive, r=r_hat[layer], target=coeff))
+            for layer, name in _grouped_resid_points(n_layers)
+        ]
+    return [
+        (name, functools.partial(_drive, r=r_hat[layer], target=coeff))
+        for layer, name in enumerate(resid_pre_hook_names(n_layers))
+    ]
+
+
 def capture_last(cache, n_layers: int):
     """Last-token `resid_pre` per layer -> (n_layers, d_model).
 
@@ -291,6 +408,18 @@ register(METHODS, "last_token", SteeringMethod("last_token", capture=capture_las
 # the direction's source `layer`, which the (model, vector, coeff) contract can't
 # carry, so the repro flow calls that function directly.
 register(METHODS, "ablation", SteeringMethod("ablation", apply=apply_directional_ablation))
+# Adaptive per-layer ablation of the (n_layers, d_model) bias-steering stack: the
+# coeff is the per-position dot product, computed in the hook, so there is no dose
+# and no sweep (SCOPE_adaptive_steering.md). Only `apply` changes; capture/build
+# stay the mean_diff defaults, matching the SteeringMethod override pattern above.
+# NOTE: `apply` ignores its coeff, so a run's STEERED_POS and STEERED_NEG arms are
+# identical for this method — removal is sign-agnostic (see the DoD#4 summary).
+register(METHODS, "adaptive_ablation",
+         SteeringMethod("adaptive_ablation", apply=apply_adaptive_ablation_perlayer))
+# Adaptive additive counterpart: pins the projection onto each layer's direction to
+# the coeff (a target magnitude), rather than removing it. Distinct from removal.
+register(METHODS, "adaptive_add",
+         SteeringMethod("adaptive_add", apply=apply_adaptive_additive_perlayer))
 
 
 # --------------------------------------------------------------------------- #

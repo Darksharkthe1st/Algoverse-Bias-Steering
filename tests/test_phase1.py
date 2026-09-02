@@ -273,6 +273,132 @@ def test_apply_accepts_correct_shape_and_steers_every_coordinate():
     assert torch.allclose(out, torch.full((1, 3, d_model), 2.0 / n_layers))
 
 
+def test_adaptive_ablation_registered_and_selectable():
+    """The method is in the registry and a config naming it validates — so
+    experiment.py can run it with no other change (SCOPE DoD #3)."""
+    assert "adaptive_ablation" in registry.METHODS
+    assert "adaptive_add" in registry.METHODS
+    cfg = ExperimentConfig(
+        label="t", models=["qwen-7b"],
+        dataset=DatasetSpec(name="bbq", path="x"),
+        judge=JudgeSpec(name="neutrality"), coeffs=Coeffs(13, 15),
+        method="adaptive_ablation",
+    )
+    registry.validate(cfg)  # raises if the method key is unregistered
+
+
+def test_adaptive_ablation_rejects_1d_vector_the_2025_bug():
+    """A 1-D vector must fail loud in the per-layer path too — never reach the
+    per-layer indexing that silently broadcasts a scalar (CLAUDE.md §6)."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    n_layers, d_model = 4, 8
+    model = _FakeModel(n_layers, d_model)
+    err = _expect(
+        steering.SteeringShapeError,
+        lambda: steering.apply_adaptive_ablation_perlayer(model, torch.ones(d_model)),
+    )
+    assert "1-D" in str(err)
+    # A transposed / wrong-width stack is rejected too.
+    _expect(
+        steering.SteeringShapeError,
+        lambda: steering.apply_adaptive_ablation_perlayer(model, torch.ones(d_model, n_layers)),
+    )
+
+
+def test_adaptive_ablation_zeros_the_projection_per_layer():
+    """Core correctness (SCOPE DoD #1): after the hook, the residual's component
+    along that layer's own direction is ~0, on a synthetic residual — no model.
+
+    Each layer uses its OWN row as the direction, and the coeff is the per-position
+    dot product computed inside the hook (never passed in)."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    torch.manual_seed(0)
+    n_layers, d_model = 3, 6
+    model = _FakeModel(n_layers, d_model)
+    # A distinct, non-unit direction per layer (build_mean_difference output shape).
+    vector = torch.randn(n_layers, d_model)
+
+    hooks = steering.apply_adaptive_ablation_perlayer(model, vector)
+    assert len(hooks) == n_layers
+    assert [h[0] for h in hooks] == steering.resid_pre_hook_names(n_layers)
+
+    r_hat = steering.unit_perlayer(vector)
+    for layer, (name, fn) in enumerate(hooks):
+        x = torch.randn(2, 5, d_model)  # (batch, seq, d_model)
+        out = fn(x.clone(), hook=None)
+        # projection onto this layer's unit direction must vanish everywhere
+        proj = out @ r_hat[layer]  # (batch, seq)
+        assert torch.allclose(proj, torch.zeros_like(proj), atol=1e-5), \
+            f"layer {layer}: residual projection not removed (max {proj.abs().max()})"
+        # and it removed a *direction*, not a scalar: the change is parallel to r_hat
+        removed = x - out
+        # every position's removed vector is a scalar multiple of r_hat[layer]
+        cos = torch.nn.functional.cosine_similarity(
+            removed.reshape(-1, d_model), r_hat[layer].expand_as(removed.reshape(-1, d_model)), dim=-1
+        )
+        nonzero = removed.reshape(-1, d_model).norm(dim=-1) > 1e-6
+        assert torch.allclose(cos[nonzero].abs(), torch.ones_like(cos[nonzero]), atol=1e-4)
+
+
+def test_adaptive_ablation_all_resid_points_uses_own_layer_direction():
+    """all_resid_points=True hooks resid_pre/attn_out/mlp_out at every layer, each
+    keyed to that layer's own row — 3*n_layers hooks, and every one zeros the
+    projection onto its layer's direction."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    torch.manual_seed(1)
+    n_layers, d_model = 3, 6
+    model = _FakeModel(n_layers, d_model)
+    vector = torch.randn(n_layers, d_model)
+    r_hat = steering.unit_perlayer(vector)
+
+    hooks = steering.apply_adaptive_ablation_perlayer(model, vector, all_resid_points=True)
+    assert len(hooks) == 3 * n_layers
+    assert [h[0] for h in hooks] == steering.all_resid_stream_hook_names(n_layers)
+
+    for (name, fn) in hooks:
+        layer = int(name.split(".")[1])  # blocks.{L}.hook_*
+        x = torch.randn(2, 4, d_model)
+        out = fn(x.clone(), hook=None)
+        proj = out @ r_hat[layer]
+        assert torch.allclose(proj, torch.zeros_like(proj), atol=1e-5)
+
+
+def test_adaptive_additive_pins_projection_to_target():
+    """The additive variant drives the projection to `coeff` regardless of where it
+    started: after the hook, (x·r̂_L) == coeff at every position."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    torch.manual_seed(2)
+    n_layers, d_model = 3, 6
+    model = _FakeModel(n_layers, d_model)
+    vector = torch.randn(n_layers, d_model)
+    r_hat = steering.unit_perlayer(vector)
+    target = 4.0
+
+    hooks = steering.apply_adaptive_additive_perlayer(model, vector, coeff=target)
+    for layer, (name, fn) in enumerate(hooks):
+        x = torch.randn(2, 5, d_model)
+        out = fn(x.clone(), hook=None)
+        proj = out @ r_hat[layer]
+        assert torch.allclose(proj, torch.full_like(proj, target), atol=1e-4), \
+            f"layer {layer}: projection not pinned to target"
+
+
 def _expect(exc_type, fn):
     try:
         fn()
