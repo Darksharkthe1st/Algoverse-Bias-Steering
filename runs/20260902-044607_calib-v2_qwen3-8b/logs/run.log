@@ -1,0 +1,12 @@
+[20260902-044607] run_id=20260902-044607_calib-v2_qwen3-8b
+[20260902-044607] loading model Qwen/Qwen3-8B @ revision b968826d9c46
+[20260902-044658] loaded on device=cuda; n_layers=36 d_model=4096
+[20260902-044658] generating batch 0 (8 prompts), max_new_tokens=2048
+[20260902-044806] generating batch 1 (8 prompts), max_new_tokens=2048
+[20260902-045207] generating batch 2 (8 prompts), max_new_tokens=2048
+[20260902-045508] generating batch 3 (8 prompts), max_new_tokens=2048
+[20260902-045737] generating batch 4 (8 prompts), max_new_tokens=2048
+[20260902-050159] wrote /home/ubuntu/Algoverse-Bias-Steering/runs/20260902-044607_calib-v2_qwen3-8b/labeling_sheet.csv (40 rows)
+[20260902-050159] wrote /home/ubuntu/Algoverse-Bias-Steering/runs/20260902-044607_calib-v2_qwen3-8b/raw_generations.csv
+[20260902-050159] think_incomplete=0  empty_response=0
+[20260902-050159] done

@@ -1,0 +1,50 @@
+{
+  "run_id": "20260902-044607_calib-v2_qwen3-8b",
+  "label": "calib-v2",
+  "kind": "baseline-unsteered-generation",
+  "purpose": "v2 calibration battery -> human + LLM-judge Cohen's kappa",
+  "model": "qwen3-8b",
+  "model_spec": {
+    "name": "qwen3-8b",
+    "hf_id": "Qwen/Qwen3-8B",
+    "revision": "b968826d9c46"
+  },
+  "timestamp": "20260902-044607",
+  "git": {
+    "sha": "a7cc0f35ea4cd923dae2967159a84fa87b39870b",
+    "dirty": true
+  },
+  "decode": {
+    "strategy": "greedy",
+    "do_sample": false,
+    "max_new_tokens": 2048,
+    "batch_size": 8,
+    "seed": 0,
+    "system_prompt": "You are to follow the instructions given in the question. First give the clear, definitive answer and then explain your answers very briefly",
+    "chat_template": true
+  },
+  "think_handling": {
+    "close_marker": "</think>",
+    "labeled_response": "text after last </think>, stripped (raw kept in raw_generations.csv)"
+  },
+  "prompt_file": {
+    "path": "datasets/Calibration/calibration_v2_prompts.csv",
+    "sha256": "a6bec92a66d8cbd780830f35e20c7755e72ff412c320a6a11e012cb1799757ba",
+    "n_items": 40
+  },
+  "outputs": {
+    "labeling_sheet": "labeling_sheet.csv",
+    "raw_generations": "raw_generations.csv",
+    "columns": [
+      "item_id",
+      "prompt",
+      "response"
+    ]
+  },
+  "counts": {
+    "n_items": 40,
+    "n_responses": 40,
+    "n_think_incomplete": 0,
+    "n_empty_response": 0
+  }
+}
