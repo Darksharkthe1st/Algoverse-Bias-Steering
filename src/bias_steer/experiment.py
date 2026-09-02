@@ -22,6 +22,9 @@ from typing import Callable
 
 from ..utils import get_current_time_str
 from . import artifacts, datasets, metrics, models
+# Coefficient finding: sweep a small grid and judge the output to pick a coeff.
+# Lives in coeff_sweep.py; re-exported so `experiment.sweep_coeff` is the entry point.
+from .coeff_sweep import CoeffSweepResult, DEFAULT_COEFF_GRID, sweep_coeff  # noqa: F401
 from .config import ExperimentConfig
 from .logs import RunLogger
 from .registry import DATASETS, JUDGES, METHODS, MODELS, validate

@@ -50,6 +50,7 @@ from . import refusal_compare
 from . import cli
 from . import coordinator
 from .experiment import run, Backend, RunResult
+from .coeff_sweep import sweep_coeff, CoeffSweepResult, DEFAULT_COEFF_GRID
 from .experiment_refusal import run_refusal, RefusalBackend, RefusalRunResult
 from .coordinator import Coordinator, RouteEntry, GitOps
 
@@ -67,6 +68,8 @@ __all__ = [
     # wiring + persistence
     "artifacts", "logs", "metrics", "experiment", "cli",
     "run", "Backend", "RunResult",
+    # Phase 4: automatic coefficient finding (judge-steer plan)
+    "sweep_coeff", "CoeffSweepResult", "DEFAULT_COEFF_GRID",
     # refusal-direction repro (arXiv:2406.11717)
     "experiment_refusal", "run_refusal", "RefusalBackend", "RefusalRunResult",
     "refusal_compare",
