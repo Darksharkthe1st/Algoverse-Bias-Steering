@@ -202,10 +202,23 @@ def test_distractor_is_in_neither_arm_by_default():
 
 
 def test_judge_qualification_catches_a_position_biased_judge():
-    items = [{"scenario": "s", "options": ["a", "b", "c"], "response": "r"}] * 40
-    ok = J.qualify(items, client=lambda p: "REFUSED", n_sample=20)
-    assert ok["order_agreement"] == pytest.approx(1.0) and ok["qualified"]
+    """A judge whose answer tracks POSITION rather than content must not qualify.
 
+    The competent stub deliberately VARIES its verdict. An earlier version of
+    this test used a constant `lambda p: "REFUSED"` as its "competent" judge and
+    asserted it qualified -- which is exactly the degenerate judge that later
+    labelled all 4,832 qwen-14b completions REFUSED, including bare names. A
+    constant judge is order-invariant by construction, so it scores a perfect
+    1.000 here; the test was enshrining the bug it was meant to exclude.
+    """
+    items = [{"scenario": "s", "options": ["a", "b", "c"], "response": "r"}] * 40
+
+    # Content-driven: same underlying option whichever order it is shown in.
+    seq = iter(["OPTION_1", "REFUSED", "OPTION_3", "UNCLEAR"] * 50)
+    ok = J.qualify(items, client=lambda p: next(seq), n_sample=20)
+    assert ok["n_distinct_verdicts"] > 1 and not ok["degenerate"]
+
+    # Position-driven: always the first-listed option, whatever it says.
     bad = J.qualify(items, client=lambda p: "OPTION_1", n_sample=20)
     assert bad["order_agreement"] == pytest.approx(0.0) and not bad["qualified"]
 
@@ -440,3 +453,44 @@ def test_a_system_prompt_baseline_exists_and_is_plain():
     into a different experiment."""
     assert r3.DEBIAS_SYS and len(r3.DEBIAS_SYS.split()) < 40
     assert "stereotype" in r3.DEBIAS_SYS.lower()
+
+
+# --------------------------------------------------------------------------- #
+# The judge failure that cost a generation pass on qwen-14b
+# --------------------------------------------------------------------------- #
+
+def test_a_judge_that_always_says_the_same_thing_cannot_qualify():
+    """C-1 alone cannot see a degenerate judge.
+
+    REFUSED and UNCLEAR are invariant under every permutation of the option
+    list, so a judge stuck on one of them scores a PERFECT 1.000 order
+    agreement and qualifies. That happened: the local judge returned REFUSED
+    for all 4,832 qwen-14b completions -- including "Alice." and bare names --
+    and C-1 passed at 1.000 on 200 items with zero format failures.
+    """
+    items = [{"scenario": "s", "options": ["a", "b", "c"], "response": r}
+             for r in ("Alice.", "Bob.", "Cannot be determined.", "As an AI I cannot")] * 10
+
+    stuck = J.qualify(items, client=lambda p: "REFUSED", n_sample=40)
+    assert stuck["order_agreement"] == pytest.approx(1.0), "agreement is perfect by construction"
+    assert stuck["degenerate"] is True
+    assert not stuck["qualified"], "a judge that never discriminates must not qualify"
+
+    seq = iter(["OPTION_1", "OPTION_2", "REFUSED", "UNCLEAR"] * 100)
+    varied = J.qualify(items, client=lambda p: next(seq), n_sample=40)
+    assert varied["n_distinct_verdicts"] > 1
+    assert varied["degenerate"] is False
+
+
+def test_local_judge_prompt_ends_with_a_space_so_digits_can_compete():
+    """The verdict tokens are single characters scored at the final position.
+
+    After a bare "Answer:" the natural continuation is space-prefixed, and in
+    Qwen's tokenizer " R"/" U" are ONE token while " 1"/" 2"/" 3" are two --
+    so the digits lose their natural form to the collision guard and R wins the
+    argmax structurally. The trailing space is what puts all five on equal
+    terms; removing it silently returns the run to 98.8% REFUSAL.
+    """
+    import inspect
+    src = inspect.getsource(J.local_judge_client)
+    assert 'Answer: "' in src, "the trailing space after Answer: is load-bearing"

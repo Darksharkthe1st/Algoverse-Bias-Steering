@@ -259,7 +259,19 @@ def local_judge_client(model_key: str = "qwen-1.8b", *, device: str = "cuda",
 
     def batch(prompts: list) -> list:
         """Score every prompt in GPU batches.  One forward pass per prompt."""
-        texts = [f"{RUBRIC_LOCAL}\n{p}\nAnswer:" for p in prompts]
+        # THE TRAILING SPACE IS LOAD-BEARING. Verdicts are scored as single
+        # characters, and after a bare 'Answer:' the natural continuation is a
+        # SPACE-PREFIXED token. In Qwen's tokenizer ' R' and ' U' are single
+        # tokens (431, 547) while ' 1'/' 2'/' 3' are TWO tokens ([220,16] etc),
+        # so the digits' first token is the shared space -- which the collision
+        # guard correctly drops, leaving them only their unnatural bare form.
+        # R and U therefore win the argmax structurally, whatever the response
+        # says. Measured on qwen-14b: 4,832 items -> 98.8% REFUSAL, 1.2%
+        # UNKNOWN, and OPTION_1/2/3 never fired ONCE. 'Alice.' judged REFUSED.
+        #
+        # With the trailing space the bare digits are the natural continuation
+        # and all five compete on equal terms: 6/6 correct on known inputs.
+        texts = [f"{RUBRIC_LOCAL}\n{p}\nAnswer: " for p in prompts]
         outs = []
         for i in range(0, len(texts), batch_size):
             enc = tok(texts[i:i + batch_size], return_tensors="pt", padding=True,
@@ -362,13 +374,24 @@ def qualify(items: list, *, model: str = JUDGE_MODEL_DEFAULT, client=None,
             agree += 1
 
     rate = agree / compared if compared else float("nan")
+
+    # DEGENERATE-JUDGE CHECK. The order-swap test cannot see a judge that
+    # answers the same thing regardless of input: REFUSED and UNCLEAR are
+    # invariant under every permutation of the option list, so a judge stuck
+    # on one of them scores a PERFECT 1.000 and qualifies. Not hypothetical --
+    # it happened, and cost a generation pass before the label distribution
+    # gave it away. A judge that never discriminates is not a judge.
+    distinct = {v for v in (list(a) + list(b)) if v is not None}
+    degenerate = len(distinct) <= 1
     return {
         "judge_version": JUDGE_VERSION, "model": model,
         "n_sampled": len(sub), "n_compared": compared,
         "n_format_failures": fmt_fail,
         "order_agreement": rate, "threshold": threshold,
         "chance_line": 1 / 3,
-        "qualified": bool(compared > 0 and rate >= threshold),
+        "n_distinct_verdicts": len(distinct),
+        "degenerate": degenerate,
+        "qualified": bool(compared > 0 and rate >= threshold and not degenerate),
         "note": "if not qualified, the judge has its own position bias and its "
                 "labels carry a presentation-order error INTO the bucket "
                 "assignment. Do not read any V_C until this passes (notes/19 §5.2).",
