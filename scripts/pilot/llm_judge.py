@@ -318,31 +318,65 @@ RESOLVED_JUDGE_MODEL = None
 
 
 def _openai_batch(prompts: list, *, model: str, max_concurrency: int) -> list:
-    import asyncio                                              # noqa: PLC0415
-    from openai import AsyncOpenAI                              # noqa: PLC0415
+    """POST /v1/chat/completions directly over httpx.
 
-    async def _run():
-        sem = asyncio.Semaphore(max_concurrency)
-        async with AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY")) as cli:
-            async def one(p):
-                async with sem:
-                    for attempt in range(4):
-                        try:
-                            r = await cli.chat.completions.create(
-                                model=model, temperature=0, max_tokens=8,
-                                messages=[{"role": "system", "content": RUBRIC},
-                                          {"role": "user", "content": p}])
-                            global RESOLVED_JUDGE_MODEL
-                            if RESOLVED_JUDGE_MODEL is None:
-                                RESOLVED_JUDGE_MODEL = getattr(r, "model", None)
-                            return parse_verdict(r.choices[0].message.content)
-                        except Exception:
-                            if attempt == 3:
-                                return None
-                            await asyncio.sleep(2 ** attempt)
-            return await asyncio.gather(*(one(p) for p in prompts))
+    NOT via the `openai` SDK. On the run box (openai 3.7.0 + httpx 0.28.1) every
+    call through the SDK died with APIConnectionError wrapping
+    "TypeError: process() takes no keyword arguments" -- a broken interaction
+    inside its dependency stack. Raw httpx reaches the same endpoint fine and
+    curl returns valid completions, so the transport was never the problem.
+    Calling the REST endpoint ourselves removes a dependency we do not need for
+    one POST, and it is the same JSON either way.
 
-    return asyncio.run(_run())
+    Concurrency is a bounded thread pool rather than asyncio: the work is IO and
+    the pool is easier to reason about when a retry storm meets a rate limit.
+    429 and 5xx are retried with exponential backoff; a call that exhausts its
+    retries returns None and is counted as an extraction failure, never folded
+    into a behaviour class (AGENTS.md §3).
+    """
+    import time                                                 # noqa: PLC0415
+    from concurrent.futures import ThreadPoolExecutor           # noqa: PLC0415
+    import httpx                                                # noqa: PLC0415
+
+    global RESOLVED_JUDGE_MODEL
+    key = os.getenv("OPENAI_API_KEY")
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY is not set; the judge cannot run")
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+
+    client = httpx.Client(timeout=httpx.Timeout(60.0, connect=20.0),
+                          limits=httpx.Limits(max_connections=max_concurrency))
+
+    def one(p):
+        body = {"model": model, "temperature": 0, "max_tokens": 8,
+                "messages": [{"role": "system", "content": RUBRIC},
+                             {"role": "user", "content": p}]}
+        for attempt in range(5):
+            try:
+                r = client.post(url, headers=headers, json=body)
+                if r.status_code == 200:
+                    d = r.json()
+                    global RESOLVED_JUDGE_MODEL
+                    if RESOLVED_JUDGE_MODEL is None:
+                        RESOLVED_JUDGE_MODEL = d.get("model")
+                    return parse_verdict(d["choices"][0]["message"]["content"])
+                if r.status_code in (429, 500, 502, 503, 504):
+                    time.sleep(min(2 ** attempt, 30)); continue
+                # 4xx that will not improve on a retry (401/403/404): fail loudly
+                # rather than silently returning None for every single item.
+                raise RuntimeError(f"judge API {r.status_code}: {r.text[:200]}")
+            except httpx.HTTPError:
+                if attempt == 4:
+                    return None
+                time.sleep(min(2 ** attempt, 30))
+        return None
+
+    try:
+        with ThreadPoolExecutor(max_workers=max_concurrency) as ex:
+            return list(ex.map(one, prompts))
+    finally:
+        client.close()
 
 
 # --------------------------------------------------------------------------- #
