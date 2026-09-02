@@ -5,8 +5,10 @@ Torch-free — residuals are opaque stand-ins (plain strings), so this runs anyw
     python3 tests/test_contrasts.py
 """
 
+import json
 import os
 import sys
+import tempfile
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
@@ -15,7 +17,28 @@ if _REPO_ROOT not in sys.path:
 from src.bias_steer.contrasts import (  # noqa: E402
     STANCE, CONTRASTS, DEFAULT_N_FLOOR,
     collapse_and_pool, bucket_counts, floor_gate, format_gate, build_three_vectors,
+    norm_profile, save_three_vectors,
 )
+from src.bias_steer.steering import SteeringShapeError  # noqa: E402
+
+
+class _Row:
+    """Stand-in for one layer's (d_model,) slice; only .norm() is exercised."""
+    def __init__(self, v):
+        self._v = v
+
+    def norm(self):
+        return self._v
+
+
+class _FakeVec:
+    """Torch-free stand-in for a (n_layers, d_model) steering vector."""
+    def __init__(self, n_layers, d_model, norms=None):
+        self.shape = (n_layers, d_model)
+        self._norms = norms if norms is not None else [1.0] * n_layers
+
+    def __getitem__(self, i):
+        return _Row(self._norms[i])
 
 
 def _fine_buckets():
@@ -114,6 +137,55 @@ def test_format_gate_renders_all_three():
 
 def test_default_floor_is_sane():
     assert DEFAULT_N_FLOOR >= 1
+
+
+# ------------------------------------------------------------------ Phase 3
+
+def test_norm_profile_returns_one_float_per_layer():
+    v = _FakeVec(4, 8, norms=[0.0, 1.5, 2.0, 0.25])
+    assert norm_profile(v) == [0.0, 1.5, 2.0, 0.25]
+
+
+def test_save_three_vectors_writes_manifest_and_calls_save_per_vector():
+    buckets = collapse_and_pool(_fine_buckets())
+    vectors = {"V2": _FakeVec(3, 4, norms=[1.0, 2.0, 3.0]),
+               "V3": _FakeVec(3, 4)}
+    saved = []
+
+    def fake_save(path, vector, *, n_layers, d_model):
+        saved.append((os.path.basename(str(path)), n_layers, d_model))
+
+    with tempfile.TemporaryDirectory() as d:
+        manifest = save_three_vectors(vectors, d, n_layers=3, d_model=4,
+                                      buckets=buckets, save_fn=fake_save)
+        # a manifest file was written and round-trips
+        on_disk = json.load(open(os.path.join(d, "vectors_manifest.json"), encoding="utf-8"))
+    assert on_disk == manifest
+    assert saved == [("V2.safetensors", 3, 4), ("V3.safetensors", 3, 4)]
+
+    v2 = manifest["vectors"]["V2"]
+    assert v2["contrast"] == {"pos": "stance", "neg": "soft-refusal"}
+    assert v2["shape"] == [3, 4]
+    assert v2["norm_profile"] == [1.0, 2.0, 3.0]
+    assert v2["pos_n"] == 4 and v2["neg_n"] == 3   # stance=4, soft=3 in _fine_buckets
+    assert v2["path"] == "V2.safetensors"
+
+
+def test_save_three_vectors_rejects_wrong_shape_before_saving():
+    saved = []
+
+    def fake_save(path, vector, *, n_layers, d_model):
+        saved.append(path)
+
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            # vector is (3,4) but we claim n_layers=5 -> must fail loud, not save
+            save_three_vectors({"V2": _FakeVec(3, 4)}, d, n_layers=5, d_model=4,
+                               save_fn=fake_save)
+            assert False, "expected SteeringShapeError"
+        except SteeringShapeError:
+            pass
+    assert saved == []  # nothing persisted after the shape guard tripped
 
 
 if __name__ == "__main__":
