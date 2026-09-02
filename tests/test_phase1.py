@@ -399,6 +399,31 @@ def test_adaptive_additive_pins_projection_to_target():
             f"layer {layer}: projection not pinned to target"
 
 
+def test_adaptive_hook_asserts_shapes_at_the_arithmetic():
+    """The in-hook guard fires if a direction/residual width mismatch reaches the
+    projection step — the silent-broadcast bug class, caught at the arithmetic and
+    not only at build time (CLAUDE.md §6)."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    n_layers, d_model = 3, 6
+    model = _FakeModel(n_layers, d_model)
+    vector = torch.randn(n_layers, d_model)
+
+    # Hooks are built for d_model=6; feeding a residual of a different width means
+    # `r` (6,) no longer matches value's last axis -> the guard must raise rather
+    # than let `value @ r` broadcast into a wrong-shaped update.
+    for build in (
+        lambda: steering.apply_adaptive_ablation_perlayer(model, vector),
+        lambda: steering.apply_adaptive_additive_perlayer(model, vector, coeff=1.0),
+    ):
+        _, fn = build()[0]
+        bad = torch.randn(1, 4, d_model + 1)  # width d_model+1 != len(r)
+        _expect(steering.SteeringShapeError, lambda: fn(bad, hook=None))
+
+
 def _expect(exc_type, fn):
     try:
         fn()

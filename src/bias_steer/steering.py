@@ -135,6 +135,37 @@ def unit_perlayer(vector):
     return vector / (vector.norm(dim=-1, keepdim=True) + 1e-8)
 
 
+def _assert_hook_direction(value, r) -> None:
+    """In-hook guard, BEFORE the dot product: `r` (this layer's direction) must be
+    **1-D** with length equal to the residual width `value.shape[-1]`.
+
+    This is the shape the silent-broadcast bug corrupts (CLAUDE.md §6): a 0-D `r`
+    (the scalar a 1-D archived vector collapses to when indexed per layer) or a
+    width mismatch would let `value @ r` broadcast a DC offset instead of
+    contracting the `d_model` axis to a per-position scalar. Checked here — ahead
+    of the matmul — so the failure is this clear message, not a torch shape error
+    (or worse, a silent broadcast). Cheap; the shape is constant across a run."""
+    if getattr(r, "ndim", None) != 1 or r.shape[0] != value.shape[-1]:
+        raise SteeringShapeError(
+            f"adaptive hook direction has shape {tuple(getattr(r, 'shape', ()))}; "
+            f"expected 1-D (d_model={value.shape[-1]}) matching the residual width. "
+            f"A scalar or mismatched direction would silently broadcast a DC offset "
+            f"instead of projecting along a direction (CLAUDE.md §6)."
+        )
+
+
+def _assert_hook_update(value, applied) -> None:
+    """In-hook guard, AFTER computing the update: the projection to subtract / the
+    delta to add must match `value`'s shape exactly, so it lands on the residual it
+    was computed from rather than broadcasting onto a mismatched shape."""
+    if tuple(applied.shape) != tuple(value.shape):
+        raise SteeringShapeError(
+            f"adaptive hook update has shape {tuple(applied.shape)} but the residual "
+            f"is {tuple(value.shape)}; refusing to broadcast a mismatched update onto "
+            f"the residual stream."
+        )
+
+
 def apply_adaptive_ablation_perlayer(model, vector, coeff: float | None = None,
                                      *, all_resid_points: bool = False):
     """Adaptively ablate a per-layer `(n_layers, d_model)` stack — remove, at each
@@ -172,7 +203,9 @@ def apply_adaptive_ablation_perlayer(model, vector, coeff: float | None = None,
 
     def _ablate(value, hook, r):
         r = r.to(value.dtype).to(value.device)
+        _assert_hook_direction(value, r)      # r is 1-D d_model — before the matmul
         proj = (value @ r).unsqueeze(-1) * r  # (batch, seq, 1) * (d_model,)
+        _assert_hook_update(value, proj)      # proj matches the residual
         value -= proj
         return value
 
@@ -226,7 +259,9 @@ def apply_adaptive_additive_perlayer(model, vector, coeff: float,
 
     def _drive(value, hook, r, target):
         r = r.to(value.dtype).to(value.device)
+        _assert_hook_direction(value, r)                  # r is 1-D d_model — before the matmul
         delta = (target - (value @ r)).unsqueeze(-1) * r  # pin projection to target
+        _assert_hook_update(value, delta)                 # delta matches the residual
         value += delta
         return value
 
