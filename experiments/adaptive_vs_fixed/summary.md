@@ -37,40 +37,96 @@ The two are structurally different operations, independent of any model:
   zero it. This is the concrete sense in which "remove" ≠ "add −c·direction": add is
   a uniform translation of the component; ablate is a projection to zero.
 
-## What is NOT computed here (judged label shift — PENDING)
+## Judged label shift on real prompts (DONE — 2026-09-02, Qwen3-8B, GPU run)
 
-DoD #4 also asks for the **judge-label** shift on real prompts. That needs a GPU
-(to load a model) **and** an `OPENAI_API_KEY` (the `neutrality` judge calls
-OpenAI) — neither was available in the authoring environment, so the judged table
-below is **PENDING**, not reported. Per CLAUDE.md §3 no number is asserted from a
-run that did not happen.
+Ran on a GPU box per `GPU_RUN_PROMPT.md`: the frozen submission model
+(`Qwen/Qwen3-8B` @ `b968826d9c46`), the **already-extracted** opinion vector
+(`runs/20260901-092009_anchor-qwen3-8b_qwen3-8b/steering_vector.safetensors`,
+`(36, 4096)` fp16 — no refit), the `snapshot` battery (`log_103_comparison_200`,
+n=200; the supplied vector skips TRAIN extraction and folds the whole set into
+eval per `experiment.py`'s documented behavior), one prompt/model/dataset held
+fixed across every arm below so only `method` differs.
 
-Produce it on a GPU box with a judge key:
+**Judge version** (identical across every run below — compared equal
+field-by-field from each manifest): model `gpt-4o-mini`, rubric SHA-256
+`3fe607468ea4da9e8db64142eef1f750ec607eeba521fd38a7b6e0d580f1723c`, seed 0,
+temperature 0.0 (CLAUDE.md §4 — never mix judge versions in one table; there is
+only one version in this table).
 
-```
-export OPENAI_API_KEY=...
-python experiments/adaptive_vs_fixed/compare_adaptive_vs_fixed.py \
-    --run-model --model qwen-1.8b --coeff 8
-# writes judged_result.json + judged_transitions.csv into this directory
-```
+### adaptive_ablation vs fixed_add — the two fully-specified arms
 
-The harness runs the same handful of prompts through **INITIAL**,
-**adaptive-ablation**, and **fixed-add (−c)**, judges each, and writes a per-method
-init→steered transition matrix plus one comparable per-prompt table. Every judged
-output records the **judge version** — judge model id + a SHA-256 hash of the
-rubric text (CLAUDE.md §4) — so the numbers cannot be silently mixed across judge
-versions. Interpretation guidance for whoever runs it:
+3×3-style **paired** init→steered transition counts (not marginals — CLAUDE.md
+§5), `n=200` per arm:
 
-- Report the **3×3 transition counts** (per-example distribution), not just a mean
-  rate (CLAUDE.md §5, steering-claim hygiene).
-- Note a structural artifact of ablation: it has **no dose and no sign**, so a
-  standard `run()` produces **identical `STEERED_POS` and `STEERED_NEG`** arms for
-  `adaptive_ablation` (the registered method ignores its coeff). Compare ablation's
-  single steered arm against fixed-add's `+c` / `−c` arms accordingly.
+**adaptive_ablation** (`runs/20260902-081054_adaptive-ablation-qwen3-8b_qwen3-8b`) —
+removal is sign-agnostic, so `STEERED_POS`/`STEERED_NEG` are two independent
+generations of the *same* operation, not a +/− pair:
+
+| init \ steered_pos | neutral | opinionated |
+|---|---|---|
+| **neutral** | 137 | 12 |
+| **opinionated** | 21 | 30 |
+
+| init \ steered_neg | neutral | opinionated |
+|---|---|---|
+| **neutral** | 139 | 10 |
+| **opinionated** | 23 | 28 |
+
+**fixed_add**, c=8 (`runs/20260902-082522_fixed-add-qwen3-8b_qwen3-8b`) — the
+validated fixed dose, `+c` and `−c`:
+
+| init \ steered (+c) | neutral | opinionated |
+|---|---|---|
+| **neutral** | 80 | 66 |
+| **opinionated** | 1 | 53 |
+
+| init \ steered (−c) | neutral | opinionated |
+|---|---|---|
+| **neutral** | 144 | 2 |
+| **opinionated** | 45 | 9 |
+
+**Reading, plainly:** on this real, judged battery, removing **a** direction
+(adaptive_ablation) moves far fewer examples than adding ±8·**a** direction
+(fixed_add) — e.g. neutral→opinionated flips under `+c` (66/149) dwarf the
+same cell under ablation (12/149 for the POS arm, 10/149 for the NEG arm,
+which are near-identical as expected since ablation ignores sign). `fixed_add`
+also nearly saturates the opposite direction (`−c`: opinionated→neutral 45/54,
+vs ablation's 23/51 and 28/51). This is the concrete, on-model answer to SCOPE
+DoD #4: on this vector and this battery, "remove **a** direction" is a
+materially weaker intervention than "add −c·**a** direction," not an
+equivalent reframing of the same effect. (Non-identifiability holds regardless
+— neither steering succeeding nor failing at moving the judge label identifies
+what the direction *represents*, CLAUDE.md §5.)
+
+### adaptive_add — INVALID at every tested target (2, 4, 8), not a negative result
+
+Ran the calibration + sweep GPU_RUN_PROMPT.md asked for
+(`runs/20260902-093958_.../`, `.../095400_.../`, `.../100757_.../`, targets 2/4/8
+respectively). All three are **mechanically clean** (artifacts present, no
+crash) but **produce degenerate, repetition-loop text at every target** — e.g.
+target=8 `STEERED_POS`: `"and and and and and ..."` (one token, 128 tokens
+long); target=2 `STEERED_NEG`: `"Okay\nOkay\nOkay\n..."`. Full samples and root
+cause in `GPU_RUN_LOG.md`. The judge's ~100%-neutral verdicts on these arms are
+an artifact of its rubric's fallback ("neutral if ... refuses to answer ... or
+says the question can't be answered") firing on incoherent output, not evidence
+that pin-to-target steering achieves stronger neutrality than `fixed_add` — that
+would be an overclaim CLAUDE.md §6 rules out. Per CLAUDE.md §6 ("an invalid run
+is not a negative — fix and rerun"), this arm is **not** included in the
+comparison table above; the raw counts and generated text are still committed
+as evidence (nothing hidden), just not asserted as a finding. Fixing it is a
+scope change to `docs/SCOPE_adaptive_steering.md` (a different targeting
+scheme — e.g. per-layer-scaled targets, or a target within each layer's own
+natural range rather than one global scalar hard-reset at all 36 layers on
+every generated token) and out of scope for this run.
 
 ## Files
 
-- `compare_adaptive_vs_fixed.py` — the harness (mechanism default; `--run-model` judged).
-- `mechanism.csv` — per (layer, token): pre / post projections + shifts.
-- `mechanism_summary.json` — the aggregate numbers in the table above.
-- `judged_result.json`, `judged_transitions.csv` — written only by `--run-model` (PENDING).
+- `compare_adaptive_vs_fixed.py` — the mechanism harness (synthetic, runs
+  anywhere; produces `mechanism.csv` / `mechanism_summary.json` above).
+- `GPU_RUN_PROMPT.md` — the self-contained brief handed to the GPU agent.
+- `GPU_RUN_LOG.md` — process log: environment, calibration methodology, the
+  degenerate-output root-cause analysis, and a note on a `Monitor`-tooling
+  quirk observed during the run.
+- Judged evidence lives under `runs/`, not this directory: the five run
+  folders named above (each with `results.csv`, `summary.md`, `manifest.json`,
+  `steering_vector.safetensors`, `logs/eval.txt` with full generated text).

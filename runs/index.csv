@@ -5,3 +5,8 @@ run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,
 20260901-092009_anchor-qwen3-8b_qwen3-8b,anchor qwen3-8b,qwen3-8b,snapshot,mean_diff,8.0,8.0,f9af1f799833141a2c0a5b488438e7b5d1098f1c,True,20260901-092009,done,100,100,31,21
 20260901-093135_apply-opinion-vec-on-axbench_qwen3-8b,apply opinion vec on axbench,qwen3-8b,axbench,mean_diff,8.0,8.0,e801c2a45f60f9f10892feb8697618befaf2599e,True,20260901-093135,done,0,200,36,25
 20260901-160507_apply-opinion-vec-on-issuebench_qwen3-8b,apply opinion vec on issuebench,qwen3-8b,issuebench,mean_diff,8.0,8.0,52ae1abba50813858d840f3d8074d8efa97f4adb,True,20260901-160507,done,0,200,61,23
+20260902-081054_adaptive-ablation-qwen3-8b_qwen3-8b,adaptive-ablation qwen3-8b,qwen3-8b,snapshot,adaptive_ablation,1.0,1.0,b7c53eed19c06b8342b12b11a3a26ce1a720b4c9,True,20260902-081054,done,0,200,12,23
+20260902-082522_fixed-add-qwen3-8b_qwen3-8b,fixed-add qwen3-8b,qwen3-8b,snapshot,mean_diff,8.0,8.0,b7c53eed19c06b8342b12b11a3a26ce1a720b4c9,True,20260902-082522,done,0,200,66,45
+20260902-093958_adaptive-add-target2-qwen3-8b_qwen3-8b,adaptive-add-target2 qwen3-8b,qwen3-8b,snapshot,adaptive_add,2.0,2.0,b7c53eed19c06b8342b12b11a3a26ce1a720b4c9,True,20260902-093958,done,0,200,0,52
+20260902-095400_adaptive-add-target4-qwen3-8b_qwen3-8b,adaptive-add-target4 qwen3-8b,qwen3-8b,snapshot,adaptive_add,4.0,4.0,b7c53eed19c06b8342b12b11a3a26ce1a720b4c9,True,20260902-095400,done,0,200,0,47
+20260902-100757_adaptive-add-target8-qwen3-8b_qwen3-8b,adaptive-add-target8 qwen3-8b,qwen3-8b,snapshot,adaptive_add,8.0,8.0,b7c53eed19c06b8342b12b11a3a26ce1a720b4c9,True,20260902-100757,done,0,200,0,50
