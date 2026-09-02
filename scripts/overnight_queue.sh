@@ -324,6 +324,18 @@ note "gate 2 (positive control): OK — bias nulls below this line are interpret
 #
 # The API judge also removes self-judging entirely: no target model is the
 # judge, so R3f below is moot and the guard skips it.
+# DOSE GRID, measured on the box 2026-09-02 rather than inherited. The plan
+# proposed alpha in {0.25,0.5,1.0,2.0} and EVERY ONE of those is past the
+# coherence limit: the perturbation is added at every layer resid_pre and
+# COMPOUNDS down the stream, so alpha=0.5 over 40 layers is enormous by the
+# top. Coherent completions out of 12 on qwen-14b/Age:
+#   0.00 12  0.01 12  0.02 12  0.05 12  0.10 11  0.20 degenerate  0.35 0  0.50 0
+# At 0.35+ every condition -- plus, minus AND the norm-matched random control
+# -- emitted a single repeated CJK token, which is why the first toggle run
+# reported "no effect" everywhere: the doses destroyed the model, they did not
+# fail to move it. At 0.05 the model stays coherent and gets terser and more
+# decisive, which is a behavioural change worth measuring.
+ALPHAS="0.02 0.05"
 R3_JUDGE_MODEL=gpt-4o-mini
 R3_JUDGE=qwen-1.8b        # one judge for EVERY target: a judge quirk then cannot
                           # be mistaken for a model difference. Self-judging on the
@@ -430,7 +442,7 @@ for M in qwen-14b yi-6b gemma-2b qwen-7b; do
     run "R3c_extract_${M}"         python3 -m scripts.run3_behavioural_contrast extract             --out "runs/r3_behavioural_${M}" --n-splits 400 --require-judge
 
     # Phase 3 — the toggle test, each vector on its own category.
-    run "R3d_toggle_${M}"         python3 -m scripts.run3_behavioural_contrast steer             --model "$M" --out "runs/r3_behavioural_${M}"             --judge-backend openai --judge-model "$R3_JUDGE_MODEL"             --alphas 0.5 1.0
+    run "R3d_toggle_${M}"         python3 -m scripts.run3_behavioural_contrast steer             --model "$M" --out "runs/r3_behavioural_${M}"             --judge-backend openai --judge-model "$R3_JUDGE_MODEL"             --alphas 0.02 0.05
 done
 
 # --- Self-judge cross-check: NOT NEEDED at the current model list ----------
@@ -471,7 +483,7 @@ note ""
 RUN_R3E=0
 
 if [ "$RUN_R3E" = "1" ]; then
-run R3e_cross_application_qwen-14b     python3 -m scripts.run3_behavioural_contrast steer         --model qwen-14b --out runs/r3_behavioural_qwen-14b         --judge-backend openai --judge-model "$R3_JUDGE_MODEL"         --apply-to Age Disability_status Gender_identity Nationality                    Physical_appearance Race_ethnicity Race_x_SES Race_x_gender                    Religion Sexual_orientation         --alphas 0.5 1.0 --n-eval 80
+run R3e_cross_application_qwen-14b     python3 -m scripts.run3_behavioural_contrast steer         --model qwen-14b --out runs/r3_behavioural_qwen-14b         --judge-backend openai --judge-model "$R3_JUDGE_MODEL"         --apply-to Age Disability_status Gender_identity Nationality                    Physical_appearance Race_ethnicity Race_x_SES Race_x_gender                    Religion Sexual_orientation         --alphas 0.02 0.05 --n-eval 80
 else
     note "R3e cross-application: SKIPPED (RUN_R3E=0) — Phase 4.1 not measured"
 fi

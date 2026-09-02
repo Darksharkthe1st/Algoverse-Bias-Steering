@@ -334,7 +334,7 @@ def _openai_batch(prompts: list, *, model: str, max_concurrency: int) -> list:
     retries returns None and is counted as an extraction failure, never folded
     into a behaviour class (AGENTS.md §3).
     """
-    import time                                                 # noqa: PLC0415
+    import time, random                                         # noqa: PLC0415
     from concurrent.futures import ThreadPoolExecutor           # noqa: PLC0415
     import httpx                                                # noqa: PLC0415
 
@@ -352,7 +352,7 @@ def _openai_batch(prompts: list, *, model: str, max_concurrency: int) -> list:
         body = {"model": model, "temperature": 0, "max_tokens": 8,
                 "messages": [{"role": "system", "content": RUBRIC},
                              {"role": "user", "content": p}]}
-        for attempt in range(5):
+        for attempt in range(8):
             try:
                 r = client.post(url, headers=headers, json=body)
                 if r.status_code == 200:
@@ -362,12 +362,22 @@ def _openai_batch(prompts: list, *, model: str, max_concurrency: int) -> list:
                         RESOLVED_JUDGE_MODEL = d.get("model")
                     return parse_verdict(d["choices"][0]["message"]["content"])
                 if r.status_code in (429, 500, 502, 503, 504):
-                    time.sleep(min(2 ** attempt, 30)); continue
+                    # Honour Retry-After when the API sends it; otherwise back
+                    # off exponentially with jitter so 8 workers do not retry in
+                    # lockstep. The steering phase judges in bursts and hit 429s
+                    # hard enough that ~50% of its verdicts came back None --
+                    # silent extraction failures across every dose.
+                    ra = r.headers.get("retry-after")
+                    try:
+                        wait = float(ra) if ra else min(2 ** attempt, 60)
+                    except ValueError:
+                        wait = min(2 ** attempt, 60)
+                    time.sleep(wait + random.random()); continue
                 # 4xx that will not improve on a retry (401/403/404): fail loudly
                 # rather than silently returning None for every single item.
                 raise RuntimeError(f"judge API {r.status_code}: {r.text[:200]}")
             except httpx.HTTPError:
-                if attempt == 4:
+                if attempt == 7:
                     return None
                 time.sleep(min(2 ** attempt, 30))
         return None
