@@ -305,6 +305,18 @@ def local_judge_client(model_key: str = "qwen-1.8b", *, device: str = "cuda",
     return client
 
 
+#: The snapshot the API actually served, captured from the first response.
+#:
+#: notes/19 §5.1 (c-iii) required a DATED snapshot and it was never closed:
+#: "gpt-4o-mini" is a rolling alias that re-points server-side without notice,
+#: which docs/judges/v2-bbq-choice-llm.md declares as a reproducibility gap.
+#: Rather than guess a snapshot id (and need Models:Read to verify it), we send
+#: the alias and RECORD what answered -- `r.model` comes back resolved, e.g.
+#: "gpt-4o-mini-2024-07-18". Every judged number can then name the exact
+#: weights that produced it, which is what the rule was for.
+RESOLVED_JUDGE_MODEL = None
+
+
 def _openai_batch(prompts: list, *, model: str, max_concurrency: int) -> list:
     import asyncio                                              # noqa: PLC0415
     from openai import AsyncOpenAI                              # noqa: PLC0415
@@ -320,6 +332,9 @@ def _openai_batch(prompts: list, *, model: str, max_concurrency: int) -> list:
                                 model=model, temperature=0, max_tokens=8,
                                 messages=[{"role": "system", "content": RUBRIC},
                                           {"role": "user", "content": p}])
+                            global RESOLVED_JUDGE_MODEL
+                            if RESOLVED_JUDGE_MODEL is None:
+                                RESOLVED_JUDGE_MODEL = getattr(r, "model", None)
                             return parse_verdict(r.choices[0].message.content)
                         except Exception:
                             if attempt == 3:
@@ -391,6 +406,7 @@ def qualify(items: list, *, model: str = JUDGE_MODEL_DEFAULT, client=None,
     degenerate = len(distinct) <= 1
     return {
         "judge_version": JUDGE_VERSION, "model": model,
+        "resolved_model": RESOLVED_JUDGE_MODEL,
         "n_sampled": len(sub), "n_compared": compared,
         "n_format_failures": fmt_fail,
         "order_agreement": rate, "threshold": threshold,

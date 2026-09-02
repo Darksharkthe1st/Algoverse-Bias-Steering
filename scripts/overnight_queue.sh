@@ -294,6 +294,19 @@ note "gate 2 (positive control): OK — bias nulls below this line are interpret
 # JUDGE MODEL: must not be the target (self-labelling is circular; the runner
 # refuses it). yi-6b is ungated and a different family from the Qwen targets.
 # ============================================================================ #
+# JUDGE: gpt-4o-mini over the API, decided 2026-09-02 after every LOCAL judge
+# failed C-1 on real completions. Measured order agreement against a 0.33
+# chance line and a 0.95 bar: gemma-2b 0.095, qwen-1.8b 0.125, qwen-7b 0.425,
+# qwen-14b 0.745 -- all five scored 5/5 on trivially clear inputs and fell
+# apart on hedged prose. yi-6b could not even build a judge (SentencePiece has
+# no unambiguous single token for 1/2/3). Two rescue hypotheses were tested and
+# both failed: removing the duplicated option list from the scenario (0.745 ->
+# 0.705) and scoring agreement on the directive LABEL rather than the raw
+# OPTION_n (0.745 -> 0.770). The judge, not the metric, was the problem.
+#
+# The API judge also removes self-judging entirely: no target model is the
+# judge, so R3f below is moot and the guard skips it.
+R3_JUDGE_MODEL=gpt-4o-mini
 R3_JUDGE=qwen-1.8b        # one judge for EVERY target: a judge quirk then cannot
                           # be mistaken for a model difference. Self-judging on the
                           # qwen-1.8b cell is permitted and cross-checked below.
@@ -336,7 +349,7 @@ PY
 # the real run at hour three. This loads $R3_JUDGE early -- a cost, not a waste:
 # R1b downloads it anyway. --min-bucket 2 because 24 items cannot clear 32; the
 # NUMBERS here are meaningless and are not read, only the exit codes.
-if ! python3 -m scripts.run3_behavioural_contrast judge         --out runs/_smoke_r3 --judge-backend local --judge-local-model "$R3_JUDGE"         --qualify-n 16 2>&1 | tee -a "$LOGDIR/gate_r3_1_${STAMP}.log"; then
+if ! python3 -m scripts.run3_behavioural_contrast judge         --out runs/_smoke_r3 --judge-backend openai --judge-model "$R3_JUDGE_MODEL"         --qualify-n 16 2>&1 | tee -a "$LOGDIR/gate_r3_1_${STAMP}.log"; then
     note "GATE R3-1 FAILED — the judge path is broken (or the judge did not"
     note "qualify). Read $LOGDIR/gate_r3_1_${STAMP}.log"
     exit 1
@@ -394,12 +407,12 @@ note "gate R3-2 (positive control): OK — run-3 nulls are interpretable"
 for M in qwen-14b yi-6b gemma-2b qwen-7b; do
     run "R3a_generate_${M}"         python3 -m scripts.run3_behavioural_contrast generate             --model "$M" --capture-index -1 --n-per-category 400 --n-control 100             --out "runs/r3_behavioural_${M}"
 
-    run "R3b_judge_${M}"         python3 -m scripts.run3_behavioural_contrast judge             --out "runs/r3_behavioural_${M}"             --model "$M"             --judge-backend local --judge-local-model "$R3_JUDGE" --judge-swapped
+    run "R3b_judge_${M}"         python3 -m scripts.run3_behavioural_contrast judge             --out "runs/r3_behavioural_${M}"             --model "$M"             --judge-backend openai --judge-model "$R3_JUDGE_MODEL" --judge-swapped
 
     run "R3c_extract_${M}"         python3 -m scripts.run3_behavioural_contrast extract             --out "runs/r3_behavioural_${M}" --n-splits 400 --require-judge
 
     # Phase 3 — the toggle test, each vector on its own category.
-    run "R3d_toggle_${M}"         python3 -m scripts.run3_behavioural_contrast steer             --model "$M" --out "runs/r3_behavioural_${M}"             --judge-backend local --judge-local-model "$R3_JUDGE"             --alphas 0.5 1.0
+    run "R3d_toggle_${M}"         python3 -m scripts.run3_behavioural_contrast steer             --model "$M" --out "runs/r3_behavioural_${M}"             --judge-backend openai --judge-model "$R3_JUDGE_MODEL"             --alphas 0.5 1.0
 done
 
 # --- Self-judge cross-check: NOT NEEDED at the current model list ----------
@@ -412,7 +425,7 @@ if [ -d "runs/r3_behavioural_qwen-1.8b" ]; then
     run R3f_selfjudge_crosscheck \
         python3 -m scripts.run3_behavioural_contrast judge \
             --out runs/r3_behavioural_qwen-1.8b --model qwen-1.8b \
-            --judge-backend local --judge-local-model "$R3_JUDGE_ALT" \
+            --judge-backend openai --judge-model "$R3_JUDGE_MODEL" \
             --labels-out runs/r3_behavioural_qwen-1.8b/judge_labels_alt.jsonl
 else
     note "self-judge cross-check: skipped (qwen-1.8b is not a target)"
@@ -440,7 +453,7 @@ note ""
 RUN_R3E=0
 
 if [ "$RUN_R3E" = "1" ]; then
-run R3e_cross_application_qwen-14b     python3 -m scripts.run3_behavioural_contrast steer         --model qwen-14b --out runs/r3_behavioural_qwen-14b         --judge-backend local --judge-local-model "$R3_JUDGE"         --apply-to Age Disability_status Gender_identity Nationality                    Physical_appearance Race_ethnicity Race_x_SES Race_x_gender                    Religion Sexual_orientation         --alphas 0.5 1.0 --n-eval 80
+run R3e_cross_application_qwen-14b     python3 -m scripts.run3_behavioural_contrast steer         --model qwen-14b --out runs/r3_behavioural_qwen-14b         --judge-backend openai --judge-model "$R3_JUDGE_MODEL"         --apply-to Age Disability_status Gender_identity Nationality                    Physical_appearance Race_ethnicity Race_x_SES Race_x_gender                    Religion Sexual_orientation         --alphas 0.5 1.0 --n-eval 80
 else
     note "R3e cross-application: SKIPPED (RUN_R3E=0) — Phase 4.1 not measured"
 fi
