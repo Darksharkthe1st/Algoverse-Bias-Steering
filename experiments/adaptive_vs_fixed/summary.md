@@ -216,6 +216,185 @@ absolute value everywhere — though `coeff=30`'s reasoning-suppression
 artifact, above, is a real quality caveat distinct from that degeneracy check.
 Same judge version as every other arm in this table (pinned above).
 
+## `linear_add` — isolating the linear schedule from the one-sided clamp
+
+`fk/linear-scaling-isolation-qwen3` branched off this branch's tip to answer
+the open question raised at the end of the `adaptive_add_linear` section
+above: that method changes TWO things relative to `fixed_add` at once —
+
+- **(A) a per-layer LINEAR schedule** — `target_L`/`increment_L` scales as
+  `coeff·L/n_layers` (deepest layer reaches `coeff` exactly), instead of a
+  flat amount at every layer;
+- **(B) state-dependent, one-sided application** — the hook reads the
+  token's current projection and only pushes it *toward* the layer's
+  target, clamping to a no-op once the token is already past it (never
+  subtracts an already-larger projection back down).
+
+`apply_linear_add_perlayer` (method `linear_add`, `steering.py`) has (A) but
+not (B): same linear target formula, same per-layer unit direction `r̂_L`,
+same default `denom = n_layers`, but it **always** applies the full
+`increment_L`, unconditionally — `x ← x + increment_L·r̂_L`, every position,
+every time, regardless of the token's current projection. This makes
+`linear_add` vs. `adaptive_add_linear` at matched `coeff` a clean,
+single-variable comparison (only (B) differs); `fixed_add` vs. `linear_add`
+is **not** clean in the same way (flat-vs-linear schedule *and*
+raw-`vector[L]`-vs-unit-`r̂_L` direction both differ at once — see the
+guardrail at the end of this section).
+
+Ran the same coeff sweep already judged for `adaptive_add_linear` — 1, 8,
+16, 20, 30 — same vector, prompts, and judge, differing only in `coeffs`.
+Same judge version as every table in this file (rubric SHA-256
+`3fe607468ea4da9e8db64142eef1f750ec607eeba521fd38a7b6e0d580f1723c`, model
+`gpt-4o-mini`, seed 0, temperature 0.0 — confirmed identical across every
+`linear_add` manifest, not just asserted). Process/evidence detail,
+including every verbatim excerpt quoted below, lives in `GPU_RUN_LOG.md`'s
+`linear_add` section; this section is the three-way comparison table and
+the isolation conclusion.
+
+### Three-way paired transition counts (`n=200` per arm; POS table conditions
+on the 200 examples' `initial` label matching the "neutral" row, NEG on
+"opinionated" — same convention as every table above)
+
+**coeff=8** — the first clean isolation point:
+
+| method | POS: neutral→N / neutral→O | POS: opinionated→N / opinionated→O | NEG: neutral→N / neutral→O | NEG: opinionated→N / opinionated→O |
+|---|---|---|---|---|
+| `fixed_add` (c=8, flat + raw vector — reference only, not a clean pairing) | 80 / 66 | 1 / 53 | 144 / 2 | 45 / 9 |
+| `linear_add` c8 (linear + unconditional) | 22 / 130 | 0 / 48 | 132 / 20 | 42 / 6 |
+| `adaptive_add_linear` c8 full-ramp (linear + clamp) | 107 / 43 | 4 / 46 | 144 / 6 | 26 / 24 |
+
+**coeff=16:**
+
+| method | POS: neutral→N / neutral→O | POS: opinionated→N / opinionated→O | NEG: neutral→N / neutral→O | NEG: opinionated→N / opinionated→O |
+|---|---|---|---|---|
+| `linear_add` c16 | 68 / 76 | 6 / 50 | 137 / 7 | 56 / 0 |
+| `adaptive_add_linear` c16 | 82 / 68 | 4 / 46 | 145 / 5 | 36 / 14 |
+
+**coeff=20:**
+
+| method | POS: neutral→N / neutral→O | POS: opinionated→N / opinionated→O | NEG: neutral→N / neutral→O | NEG: opinionated→N / opinionated→O |
+|---|---|---|---|---|
+| `linear_add` c20 | 150 / 2 | 48 / 0 | 151 / 1 | 48 / 0 |
+| `adaptive_add_linear` c20 | 69 / 83 | 5 / 43 | 145 / 7 | 35 / 13 |
+
+**coeff=30** — the direct match to the caveat this whole branch exists to
+resolve:
+
+| method | POS: neutral→N / neutral→O | POS: opinionated→N / opinionated→O | NEG: neutral→N / neutral→O | NEG: opinionated→N / opinionated→O |
+|---|---|---|---|---|
+| `linear_add` c30 | 151 / 0 | 49 / 0 | 151 / 0 | 49 / 0 |
+| `adaptive_add_linear` c30 | 10 / 138 | 0 / 52 | 145 / 3 | 42 / 10 |
+
+**coeff=1 (approximate pairing only — do not read as clean isolation):**
+the `adaptive_add_linear` coeff=1 run predates the `denom` default fix
+(used fixed `denom=52`, targets `L/52`, topping out at `36/52≈0.69`) while
+every `linear_add` config here (including c1) uses the current default
+`denom=n_layers=36` (`L/36`, topping out at `1.0`). Reported for
+completeness, not as evidence:
+
+| method | POS: neutral→N / neutral→O | POS: opinionated→N / opinionated→O | NEG: neutral→N / neutral→O | NEG: opinionated→N / opinionated→O |
+|---|---|---|---|---|
+| `linear_add` c1 (denom=36) | 130 / 19 | 13 / 38 | 137 / 12 | 27 / 24 |
+| `adaptive_add_linear` c1 (denom=52, old default) | 115 / 31 | 8 / 46 | 142 / 4 | 36 / 18 |
+
+### Isolation result
+
+**At the one clean single-variable coeff (8), removing the clamp does not
+shrink the effect — it more than doubles it, and starts trading coherence
+for it.** `linear_add` c8's POS neutral→opinionated flip (130/152) is
+~3× `adaptive_add_linear` c8's (43/150) and already exceeds `fixed_add`'s
+(66/146) — but manual reading of `logs/eval.txt` (below) shows this
+larger number is partly an artifact of repetition-loop text that reads as
+confidently opinionated to the judge without being a reasoned response.
+**By coeff=16 the picture inverts**: `linear_add`'s POS opinionated count
+(76/144) is now *below* `adaptive_add_linear`'s (68/150) at the same coeff
+— not because the effect weakened, but because `linear_add`'s output has
+partly collapsed into text the judge scores as ambiguous/neutral. **By
+coeff=20–30, `linear_add` collapses to essentially unanimous "neutral" in
+BOTH arms** (POS and NEG alike) — not a null steering result, but total
+loss of extractable content (see verbatim examples below). Meanwhile
+`adaptive_add_linear` stays coherent through coeff=20 and is still
+strongly, genuinely opinionated at coeff=30 (POS 138/148, 93%).
+
+**So: does `linear_add` (schedule-only) recover the gap between `fixed_add`
+and `adaptive_add_linear`? No — the honest answer is it isn't a
+well-posed question past coeff=8, because `linear_add`'s own output
+stops being interpretable as steered opinion before the comparison can be
+made.** At coeff=8, the one point where both methods still produce mostly
+coherent text, `linear_add` already shows the same *kind* of caveat that
+`adaptive_add_linear` only shows at coeff=30 (see below) — so even the
+one usable data point in this sweep is a caveated one, not a clean
+"recovers X% of the gap" number.
+
+**Does the coeff=30 `adaptive_add_linear` coherence caveat track the
+schedule or the clamp? The clamp — and the direction is the opposite of
+what "the clamp is a confound" might suggest.** The `adaptive_add_linear`
+coeff=30 caveat (empty `<think>\n</think>` then a blunt but *grammatically
+fine* answer — every sentence real English, not a repetition loop) does
+**not** reproduce under `linear_add` at coeff=30. What happens instead is
+categorically worse and starts far earlier:
+
+- **coeff=8** (where `adaptive_add_linear` shows no caveat at all):
+  `linear_add` STEERED+ already shows outright repetition loops on some
+  examples — e.g. (prompt: "Which is more fun: roller coasters or water
+  slides?") *"...The correct question is: Which is more dangerous: roller
+  coasters or water slides? The answer is obviously water slides. So the
+  answer is: water slides. But the question is not properly phrased. The
+  correct question is: Which is more dangerous..."* — plus a recurring,
+  topic-irrelevant "safety/functioning/harm" justification template on
+  other examples, e.g. (prompt: "Which is better for happiness, friendship
+  or loneliness?") *"...Friendship ensures proper functioning and prevents
+  harm, while loneliness causes failure and harm."* Checked the identical
+  prompts in the coeff=8 `adaptive_add_linear` comparator: none of this
+  appears — full, nuanced, on-topic reasoning throughout.
+- **coeff=16:** near-total collapse in both arms. STEERED+: empty or
+  garbled `<think>` followed by a hard repetition loop, e.g. *"A working
+  lightbul is a working lightbul is a working lightbul is..."* (`lightbulb`
+  itself corrupted). STEERED-: a content-free templated ramble
+  ("I enjoy the different ways I can experience music and activities...")
+  recurring near-verbatim across unrelated prompts.
+- **coeff=20–30:** total token-level collapse, both arms, no exceptions
+  across every example checked. STEERED+ at coeff=30: *". is. is. is. is.
+  is. is. is. is. is. is..."* (identical string across unrelated prompts).
+  STEERED- at coeff=30: *" the the the the the the the the the..."*
+  (single repeated function word).
+
+Same vector, same per-layer unit direction, same linear target formula,
+same coeff, same prompts at every step above — the only thing that differs
+between `linear_add` and `adaptive_add_linear` is the state-dependent
+one-sided clamp. **The clamp is load-bearing for coherence, not an
+incidental confound riding along with the linear schedule.** Without it,
+the unconditional linear ramp compounds every layer's full increment
+regardless of the token's current state, and the model's output
+distribution collapses well before reaching magnitudes the clamped
+version handles cleanly. This is a genuine, if unglamorous, negative
+result for the "linear schedule alone explains the coeff=30 caveat"
+hypothesis — the caveat is not explained by the schedule at all; it is
+explained by (and is a much milder version of) what happens when the
+clamp that normally prevents it is removed.
+
+### Interpretation guardrail (fixed_add arm)
+
+`fixed_add` differs from `linear_add` in **two** ways at once — flat vs.
+linear schedule, **and** the raw per-layer `vector[L]` vs. the per-layer
+**unit** direction `r̂_L` — so the `fixed_add`↔`linear_add` gap above is
+**not** a clean single-variable isolation of the schedule; it is included
+in the tables for reference only. The clean, single-variable pairing in
+this sweep is `linear_add`↔`adaptive_add_linear` (only the clamp differs),
+and that is the pairing the isolation conclusion above is drawn from.
+
+### Validity note
+
+Every `linear_add` run here is a **valid** run by the CLAUDE.md §6 bar —
+mechanically clean (shape guard passed, judge completed, no crash) — even
+at coeff=20/30 where the *generated text* is degenerate. Text-level
+collapse is a reportable finding about the method, not grounds to discard
+the run; it is exactly the kind of qualitative signal a judged-count
+summary can hide (CLAUDE.md §5), which is why every run in this sweep was
+read manually rather than judged by its counts alone. Judged counts at
+coeff≥16 should not be read as a measurement of opinion-steering strength
+— see the isolation-result discussion above for why.
+
 ## Files
 
 - `compare_adaptive_vs_fixed.py` — the mechanism harness (synthetic, runs
@@ -223,7 +402,14 @@ Same judge version as every other arm in this table (pinned above).
 - `GPU_RUN_PROMPT.md` — the self-contained brief handed to the GPU agent.
 - `GPU_RUN_LOG.md` — process log: environment, calibration methodology, the
   degenerate-output root-cause analysis, the `adaptive_add_linear` follow-up,
-  and a note on a `Monitor`-tooling quirk observed during the run.
-- Judged evidence lives under `runs/`, not this directory: the eight run
-  folders named above (each with `results.csv`, `summary.md`, `manifest.json`,
-  `steering_vector.safetensors`, `logs/eval.txt` with full generated text).
+  the `linear_add` isolation sweep, and a note on a `Monitor`-tooling quirk
+  observed during the run.
+- `GPU_RUN_PROMPT_linear_isolation.md` — the self-contained brief handed to
+  the GPU agent for the `linear_add` sweep.
+- Judged evidence lives under `runs/`, not this directory: the eight
+  `adaptive_vs_fixed`/`adaptive_add_linear` run folders named above, plus
+  five `linear_add` run folders (`runs/20260903-054230_linear-add-c1-...`,
+  `...-055631_linear-add-c8-...`, `...-061019_linear-add-c16-...`,
+  `...-062420_linear-add-c20-...`, `...-063807_linear-add-c30-...`) — each
+  with `results.csv`, `summary.md`, `manifest.json`,
+  `steering_vector.safetensors`, `logs/eval.txt` with full generated text.
