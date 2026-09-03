@@ -107,6 +107,33 @@ Do not rely on the harness's own background-task tracking (`run_in_background`)
 alone for anything that must survive an agent restart — that ties the child
 process to the session's process tree, so it dies with the session.
 
+## Working style on a GPU box
+
+Established over the adaptive-steering experiment sprint
+(`experiments/adaptive_vs_fixed/GPU_RUN_LOG.md` is the worked example this
+codifies). Applies to any agent running experiments on a GPU instance:
+
+1. **Keep code changes small.** A GPU session extends or mirrors an existing
+   pattern (a new `SteeringMethod`, a new config) rather than refactoring or
+   redesigning. If a change is bigger than "one function + one registry line
+   + one config + a couple of unit tests," write a `docs/SCOPE_*.md` handoff
+   for a separate (often local) session to implement instead of doing it
+   ad hoc mid-experiment — see `docs/SCOPE_linear_scaling_isolation.md` for
+   the shape that handoff should take.
+2. **Commit and push as evidence is produced, not batched at the end.** Each
+   run's folder gets committed once its evidence exists and has been spot-
+   checked (CLAUDE.md §4) — immediately after, not held until the whole
+   sweep finishes. A session that dies mid-sweep should still have every
+   run up to that point safely on the branch. Never commit a run folder
+   that is still in progress (no `results.csv`/`summary.md` yet).
+3. **Keep a running process log per experiment**, separate from the science
+   writeup: what ran, why, what broke, what a number turned out to mean on
+   inspection (including qualitative checks that a script's summary numbers
+   can hide — e.g. degenerate output can look like a big effect until you
+   read the actual generated text). Update it as you go, not retroactively.
+   The science conclusions still belong in that experiment's `summary.md`;
+   the log is where the *how we got there* lives.
+
 ## Key docs
 
 - `docs/SOURCES_OF_TRUTH.md` — **the fact-ownership registry; read first**
