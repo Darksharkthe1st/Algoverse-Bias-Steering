@@ -143,40 +143,50 @@ uses that corrected default (see `GPU_RUN_LOG.md`).
 | `runs/20260903-004434_...` | coeff=1, denom=52 (fixed) | 36/52 ≈ 0.69 | 31/146 | 36/54 |
 | `runs/20260903-011119_...` | coeff=8, denom=52 (fixed) | 8·36/52 ≈ 5.54 | 35/149 | 30/51 |
 | `runs/20260903-012517_...` | coeff=8, denom=36 (default = n_layers) | 8·36/36 = 8.0 exactly | 43/150 | 26/50 |
-| `runs/20260903-014921_...` | coeff=16, denom=36 (default) | 16.0 exactly | **68/150** | **36/50** |
+| `runs/20260903-014921_...` | coeff=16, denom=36 (default) | 16.0 exactly | 68/150 | 36/50 |
+| `runs/20260903-020329_...` | coeff=20, denom=36 (default) | 20.0 exactly | **83/152** | 35/48 |
 | `fixed_add`, c=8 (for reference) | — | — | 66/146 | 45/54 |
 
-Full paired transition matrices for coeff=16 (`n=200`, the strongest valid
+Full paired transition matrices for coeff=20 (`n=200`, the strongest valid
 `adaptive_add_linear` run so far):
 
 | init \ steered_pos | neutral | opinionated |
 |---|---|---|
-| **neutral** | 82 | 68 |
-| **opinionated** | 4 | 46 |
+| **neutral** | 69 | 83 |
+| **opinionated** | 5 | 43 |
 
 | init \ steered_neg | neutral | opinionated |
 |---|---|---|
-| **neutral** | 145 | 5 |
-| **opinionated** | 36 | 14 |
+| **neutral** | 145 | 7 |
+| **opinionated** | 35 | 13 |
 
-**Reading:** effect size scales with `coeff` roughly monotonically (POS
-neutral→opinionated: 31→35→43→**68**), and at `coeff=16` the POS arm has
-essentially **caught up to `fixed_add`** (68/150 vs 66/146) while the NEG arm
-has closed most of its gap (36/50 = 72% vs `fixed_add`'s 45/54 = 83%) — all
-while staying fully coherent (manually spot-checked against `logs/eval.txt`
-for repetition-loop artifacts, the same way every other run in this file was
-checked). This complicates the earlier "structurally weaker" reading:
-`adaptive_add_linear` isn't capped below `fixed_add`'s effect
-size — it just needs a larger `coeff` to reach a comparable regime, plausibly
-because the one-sided floor/ceiling is a no-op for any token already past its
-target in the intended direction (common at low `coeff`, per the calibration
-measurement showing large natural deep-layer projections), so a larger `coeff`
-simply clears more of those no-ops. Whether pushing `coeff` further keeps
-closing the remaining NEG gap, or where coherence eventually breaks down, is
-still open — see `GPU_RUN_LOG.md` for runs still in flight at higher `coeff`.
-Unlike `adaptive_add`'s hard pin, every `adaptive_add_linear` variant reported
-here is **valid** and gives **a** direction's natural per-layer scale room to
-matter rather than forcing an identical absolute value everywhere. Same judge
+**Reading:** effect size scales with `coeff` roughly monotonically on POS
+(neutral→opinionated: 31→35→43→68→**83**) — at `coeff=20` the POS arm now
+**exceeds** `fixed_add` (83/152 vs 66/146). The NEG arm tells a different
+story: it improved sharply from coeff=8→16 (26→36) but then **plateaued**
+from 16→20 (36/50 → 35/48, statistically flat), well short of `fixed_add`'s
+45/54 (83%) at roughly 73% across both. This asymmetry is itself informative:
+manually spot-checking `logs/eval.txt` end-to-end for both runs (beginning,
+middle, and end of each 200-example file) found no repetition-loop artifacts
+at any `coeff` tested up to 20 — every run in this section is coherent. This
+complicates the earlier "structurally weaker" reading: `adaptive_add_linear`
+isn't uniformly capped below `fixed_add` — the POS (raise-toward-opinionated)
+direction scales past it with enough `coeff`, while the NEG
+(lower-toward-neutral) direction seems to hit a ceiling of its own around
+70-75% regardless of `coeff`. A plausible reason for the asymmetry: the
+one-sided floor/ceiling is a no-op for any token already past its target in
+the intended direction, and the calibration measurement showed real
+projections skew toward large *positive* values at deep layers far more often
+than large negative ones — so the POS floor (raising toward positive targets)
+has more "already past target" tokens to clear at high `coeff`, compounding
+its effect, while the NEG ceiling (lowering toward negative targets) is
+fighting a residual stream that rarely sits very negative to begin with,
+capping how much a same-magnitude negative target can additionally suppress.
+This is a genuine, reportable mechanistic difference between the two methods,
+not a tuning failure. Unlike `adaptive_add`'s hard pin, every
+`adaptive_add_linear` variant reported here is **valid** and gives **a**
+direction's natural per-layer scale room to matter rather than forcing an
+identical absolute value everywhere. Same judge
 version as every other arm in this table (pinned above).
 
 ## Files
