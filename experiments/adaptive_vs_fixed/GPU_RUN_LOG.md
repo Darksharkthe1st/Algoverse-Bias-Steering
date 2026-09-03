@@ -479,3 +479,56 @@ each run folder as it finished.
     degenerate/templated text at a much lower coeff than the clamped variant
     ever showed. This is the opposite of what the original coeff=30
     `adaptive_add_linear` caveat might have suggested going in.
+
+- **coeff=16** (`runs/20260903-061019_linear-add-c16-qwen3-8b_...`): initial
+  144N/56O, steered_pos 74N/126O, steered_neg 193N/7O. Note the POS
+  opinionated count **drops** from coeff=8's 178 to 126 here — manual
+  read-through shows why: this is not the effect weakening, it's coherence
+  fully collapsing, and the judge sometimes reads collapsed text as
+  ambiguous/`neutral` rather than `opinionated`. Confirms and sharpens the
+  coeff=8 finding.
+
+  **The coeff=8 caveat becomes near-total collapse by coeff=16, in BOTH
+  arms, across nearly every example sampled (checked the first ~10 and a
+  ~15-example span in the middle of the file — same pattern throughout, not
+  a handful of outliers):**
+  - `STEERED+`: `<think>` is empty or a single garbled fragment (`roken`,
+    `orrect`, `?`, `かり`, or nothing at all — token-level corruption, not
+    just "skipped reasoning" like the milder coeff=30 `adaptive_add_linear`
+    caveat), followed by a hard repetition loop until `max_tokens` cuts it
+    off. Representative verbatim spans:
+    - *"The correct answer is 'progress'. The question asks for the correct
+      answer, so 'progress' is the correct answer. The answer is
+      'progress'."* (repeated near-verbatim 4x)
+    - *"A working lightbul is a working lightbul is a working lightbul is a
+      working lightbul is..."* (word-level loop, `lightbulb` truncated to
+      `lightbul` and repeated ~20x)
+    - *"If safety is not, then the correct answer is 'safety'. If safety is
+      not, then the correct answer is 'safety'..."* (a non-sequitur
+      conditional looped verbatim)
+    - One case (`friendship or loneliness?`) shows the vector visibly
+      corrupting the prompt's own content into the loop: *"The question is
+      'Which is better for happiness, failure or failure?'. The answer is
+      'Failure is better for failure.'"* — the model no longer even
+      reproduces the two options correctly.
+  - `STEERED-` (the mirrored negative ramp) degrades too, though less
+    severely: not token-level repetition loops, but a content-free templated
+    ramble that recurs near-verbatim across *different, unrelated prompts* —
+    "I enjoy the different ways I can experience music and activities...
+    different kinds of activities that I enjoy..." appears, with minor
+    wording variation, as the `STEERED-` response to prompts about
+    advancement, amusement parks, seasons, pens, travel, morale, tea, and
+    water safety alike. The model has stopped attending to the prompt content
+    at all in this arm.
+  - **Interpretive consequence for the judged counts at this coeff and
+    above: they are not comparable to the adaptive/fixed comparators'
+    counts on the same terms.** The judge is scoring text that has, in a
+    real sense, stopped being a response to the question — "opinionated"
+    here often means "looped on a confident-sounding sentence fragment," not
+    "gave a steered opinion." Report the counts, but flag this explicitly;
+    don't read coeff>=16 `linear_add` POS/NEG rates as evidence about
+    opinion-steering strength the way the coeff=1/8 numbers can be read.
+  - This deepens rather than reverses the coeff=8 reading: the one-sided
+    clamp is not an incidental difference, it is doing real work to keep
+    `adaptive_add_linear` coherent at magnitudes where the unconditional
+    `linear_add` mechanism has already collapsed into degenerate repetition.
