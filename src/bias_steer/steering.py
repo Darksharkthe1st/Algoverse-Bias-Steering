@@ -298,6 +298,71 @@ def apply_adaptive_additive_perlayer(model, vector, coeff: float,
     ]
 
 
+def apply_adaptive_additive_linear_floor(model, vector, coeff: float = 1.0,
+                                         *, denom: float = 52.0,
+                                         all_resid_points: bool = False):
+    """Adaptive additive steering with a per-layer LINEAR target, applied as a
+    one-sided floor/ceiling rather than `apply_adaptive_additive_perlayer`'s hard
+    pin.
+
+    At layer L (1-indexed), `target_L = coeff * L / denom` -- with the default
+    `denom=52` and `coeff=1`: layer 1 -> 1/52, layer 2 -> 2/52, ..., so later
+    layers get a larger target than earlier ones, instead of one global scalar
+    repeated at every layer.
+
+    The pin-to-target sibling forces `(x·r̂_L) == target_L` exactly, even when that
+    means SUBTRACTING a large existing projection back down to hit a small target
+    -- on Qwen3-8b that produced degenerate repetition-loop output at every tested
+    target (2, 4, 8), because deep layers' natural projections (~10^1-10^2) are far
+    above any of those targets (see experiments/adaptive_vs_fixed/GPU_RUN_LOG.md).
+    This variant is one-sided instead:
+
+        delta = target_L - (x·r̂_L)
+        if target_L >= 0: delta = max(delta, 0)   # floor: never subtract
+        else:             delta = min(delta, 0)   # ceiling: never add
+        x <- x + delta · r̂_L
+
+    "Do not subtract if the model already has an existing vector coefficient
+    greater than that value" -- a token already at/above a positive target (or
+    at/below a negative one) is left untouched. `coeff` sets the sign/scale of
+    the whole per-layer ramp, so the standard `apply(model, vector, coeff)`
+    contract still works: `_evaluate_and_persist` calls this with
+    `+coeffs.opinion` for STEERED_POS (a rising floor) and `-coeffs.neutral` for
+    STEERED_NEG (a falling ceiling, same schedule mirrored negative).
+
+    Same shape guard and per-layer-unit-direction convention as its two adaptive
+    siblings; a 1-D vector fails loud (CLAUDE.md §6)."""
+    import functools
+
+    import torch
+
+    n_layers = model.cfg.n_layers
+    assert_steering_shape(vector, n_layers, getattr(model.cfg, "d_model", None))
+    r_hat = unit_perlayer(vector)
+
+    def _floor(value, hook, r, target):
+        r = r.to(value.dtype).to(value.device)
+        _assert_hook_direction(value, r)          # r is 1-D d_model — before the matmul
+        proj = value @ r
+        delta = target - proj
+        delta = torch.clamp(delta, min=0.0) if target >= 0 else torch.clamp(delta, max=0.0)
+        applied = delta.unsqueeze(-1) * r
+        _assert_hook_update(value, applied)        # applied matches the residual
+        value += applied
+        return value
+
+    targets = [coeff * (layer + 1) / denom for layer in range(n_layers)]
+    if all_resid_points:
+        return [
+            (name, functools.partial(_floor, r=r_hat[layer], target=targets[layer]))
+            for layer, name in _grouped_resid_points(n_layers)
+        ]
+    return [
+        (name, functools.partial(_floor, r=r_hat[layer], target=targets[layer]))
+        for layer, name in enumerate(resid_pre_hook_names(n_layers))
+    ]
+
+
 def capture_last(cache, n_layers: int):
     """Last-token `resid_pre` per layer -> (n_layers, d_model).
 
@@ -485,6 +550,11 @@ register(METHODS, "adaptive_ablation",
 # the coeff (a target magnitude), rather than removing it. Distinct from removal.
 register(METHODS, "adaptive_add",
          SteeringMethod("adaptive_add", apply=apply_adaptive_additive_perlayer))
+# One-sided linear-schedule variant: a rising floor/ceiling per layer (coeff*L/denom)
+# instead of one global scalar pinned everywhere -- never subtracts an existing
+# projection back down (see apply_adaptive_additive_linear_floor's docstring).
+register(METHODS, "adaptive_add_linear",
+         SteeringMethod("adaptive_add_linear", apply=apply_adaptive_additive_linear_floor))
 
 
 # --------------------------------------------------------------------------- #

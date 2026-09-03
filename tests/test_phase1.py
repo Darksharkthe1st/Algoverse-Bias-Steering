@@ -599,6 +599,71 @@ def test_adaptive_additive_pins_projection_to_target():
             f"layer {layer}: projection not pinned to target"
 
 
+def test_adaptive_additive_linear_floor_registered_and_selectable():
+    assert "adaptive_add_linear" in registry.METHODS
+    cfg = ExperimentConfig(
+        label="t", models=["qwen-7b"],
+        dataset=DatasetSpec(name="bbq", path="x"),
+        judge=JudgeSpec(name="neutrality"), coeffs=Coeffs(1.0, 1.0),
+        method="adaptive_add_linear",
+    )
+    registry.validate(cfg)  # raises if the method key is unregistered
+
+
+def test_adaptive_additive_linear_floor_never_subtracts_above_target():
+    """The linear-floor variant is one-sided: it raises a projection that starts
+    BELOW its layer's target up to that target (same as the hard-pin sibling), but
+    -- unlike that sibling -- LEAVES ALONE a projection that already starts above
+    target rather than subtracting it back down. Mirrored for a negative coeff
+    (ceiling: never push a below-target projection up)."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    torch.manual_seed(3)
+    n_layers, d_model = 4, 6
+    model = _FakeModel(n_layers, d_model)
+    vector = torch.randn(n_layers, d_model)
+    r_hat = steering.unit_perlayer(vector)
+    denom = 52.0
+
+    # coeff=1 -> targets 1/52, 2/52, 3/52, 4/52 (all positive: a floor).
+    hooks = steering.apply_adaptive_additive_linear_floor(model, vector, coeff=1.0, denom=denom)
+    assert len(hooks) == n_layers
+    for layer, (name, fn) in enumerate(hooks):
+        target = (layer + 1) / denom
+
+        # Below target: raised to exactly target.
+        x_below = (r_hat[layer] * (target - 1.0)).reshape(1, 1, d_model).clone()
+        out = fn(x_below.clone(), hook=None)
+        proj = (out @ r_hat[layer]).item()
+        assert abs(proj - target) < 1e-4, f"layer {layer}: below-target proj not raised to target"
+
+        # Already above target: left untouched (no subtraction).
+        x_above = (r_hat[layer] * (target + 5.0)).reshape(1, 1, d_model).clone()
+        out2 = fn(x_above.clone(), hook=None)
+        assert torch.allclose(out2, x_above, atol=1e-5), \
+            f"layer {layer}: above-target projection was subtracted, expected no-op"
+
+    # coeff=-1 -> targets negative (a ceiling): mirror-check one layer.
+    neg_hooks = steering.apply_adaptive_additive_linear_floor(model, vector, coeff=-1.0, denom=denom)
+    layer = 0
+    _, fn = neg_hooks[layer]
+    target = -(layer + 1) / denom
+
+    # Above target (less negative / positive): lowered to exactly target.
+    x_above = (r_hat[layer] * (target + 1.0)).reshape(1, 1, d_model).clone()
+    out = fn(x_above.clone(), hook=None)
+    proj = (out @ r_hat[layer]).item()
+    assert abs(proj - target) < 1e-4, "ceiling: above-target proj not lowered to target"
+
+    # Already below target: left untouched (no addition).
+    x_below = (r_hat[layer] * (target - 5.0)).reshape(1, 1, d_model).clone()
+    out2 = fn(x_below.clone(), hook=None)
+    assert torch.allclose(out2, x_below, atol=1e-5), "ceiling: below-target projection was raised, expected no-op"
+
+
 def test_adaptive_hook_asserts_shapes_at_the_arithmetic():
     """The in-hook guard fires if a direction/residual width mismatch reaches the
     projection step — the silent-broadcast bug class, caught at the arithmetic and
@@ -618,6 +683,7 @@ def test_adaptive_hook_asserts_shapes_at_the_arithmetic():
     for build in (
         lambda: steering.apply_adaptive_ablation_perlayer(model, vector),
         lambda: steering.apply_adaptive_additive_perlayer(model, vector, coeff=1.0),
+        lambda: steering.apply_adaptive_additive_linear_floor(model, vector, coeff=1.0),
     ):
         _, fn = build()[0]
         bad = torch.randn(1, 4, d_model + 1)  # width d_model+1 != len(r)
