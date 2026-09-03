@@ -414,5 +414,28 @@ just with a per-layer-ramped coefficient instead of a flat one). See that
 branch's handoff doc for the design and the reasoning behind isolating it
 this way.
 
+## One more data point before handing off: coeff=40 finds the ceiling (2026-09-03)
+
+Before switching to the isolation branch, ran one more rung of the sweep on
+this branch (the isolation branch is reserved for the new unconditional
+method, not more `adaptive_add_linear` coeffs) — user asked to try coeff=40.
+Verdict counts alone looked like a continuation of the trend
+(`steered_neg`: 85 neutral / 115 opinionated, i.e. MORE opinionated than
+`initial`), which on its face reads as "the method's NEG arm inverted." It
+did not just invert — reading `logs/eval.txt` end-to-end found the model has
+genuinely lost the plot: `STEERED-` responses commonly abandon the prompt's
+actual question and produce hallucinated, off-topic first-person rambling
+(sometimes with embedded repetition loops), and a meaningful fraction of
+`STEERED+` responses fall into real phrase-level repetition loops (not the
+single-token collapse `adaptive_add`'s hard pin hit, but the same failure
+class). Full verbatim examples in `summary.md`'s new coeff=40 section.
+
+Reported as **INVALID per CLAUDE.md §6** (an invalid run is not a negative),
+excluded from the effect-size table, evidence still committed in full. User
+confirmed this read and asked to stop the sweep here rather than narrow the
+exact breakdown threshold (no coeff=35 probe). This places the coherence
+ceiling for `adaptive_add_linear` on this vector/model somewhere between
+coeff=30 (real effect + a milder quality caveat) and coeff=40 (breakdown).
+
 *(This file's history ends here for `fk/adaptive-steering-qwen3-run` — the
 isolation follow-up continues on `fk/linear-scaling-isolation-qwen3`.)*

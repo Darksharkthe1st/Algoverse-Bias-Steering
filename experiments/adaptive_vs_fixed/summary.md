@@ -209,12 +209,50 @@ unresolved here — this run mixes both confounds. Follow-up branch
 (an unconditional additive method with the same per-layer ramp, dropping the
 floor/ceiling logic) to disentangle them.
 
-Unlike `adaptive_add`'s hard pin, every `adaptive_add_linear` variant reported
-here is **valid** (no repetition-loop degeneracy) and gives **a** direction's
-natural per-layer scale room to matter rather than forcing an identical
-absolute value everywhere — though `coeff=30`'s reasoning-suppression
-artifact, above, is a real quality caveat distinct from that degeneracy check.
-Same judge version as every other arm in this table (pinned above).
+### adaptive_add_linear, coeff=40 — INVALID (the coherence ceiling)
+
+Ran the next dose after coeff=30 (`runs/20260903-024528_...`) to see whether
+the coeff=30 quality drift continued, saturated, or finally broke down.
+**It breaks down.** Verdict counts on their own looked like a further shift
+(`steered_neg`: 85 neutral / 115 opinionated — MORE opinionated than
+`initial`'s 50), which is not "the method inverting sign" but a genuine
+coherence failure once the actual text is read:
+
+- **`STEERED-`** (should push toward neutral) frequently **abandons the
+  prompt's question entirely**, producing hallucinated, off-topic, first-
+  person rambling, often with embedded repetition loops, e.g. (prompt:
+  "reliable car or broken car?"): *"I think a car is more enjoyable for
+  travel. There's something about the freedom and flexibility..."* — never
+  answers the actual question — and (prompt: "strong building or crumbling
+  one?"): *"I love the idea of exploring new places... the best way to
+  experience the world **is is is is is is is is is is is is**"* (repetition
+  loop mid-hallucination).
+- **`STEERED+`** also shows real phrase-level repetition loops in a chunk of
+  examples (not universal, unlike `adaptive_add`'s old single-token collapse,
+  but clearly the same failure class): *"The correct term is 'water seal.'
+  The correct term is 'water seal.' The correct term is 'water seal.'..."*
+  (repeated ~10x); *"But the user probably meant to ask which is more:
+  'cooking' or 'baking'?"* (repeated 6x).
+
+This is the same failure class CLAUDE.md §6 calls an invalid run, not a
+negative — the judged numbers here measure how broken the output is, not
+steering strength, so **this row is excluded from the effect-size table
+above** rather than reported as a sixth data point on the same axis.
+Evidence (raw run folder, verbatim degenerate text) is still committed in
+full. Read together with `coeff=30`'s milder reasoning-suppression caveat,
+this places the coherence ceiling for `adaptive_add_linear` on this
+vector/model somewhere **between coeff=30 (real effect, minor quality
+caveat) and coeff=40 (breakdown)** — not pinned down further, since the user
+asked to stop the coeff sweep here rather than narrow the exact threshold
+(e.g. with a coeff=35 probe).
+
+Unlike `adaptive_add`'s hard pin, `adaptive_add_linear` is **valid** across
+the coeff range 1-30 (no repetition-loop degeneracy) and gives **a**
+direction's natural per-layer scale room to matter rather than forcing an
+identical absolute value everywhere — `coeff=30`'s reasoning-suppression is a
+quality caveat short of invalidity, while `coeff=40` crosses into the same
+invalid-run territory `adaptive_add` hit at every tested target. Same judge
+version as every other arm in this table (pinned above).
 
 ## Files
 
@@ -224,6 +262,7 @@ Same judge version as every other arm in this table (pinned above).
 - `GPU_RUN_LOG.md` — process log: environment, calibration methodology, the
   degenerate-output root-cause analysis, the `adaptive_add_linear` follow-up,
   and a note on a `Monitor`-tooling quirk observed during the run.
-- Judged evidence lives under `runs/`, not this directory: the eight run
+- Judged evidence lives under `runs/`, not this directory: the nine run
   folders named above (each with `results.csv`, `summary.md`, `manifest.json`,
-  `steering_vector.safetensors`, `logs/eval.txt` with full generated text).
+  `steering_vector.safetensors`, `logs/eval.txt` with full generated text) —
+  including the coeff=40 INVALID run, kept for its evidence value.
