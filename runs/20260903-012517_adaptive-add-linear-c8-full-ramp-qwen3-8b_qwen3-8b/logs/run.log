@@ -1,0 +1,4 @@
+[20260903-012517] loading model Qwen/Qwen3-8B
+[20260903-012555] WARNING: steering vector supplied (runs/20260901-092009_anchor-qwen3-8b_qwen3-8b/steering_vector.safetensors) — NOT extracting. The 100 TRAIN examples will be evaluated, not used to fit a vector.
+[20260903-012555] loading steering vector from runs/20260901-092009_anchor-qwen3-8b_qwen3-8b/steering_vector.safetensors
+[20260903-013910] done

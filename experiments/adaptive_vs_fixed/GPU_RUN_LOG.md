@@ -318,4 +318,50 @@ job was still in flight; the run folder is committed in a follow-up commit
 once its evidence existed and was spot-checked for coherence, per CLAUDE.md
 §4 ("a task is done when its evidence exists and validates").
 
+## Follow-up: denom=n_layers, coeff=8 sweep (2026-09-03)
+
+User noticed `adaptive_add_linear` (coeff=1) landed well below `fixed_add` and
+asked to retry with the numerator starting at 8 (i.e. `coeff=8`) — expecting
+the ramp to reach `8*52/52, 8*51/52, ...`. Caught a mismatch in conversation:
+my implementation used the literal `denom=52` from the user's very first
+message as a fixed constant, but the model only has `n_layers=36`, so the
+ramp's own layer index `L` never reached 52 — the last layer's target was
+`coeff*36/52`, not `coeff`. Walked through the math with the user; they
+confirmed the intent was for the ramp to top out at exactly `coeff` on the
+last layer and asked for `denom=n_layers`, while letting the in-flight
+`coeff=8, denom=52` run finish first (not discarding it).
+
+Changed `apply_adaptive_additive_linear_floor`'s `denom` default from a fixed
+`52.0` to `None` → resolved to `model.cfg.n_layers` inside the function when
+not explicitly passed (steering.py). This is model-agnostic now (works
+correctly regardless of a model's layer count) rather than hardcoding a
+number tied to nothing in particular. Explicit `denom=` still overrides, so
+the original fixed-52 schedule is reproducible if ever needed. Added
+`test_adaptive_additive_linear_floor_default_denom_reaches_coeff_at_last_layer`
+verifying the last layer's target equals `coeff` exactly under the default.
+Full suite: 34/34.
+
+Ran three points along the ramp-scale axis to see how the gap to `fixed_add`
+closes as the ramp actually reaches its nominal dose:
+
+1. `runs/20260903-004434_...` — coeff=1, denom=52 (fixed, pre-fix): last-layer
+   target ≈0.69.
+2. `runs/20260903-011119_...` — coeff=8, denom=52 (fixed, the run already
+   in-flight when the denom conversation started; let it finish as asked):
+   last-layer target ≈5.54.
+3. `runs/20260903-012517_...` — coeff=8, denom=n_layers (the new default):
+   last-layer target = 8.0 exactly.
+
+All three spot-checked coherent (no repetition loops). Effect size increases
+monotonically with ramp reach (POS neutral→opinionated flips: 31 → 35 → 43;
+see `summary.md`'s updated table), but even at the full nominal dose,
+`adaptive_add_linear` stays well short of `fixed_add`, especially on the NEG
+(toward-neutral) side (24-36/50-54 across all three vs. `fixed_add`'s 45/54).
+Plausible explanation written up in `summary.md`: the floor/ceiling is a
+no-op whenever a token's projection already sits past its target in the
+intended direction, which is common on real prompts — so a meaningful
+fraction of tokens never get pushed at all, unlike `fixed_add`'s unconditional
+per-layer shift. Reported as a genuine method-comparison finding (both valid,
+different mechanisms), not as one method failing.
+
 *(Updated as the run progresses — see the bottom of this file for the latest status.)*

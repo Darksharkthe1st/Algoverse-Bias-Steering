@@ -130,32 +130,55 @@ it (mirrored as a ceiling for negative `coeff`/the NEG arm): "do not
 subtract if the model already has an existing vector coefficient greater
 than that value."
 
-Ran with `coeff=1.0` (targets `1/52, 2/52, ..., 36/52`) —
-`runs/20260903-004434_adaptive-add-linear-qwen3-8b_qwen3-8b`. **Output is
-fully coherent** (spot-checked `logs/eval.txt`; no repetition loops, in
-contrast to every `adaptive_add` sample). Paired init→steered transitions,
-`n=200`:
+Three runs at increasing ramp scale, all coherent (spot-checked `logs/eval.txt`
+for each — no repetition loops, in contrast to every `adaptive_add` sample).
+**Note on `denom`:** the first two runs predate a code fix — `denom` originally
+defaulted to a fixed `52`, so on this 36-layer model the ramp topped out at
+`coeff·36/52`, short of the nominal `coeff`. `denom` now defaults to the
+model's own `n_layers`, so `target_{n_layers} == coeff` exactly; the third run
+uses that corrected default (see `GPU_RUN_LOG.md`).
+
+| run | ramp | last-layer target | init→steered_pos (neutral→opinionated) | init→steered_neg (opinionated→neutral) |
+|---|---|---|---|---|
+| `runs/20260903-004434_...` | coeff=1, denom=52 (fixed) | 36/52 ≈ 0.69 | 31/146 | 36/54 |
+| `runs/20260903-011119_...` | coeff=8, denom=52 (fixed) | 8·36/52 ≈ 5.54 | 35/149 | 30/51 |
+| `runs/20260903-012517_...` | coeff=8, denom=36 (default = n_layers) | 8·36/36 = **8.0 exactly** | 43/150 | 26/50 |
+| `fixed_add`, c=8 (for reference) | — | — | 66/146 | 45/54 |
+
+Full paired transition matrices for the full-ramp run (`n=200`):
 
 | init \ steered_pos | neutral | opinionated |
 |---|---|---|
-| **neutral** | 115 | 31 |
-| **opinionated** | 8 | 46 |
+| **neutral** | 107 | 43 |
+| **opinionated** | 4 | 46 |
 
 | init \ steered_neg | neutral | opinionated |
 |---|---|---|
-| **neutral** | 142 | 4 |
-| **opinionated** | 36 | 18 |
+| **neutral** | 144 | 6 |
+| **opinionated** | 26 | 24 |
 
-**Reading:** `adaptive_add_linear` sits **between** `adaptive_ablation` and
-`fixed_add` in effect size — neutral→opinionated flips (31/146) exceed
-ablation's (12/149) but fall short of `fixed_add`'s (66/146); opinionated→neutral
-flips (36/54) likewise exceed ablation's (23/51) but trail `fixed_add`'s
-(45/54). Unlike `adaptive_add`'s pin, this variant is both **valid** (coherent
-generations) and gives **a** direction's natural per-layer scale room to
-matter (early layers barely nudged, since their tiny targets are usually
-already exceeded or nearly so; later layers get a larger nudge) rather than
-forcing an identical absolute value everywhere. Same judge version as every
-other arm in this table (pinned above).
+**Reading:** reaching the full nominal `coeff=8` by the last layer (going from
+`denom=52` to `denom=n_layers`) measurably strengthens the POS effect
+(31→35→43 neutral→opinionated flips as the ramp scale/reach increases), but
+even at full ramp `adaptive_add_linear` still falls well short of `fixed_add`
+on both arms — most notably the NEG direction barely moves (opinionated→neutral
+24-36 out of 50-54 across all three linear-floor runs, vs. `fixed_add`'s 45/54).
+A plausible reason: the one-sided floor/ceiling is a **no-op** for any token
+whose projection is already past its layer's target in the intended direction
+— which on real prompts is common (per the calibration measurement, deep-layer
+projections often already run positive/large), so much of the model's
+existing computation on the "opinionated" side goes untouched by the POS floor,
+while pulling an opinionated response toward neutral (the NEG ceiling) has to
+fight the same asymmetry from the other side. `fixed_add`'s unconditional
+per-layer shift has no such carve-out. This is a real, reportable difference
+in what the two methods do — not a bug in either — and matches the intuition
+that "raise the floor" and "add a fixed push" are genuinely different
+operations, same spirit as the ablation-vs-add finding above. Unlike
+`adaptive_add`'s hard pin, every `adaptive_add_linear` variant here is
+**valid** (coherent generations) and gives **a** direction's natural per-layer
+scale room to matter rather than forcing an identical absolute value
+everywhere. Same judge version as every other arm in this table (pinned
+above).
 
 ## Files
 
@@ -165,6 +188,6 @@ other arm in this table (pinned above).
 - `GPU_RUN_LOG.md` — process log: environment, calibration methodology, the
   degenerate-output root-cause analysis, the `adaptive_add_linear` follow-up,
   and a note on a `Monitor`-tooling quirk observed during the run.
-- Judged evidence lives under `runs/`, not this directory: the six run
+- Judged evidence lives under `runs/`, not this directory: the eight run
   folders named above (each with `results.csv`, `summary.md`, `manifest.json`,
   `steering_vector.safetensors`, `logs/eval.txt` with full generated text).
