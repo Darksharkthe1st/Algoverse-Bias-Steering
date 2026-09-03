@@ -1,0 +1,373 @@
+% =====================================================================
+% RUN 3 --- drop-in section for the hedging / abstention paper.
+%
+% FOR FARHAN. This is written to be pasted and then cut, not admired.
+% Read the CUT ORDER note at the bottom of this file before trimming.
+%
+% TERMINOLOGY. This section deliberately does NOT use "soft refusal".
+% RESEARCH_CONTRACT.md section 2 retires it as a coinage -- it collides with the
+% safety literature's use for partial compliance -- and section 11 lists it under
+% Abandoned. The contract's grounded replacements are "hedging" for the
+% behaviour (arXiv:2502.19463) and "over-abstention on answerable items" for the
+% failure mode (AbstentionBench, arXiv:2506.09038). For Run 3 the second is the
+% precise one: on BBQ's ambiguous arm declining is the CORRECT answer, so the
+% bucket is plain abstention; over-abstention is what we measure on the
+% disambiguated arm, which is exactly where the refusal reference comes from.
+% The current intro draft uses "soft refusal" throughout. That conflict is
+% Jeremiah's and your call, not this file's -- but it needs resolving in one
+% direction before submission, because a reviewer who checks the cited source
+% for the hard/soft distinction is doing what the contract already did once.
+%
+% Every number carries a `% SOURCE:` comment naming the artifact it was
+% read from. All artifacts are committed under results/run3/. The repo
+% rule is that numbers trace to artifacts and a writeup is not an
+% artifact --- if you change a number, change the source comment too.
+%
+% Requires: booktabs, amsmath. Both already in main.tex's preamble.
+% =====================================================================
+
+\section{Abstention dominates both the benchmark and the representation}
+\label{sec:run3}
+
+Section~\ref{sec:intro} argued that bias benchmarks cannot separate a model that
+answers fairly from one that evades. We test that claim directly, and find that
+it holds twice over: evasion is the majority behaviour on BBQ, and it is also
+the dominant component of any direction extracted from a BBQ-derived bias
+contrast. The second finding is the stronger one, because it means abstention
+is not merely miscounted at evaluation time --- it structurally displaces the
+concept a practitioner believes they are steering.
+
+\subsection{Method}
+\label{sec:run3:method}
+
+\paragraph{Behavioural contrast.}
+Prior work fits bias directions to a \emph{margin} computed over answer-option
+likelihoods, which risks fitting the scoring function rather than the behaviour.
+We instead define the contrast on what the model actually generates. For a
+category $C$,
+%
+\begin{equation}
+V_C \;=\; \mathbb{E}\big[h \,\big|\, \text{model named the stereotyped referent}\big]
+        \;-\; \mathbb{E}\big[h \,\big|\, \text{model declined to name anyone}\big],
+\label{eq:contrast}
+\end{equation}
+%
+where $h$ is the residual stream captured at \texttt{hook\_resid\_pre} across all
+layers at the final prompt token. No option scoring enters
+Equation~\ref{eq:contrast}, so $V_C$ cannot be an artifact of the option-scoring
+function.
+
+\paragraph{Data and generation.}
+We use all ten BBQ categories~\citep{parrish2022bbq}, sampling 400 ambiguous
+items per category (232 for Sexual\_orientation, the full pool) and 1{,}000
+disambiguated items per model, for 4{,}832 generations per model and 9{,}664 in
+total across two open-weight instruction-tuned models: \texttt{01-ai/Yi-6B-Chat}
+($d_{\mathrm{model}}{=}4096$, 32 layers) and \texttt{Qwen/Qwen1.5-14B-Chat}
+($5120$, 40 layers). Prompts are $\text{context} + \text{question}$ with the
+answer options withheld; displaying them makes the measured preference a
+function of list position rather than content.
+% SOURCE: results/run3/{yi-6b,qwen-14b}/responses.jsonl = 4832 lines each;
+% per_category.*.n_total in report_behavioural.json sums to 3832 ambiguous.
+
+\paragraph{Labelling and its qualification.}
+A judge (\texttt{gpt-4o-mini-2024-07-18}) assigns each completion to one of four
+buckets: stance toward the stereotyped referent, refusal, distractor, or
+unparsable. Because a position-biased judge would write a presentation-order
+error directly into the extraction arms, we relabel every ambiguous completion
+with the options presented in reversed order and require $\geq 95\%$ agreement
+on the resulting bucket label over a 200-item sample. The judge attains $0.990$
+(Yi-6B) and $1.000$ (Qwen1.5-14B) with zero format failures. We additionally
+require the judge to be non-degenerate --- to emit more than one distinct verdict
+--- because an earlier version returned \textsc{refusal} to every input and would
+have scored perfect order agreement while being entirely uninformative.
+% SOURCE: results/run3/{model}/judge_qualification.json: order_agreement,
+% n_format_failures, n_distinct_verdicts (5 and 4), qualified=true.
+% NOTE: order_agreement_raw_option is lower (0.875 / 0.820). The gating figure
+% is the bucket label. Say which you used.
+
+\paragraph{Reproducibility criterion.}
+A direction is only interpretable if it is stable. We split each category's
+items into halves stratified by bucket, extract independently from each half,
+and record the norm-weighted mean per-layer cosine between the two. Over 400
+such splits we report the mean and a percentile bootstrap CI; we call this the
+\emph{extraction floor}. The decision rule is threshold-free: a direction
+reproduces iff the lower bound of its floor exceeds the upper bound of a
+label-shuffled control run through the identical estimator. Categories with
+fewer than $32$ items in either arm are marked \textsc{untestable} and no floor
+is computed --- a distinction we hold to throughout, since ``no contrast was
+available to split'' is not evidence that no direction exists.
+
+\paragraph{Positive control.}
+To separate instrument failure from construct absence, we run a contrast that is
+unambiguously present --- topic identity between two categories --- through the
+identical estimator, capture site and split-half procedure at matched $n$. On
+\texttt{Qwen1.5-1.8B-Chat} with 200 items per arm and 100 splits, this
+reproduces at $0.876$, $0.923$ and $0.934$ for three category pairs. The
+pipeline therefore recovers a real direction; any category that fails does so
+for another reason.
+% SOURCE: results/run3/_control_qwen-1.8b/positive_control.json, pairs.*.floor.mean
+
+\paragraph{Refusal reference.}
+Equation~\ref{eq:contrast} subtracts a refusal arm, which injects a refusal
+signature into every $V_C$ by construction. To measure how much, we need a
+reference refusal direction obtained \emph{without} circularity. We extract it
+from the \emph{disambiguated} arm, where the context names the referent, so
+declining reflects non-engagement rather than epistemic caution about a
+stereotype. Pooling the ambiguous arm's refusal buckets across categories would
+instead yield approximately the mean of the $V_C$, and orthogonalising five
+vectors against their own mean removes whatever they share regardless of what it
+is --- a construction that returns ``collapse'' by arithmetic. Each
+orthogonalisation is read against removal of a norm- and covariance-matched
+random direction, since removing \emph{any} direction changes a vector somewhat.
+% SOURCE: report_behavioural.json -> refusal_direction.source = "answerable_arm";
+% refusal_proxy_validation.note records the circularity this avoids.
+
+\paragraph{Causal arm.}
+We inject $\pm V_C$ uniformly at all layers at
+$\alpha \in \{0.02, 0.05, 0.10, 0.50, 1.00\}$ of the per-layer mean residual
+norm, and score 200 held-out items per category --- items excluded from
+extraction --- with a judge-free likelihood margin,
+$\log P(\text{stereotyped}) - \log P(\text{other named})$, both terms mean
+log-probability per token so option lengths cancel. The model generates nothing,
+so no completion needs parsing and no judge version enters the causal claim. An
+accuracy control on disambiguated items is scored at every dose, so a direction
+that merely damages the model is visible as accuracy collapse rather than as a
+clean effect.
+
+\subsection{Evasion is the majority behaviour, and it is not uniformly distributed}
+\label{sec:run3:buckets}
+
+Table~\ref{tab:run3buckets} is the paper's thesis stated as data. Qwen1.5-14B
+declines on $84.3$--$100\%$ of ambiguous items; on Race\_x\_gender it produced
+\emph{zero} stance-taking responses in 400 generations. Yi-6B declines less
+often ($10.0$--$24.8\%$) but leaves $54$--$68\%$ of completions unparsable. Under
+a four-way taxonomy only $5$ of $10$ categories in Yi-6B and $2$ of $10$ in
+Qwen1.5-14B contain at least 32 items in both arms, and \textbf{no race-related
+category is testable in either model.}
+
+\begin{table}[h]
+\centering
+\caption{Bucket composition on the ambiguous arm ($n{=}400$ per category, $232$
+for Sexual\_orientation). ``Stance'' is a response naming the stereotyped
+referent. Categories need $\geq 32$ in both the stance and refusal arms to be
+testable.}
+\label{tab:run3buckets}
+\small
+\begin{tabular}{lrrrl@{\hskip 2em}rrrl}
+\toprule
+& \multicolumn{4}{c}{\texttt{Yi-6B-Chat}} & \multicolumn{4}{c}{\texttt{Qwen1.5-14B-Chat}} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}
+Category & stance & refuse & unparsed & status & stance & refuse & unparsed & status \\
+\midrule
+Age                  & 93 &  44 & 217 & test.\  & 54 & 337 &   1 & test.\ \\
+Physical\_appearance & 53 &  52 & 271 & test.\  &  3 & 395 &   2 & --- \\
+Religion             & 52 &  60 & 268 & test.\  & 41 & 352 &   1 & test.\ \\
+Disability\_status   & 45 &  40 & 271 & test.\  &  6 & 388 &   1 & --- \\
+Nationality          & 40 &  59 & 269 & test.\  &  8 & 392 &   0 & --- \\
+Race\_x\_gender      & 29 &  75 & 265 & ---     &  \textbf{0} & \textbf{400} & 0 & --- \\
+Race\_x\_SES         & 21 &  89 & 269 & ---     &  1 & 397 &   1 & --- \\
+Race\_ethnicity      & 18 &  92 & 272 & ---     &  3 & 394 &   1 & --- \\
+Sexual\_orientation  & 18 &  38 & 157 & ---     &  5 & 224 &   0 & --- \\
+Gender\_identity     & 14 &  99 & 270 & ---     &  8 & 386 &   1 & --- \\
+\midrule
+\textbf{testable}    & \multicolumn{4}{c}{\textbf{5 / 10}} & \multicolumn{4}{c}{\textbf{2 / 10}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+% SOURCE: report_behavioural.json -> per_category.{cat}.buckets for both models.
+
+Two mechanisms produce the same outcome. Qwen1.5-14B is heavily safety-tuned and
+refuses outright. Yi-6B answers, but in forms a four-way scheme cannot resolve:
+its judge-versus-heuristic-parser agreement is $0.618$--$0.802$ across
+categories, against $0.927$--$0.991$ for Qwen1.5-14B, indicating that its
+unparsable mass is not noise but systematically ambiguous output that the coarse
+taxonomy discards. This is precisely the population the five-way specification of
+Section~\ref{sec:taxonomy} is designed to separate, and it is large: roughly two
+thirds of Yi-6B's generations.
+% SOURCE: paper-v2/numbers.json -> agree.{model}.{cat}
+% (= judge_vs_heuristic_agreement; NOT the order-swap figure, do not conflate)
+
+\subsection{Extraction succeeds wherever a contrast exists}
+\label{sec:run3:floors}
+
+Every testable category yields a reproducible direction
+(Table~\ref{tab:run3floors}). All seven clear the threshold-free rule by a wide
+margin: the smallest floor lower bound is $0.721$ against a largest shuffled
+upper bound of $0.096$. Against the positive control band of $0.876$--$0.934$,
+the extraction machinery is evidently working. The limiting factor is therefore
+not the estimator but the availability of contrastive behaviour --- which is the
+point.
+
+\begin{table}[h]
+\centering
+\caption{Extraction floors over 400 stratified split-half repeats, against a
+label-shuffled control through the identical estimator. Reproduction requires
+$\mathrm{CI_{lo}(floor)} > \mathrm{CI_{hi}(shuffled)}$; all seven cells satisfy
+it. The final column reports the floor under an unweighted-median estimator as a
+robustness check.}
+\label{tab:run3floors}
+\small
+\begin{tabular}{llrrrrr}
+\toprule
+Model & Category & floor & $\mathrm{CI_{lo}}$ & shuffled $\mathrm{CI_{hi}}$ & reproduces & unwt.\ median \\
+\midrule
+\texttt{Yi-6B}      & Nationality          & 0.823 & 0.819 & 0.039  & yes & 0.719 \\
+\texttt{Yi-6B}      & Disability\_status   & 0.773 & 0.768 & 0.050  & yes & 0.602 \\
+\texttt{Yi-6B}      & Physical\_appearance & 0.768 & 0.762 & 0.064  & yes & 0.624 \\
+\texttt{Yi-6B}      & Age                  & 0.758 & 0.752 & 0.007  & yes & 0.676 \\
+\texttt{Yi-6B}      & Religion             & 0.727 & 0.721 & 0.070  & yes & 0.501 \\
+\texttt{Qwen1.5-14B} & Religion            & 0.977 & 0.977 & $-0.024$ & yes & 0.955 \\
+\texttt{Qwen1.5-14B} & Age                 & 0.926 & 0.924 & 0.096  & yes & 0.882 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% SOURCE: report_behavioural.json -> per_category.{cat}.floor.{mean,ci_lo,
+% sensitivity_unweighted_median_mean}; shuffled from paper-v2/numbers.json
+% control.{model}.{cat}.ci_hi. Positive control: _control_qwen-1.8b/.
+
+\subsection{The shared structure across bias categories is largely refusal}
+\label{sec:run3:decoupling}
+
+Directions for different bias categories are strongly similar --- median
+off-diagonal cosine $0.650$ (Yi-6B, five categories, ten pairs) and $0.620$
+(Qwen1.5-14B), against permutation nulls with medians $-0.005$ and $0.009$ and
+$p = 0.001$ in both ($1{,}000$ permutations). Read naively this suggests a common
+bias mechanism. It does not survive the control.
+
+The concern is geometric rather than statistical. Every $V_C$ subtracts a
+refusal arm, and cosine measures angle from the origin rather than distance
+between points: a shared additive component leaves pairwise \emph{differences}
+untouched while driving pairwise \emph{angles} arbitrarily close. Two directions
+with nothing in common can be pushed to cosine $0.9$ by a sufficiently large
+shared term.
+
+Table~\ref{tab:run3refusal} quantifies it. Each individual direction carries
+$31.7$--$56.4\%$ of its variance along the refusal reference (mean $49\%$ across
+Yi-6B's five categories), without being dominated by it --- no category exceeds
+the indistinguishability ceiling set by how well each direction is itself
+measured. At the aggregate level, orthogonalising the refusal reference away
+removes $50.7\%$ of Yi-6B's shared cross-category structure, taking the median
+off-diagonal from $0.650$ to $0.320$, whereas removing a norm- and
+covariance-matched random direction removes only $4.8\%$. The removal is
+targeted, not mechanical.
+
+\begin{table}[h]
+\centering
+\caption{Refusal de-coupling. The reference direction is extracted from the
+disambiguated arm and validated against its ambiguous-arm counterpart
+(alignment-vs-ceiling $0.954$ / $0.768$). Retention is the ratio of the
+orthogonalised to the raw median off-diagonal cosine.}
+\label{tab:run3refusal}
+\small
+\begin{tabular}{lrr}
+\toprule
+& \texttt{Yi-6B-Chat} & \texttt{Qwen1.5-14B-Chat} \\
+\midrule
+Categories in matrix (pairs)         & 5 (10)  & 2 (\textbf{1}) \\
+Refusal reference floor              & 0.821   & 0.980 \\
+Per-category refusal variance share  & 44.5--54.7\% & 31.7--56.4\% \\
+\midrule
+Median off-diagonal, raw             & 0.650   & 0.620 \\
+Median off-diagonal, orthogonalised  & 0.320   & 0.359 \\
+\textbf{Retained}                    & \textbf{0.493} & \textbf{0.580} \\
+Retained under matched random        & 0.952   & 0.937 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% SOURCE: report_behavioural.json -> cross_category_survives_refusal_removal,
+% refusal_decoupling.per_category, refusal_direction.floor,
+% refusal_proxy_validation.alignment_vs_ceiling, permutation_null.
+
+The two models return opposite verdicts against a retention bar of $0.500$ fixed
+in advance, and both sit within $0.09$ of it. We report this rather than
+resolve it, with one asymmetry noted: Qwen1.5-14B has only two testable
+categories, so its ``median off-diagonal'' is a single pair with a degenerate
+confidence interval, while Yi-6B's rests on ten. Only one of the two
+measurements has power. We also note that orthogonalisation is a lower bound on
+contamination, since the reference is itself measured only to its own floor
+($0.821$), so the true share may exceed the $50.7\%$ reported --- an error that
+runs toward the refusal explanation rather than away from it. Finally, PCA
+cannot adjudicate this question and we do not use it to: Yi-6B's explained
+variance ratios are $0.356 / 0.282 / 0.193 / 0.169$, with no dominant component,
+and a dominant component would in any case have been equally consistent with one
+shared mechanism and one shared artifact.
+
+\subsection{Uniform all-layer steering has no operating window}
+\label{sec:run3:steering}
+
+At every dose that preserves task performance ($\alpha \leq 0.10$), no injected
+direction produced a margin shift whose confidence interval excludes zero, in
+either model, in any of the seven testable cells. The two positive-arm shifts
+that do clear zero --- Yi-6B Physical\_appearance at $\alpha = 0.5$ and $1.0$,
+$-0.455$ and $-0.449$ --- occur where disambiguated-item accuracy falls from
+$0.617$ to $0.317$, and a matched random direction at the same doses produces
+$-0.542$ and $-0.577$: larger than the fitted direction. In Yi-6B
+Disability\_status the random control clears zero at four of five doses while the
+fitted direction clears it at none.
+
+The upper doses do not steer; they destroy. In the judged generation arm, at
+$\alpha \in \{0.5, 1.0\}$ across both categories and all four arms --- positive,
+negative, random-control and task-control --- $100\%$ of $3{,}200$ completions
+were unparsable, with unsteered baselines in the same run healthy at $68.7\%$ and
+$85.3\%$ accuracy. The collapse is caused by the dose and is indifferent to
+which direction is injected.
+% SOURCE: report_steering_likelihood.json -> cells.{cat}.doses.{alpha};
+% qwen-14b/report_steering.json -> cells.*.doses.*.unknown_rate = 1.000 in all
+% four arms at alpha 0.5 and 1.0; baselines accuracy_vs_bbq_label 0.687 / 0.853.
+% CAVEAT: the raw completions behind the 1.000 rate were not preserved
+% (steering_responses.jsonl is 0 bytes for qwen-14b). Claim the rate, not the
+% "repeated token" characterisation.
+
+This is the null that motivates Section~\ref{sec:adaptive}. Applying a direction
+at uniform strength across all layers leaves no dose at which the model is both
+intact and moved: below $\alpha = 0.35$ nothing happens, at and above it nothing
+survives. Adaptive and linearly scaled steering are not refinements of a working
+method --- they are responses to the absence of a working uniform one, and the
+result above is the control against which any adaptive gain should be read.
+
+\subsection{Limitations}
+\label{sec:run3:limits}
+
+These results rest on two models rather than the four planned, so generality
+across families and scales is untested, and the two disagree on the one contested
+result. Because no race-related category was testable in either model, nothing
+here bears on race; those cells are \textsc{untestable}, and reading them as
+negative findings would repeat the confound the paper is about. The Yi-6B floors
+are estimator-sensitive --- an unweighted median moves Religion from $0.727$ to
+$0.501$ --- and its testable buckets are drawn from roughly a third of collected
+items, imposing a selection effect of unknown direction on which completions
+parse. The refusal proxy is markedly better in one model than the other
+($0.954$ versus $0.768$ alignment against ceiling), and the orthogonalisation is
+a lower bound in both. The causal metric scores a disposition over answer
+options rather than generated behaviour, so its null does not fully close the
+behavioural question; it was adopted in place of judged generation partly because
+the upper doses leave nothing to judge, and partly under an API rate limit. The
+raw completions at the collapsing doses were not preserved, so the unparsable
+rate is documented but the emitted text is unrecoverable. Finally, all results
+are at a single capture site and token position.
+
+% =====================================================================
+% CUT ORDER, if you are over budget. Cut from the bottom of each item.
+%
+%   1. Table~\ref{tab:run3floors} -> one sentence. "All seven testable cells
+%      reproduce, floors 0.727-0.977, every lower bound above every shuffled
+%      upper bound (max 0.096)." Saves ~0.25 page. The table says little the
+%      sentence does not.
+%   2. The PCA sentence in 4.4. It is a "we did not claim this" note; valuable
+%      to a hostile reviewer, invisible to everyone else.
+%   3. The judge-vs-heuristic paragraph in 4.2, IF the five-way taxonomy
+%      section already makes the same argument with its own numbers. Do not cut
+%      it otherwise --- it is the strongest bridge between this section and
+%      Farhan's.
+%   4. Merge 4.1's positive-control and refusal-reference paragraphs.
+%
+% DO NOT CUT, in any order:
+%   - The UNTESTABLE distinction. Every negative claim in this section depends
+%     on it, and a reviewer will look for exactly this error.
+%   - The matched-random retention row (0.952 / 0.937). Without it the 0.493
+%     retention is uninterpretable and the whole 4.4 argument collapses.
+%   - The task-accuracy column in 4.5. Without it the alpha>=0.5 shifts read as
+%     successful steering.
+%   - The "two models disagree" paragraph. Removing it converts a reported
+%     weakness into a concealed one.
+% =====================================================================
