@@ -1,0 +1,6 @@
+2026-09-02T22:13:33+00:00 | judge-free steering start   alphas=0.02 0.05 0.1 0.5 1.0   (identical grid + identical held-out items for both models)
+2026-09-02T22:13:33+00:00 | BEGIN steer_yi-6b
+2026-09-02T23:37:41+00:00 | END   steer_yi-6b rc=0 (84 min)
+2026-09-02T23:37:41+00:00 | BEGIN steer_qwen-14b
+2026-09-03T00:53:59+00:00 | END   steer_qwen-14b rc=0 (76 min)
+2026-09-03T00:53:59+00:00 | === BOTH MODELS DONE ===

@@ -1,0 +1,21 @@
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:  10%|▉         | 48/483 [00:00<00:00, 474.08it/s]Loading weights:  20%|█▉        | 96/483 [00:00<00:01, 354.45it/s]Loading weights:  28%|██▊       | 134/483 [00:00<00:01, 344.28it/s]Loading weights:  35%|███▌      | 170/483 [00:00<00:00, 337.81it/s]Loading weights:  42%|████▏     | 205/483 [00:00<00:00, 329.85it/s]Loading weights:  50%|████▉     | 240/483 [00:00<00:00, 325.88it/s]Loading weights:  58%|█████▊    | 278/483 [00:00<00:00, 322.46it/s]Loading weights:  65%|██████▍   | 312/483 [00:00<00:00, 322.83it/s]Loading weights:  72%|███████▏  | 348/483 [00:01<00:00, 325.25it/s]Loading weights:  80%|███████▉  | 384/483 [00:01<00:00, 324.91it/s]Loading weights:  86%|████████▋ | 417/483 [00:01<00:00, 314.73it/s]Loading weights:  94%|█████████▍| 454/483 [00:01<00:00, 320.71it/s]Loading weights: 100%|██████████| 483/483 [00:01<00:00, 335.87it/s]
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+Moving model to device:  cuda
+  qwen-14b: 2 directions, 200 held-out items each, alphas [0.02, 0.05, 0.1, 0.5, 1.0]
+
+  Age: baseline margin +0.3400 [-0.0627,+0.7465]  n=200  task acc 0.733
+    a=0.02  +-0.0095 --0.0760 rand +0.0847  task acc 0.783
+    a=0.05  +-0.0105 --0.2602 rand +0.0771  task acc 0.750
+    a=0.1   +-0.2061 --0.3000 rand -0.2740  task acc 0.683
+    a=0.5   +-0.3575 --0.2962 rand -0.2648  task acc 0.417
+    a=1.0   +-0.3515 --0.3111 rand -0.2823  task acc 0.517
+
+  Religion: baseline margin +0.0790 [-0.1660,+0.3444]  n=200  task acc 0.550
+    a=0.02  ++0.0620 -+0.0127 rand -0.0126  task acc 0.750
+    a=0.05  ++0.1993 --0.0050 rand -0.0121  task acc 0.883
+    a=0.1   ++0.0319 --0.0567 rand -0.0948  task acc 0.650
+    a=0.5   +-0.0585 --0.0876 rand -0.1163  task acc 0.483
+    a=1.0   +-0.0541 --0.0970 rand -0.1162  task acc 0.467
+
+wrote runs/r3_behavioural_qwen-14b/report_steering_likelihood.json
+  Read every dose against BOTH the random control AND the task accuracy: a shift a norm/covariance-matched random vector also produces is not evidence about this direction, and a shift with collapsed task accuracy is damage rather than steering.

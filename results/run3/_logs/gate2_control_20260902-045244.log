@@ -1,0 +1,13 @@
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  59%|█████▉    | 172/291 [00:00<00:00, 1717.50it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 1753.08it/s]
+Loaded pretrained model Qwen/Qwen1.5-1.8B-Chat into HookedTransformer
+
+topic contrast                            n/arm    floor            95% CI   control  verdict
+----------------------------------------------------------------------------------------------
+Race_ethnicity:Gender_identity              200   +0.890   [+0.885,+0.894]    +0.071  YES
+Religion:Age                                200   +0.956   [+0.954,+0.959]    +0.286  YES
+Nationality:Sexual_orientation              200   +0.959   [+0.957,+0.962]    +0.295  YES
+
+wrote runs/_control_r1_qwen-1.8b/positive_control.json
+3/3 topic contrasts reproduce.
+  The pipeline recovers a direction that must exist, so bias nulls
+  measured below this line are interpretable.

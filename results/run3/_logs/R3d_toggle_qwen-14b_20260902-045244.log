@@ -1,0 +1,19 @@
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:   8%|▊         | 38/483 [00:00<00:01, 361.85it/s]Loading weights:  16%|█▌        | 75/483 [00:00<00:01, 360.93it/s]Loading weights:  23%|██▎       | 112/483 [00:00<00:01, 324.92it/s]Loading weights:  30%|███       | 145/483 [00:00<00:01, 322.51it/s]Loading weights:  37%|███▋      | 178/483 [00:00<00:00, 321.15it/s]Loading weights:  44%|████▎     | 211/483 [00:00<00:00, 320.16it/s]Loading weights:  51%|█████     | 244/483 [00:00<00:00, 318.27it/s]Loading weights:  57%|█████▋    | 276/483 [00:00<00:00, 318.68it/s]Loading weights:  64%|██████▍   | 308/483 [00:00<00:00, 309.09it/s]Loading weights:  71%|███████   | 341/483 [00:01<00:00, 307.12it/s]Loading weights:  77%|███████▋  | 372/483 [00:01<00:00, 307.46it/s]Loading weights:  83%|████████▎ | 403/483 [00:01<00:00, 299.82it/s]Loading weights:  91%|█████████ | 438/483 [00:01<00:00, 309.07it/s]Loading weights:  99%|█████████▉| 478/483 [00:01<00:00, 332.71it/s]Loading weights: 100%|██████████| 483/483 [00:01<00:00, 322.93it/s]
+/home/ubuntu/.local/lib/python3.10/site-packages/transformer_lens/HookedTransformer.py:2081: UserWarning: HookedTransformer.generate received unsupported generation kwargs; ignoring: ['attention_mask']
+  warnings.warn(
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+  2 cell(s) x 2 alpha(s) x 200 items ~= 4,000 generations
+  evaluating on the 200 items per category held out of extraction
+                   Age -> Age                  a=0.5    biased 0.10 -> +0.00 / -0.00 | cov-random 0.00 | prompt 0.07
+                   Age -> Age                  a=1.0    biased 0.10 -> +0.00 / -0.00 | cov-random 0.00 | prompt 0.07
+              Religion -> Religion             a=0.5    biased 0.01 -> +0.00 / -0.00 | cov-random 0.00 | prompt 0.04
+              Religion -> Religion             a=1.0    biased 0.01 -> +0.00 / -0.00 | cov-random 0.00 | prompt 0.04
+
+wrote runs/r3_behavioural_qwen-14b/report_steering.json
+
+  Read every cell against THREE references, not one:
+    baseline            unsteered, same prompts
+    cov-random          a covariance-matched vector at the same dose --
+                        a shift it also produces is not about THIS direction
+    prompt              plain-English instruction, no intervention --
+                        if it moves the number as far, the vector bought nothing

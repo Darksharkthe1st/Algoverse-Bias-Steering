@@ -1,0 +1,740 @@
+{
+ "note": "Residual tensors are too large for GitHub (individual files exceed the 100 MiB hard cap; the set totals ~6.4 GB). They are NOT in this repo. This manifest lets you verify a copy you obtain out-of-band, and records the shape/dtype so the analysis can be re-derived without re-running the GPU.",
+ "capture": "blocks.{i}.hook_resid_pre, all layers, final prompt token (index -1), stored float32",
+ "layout": "[n_items, n_layers, d_model]",
+ "files": [
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Age__ambig.json",
+   "bytes": 109580
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Age__ambig.npy",
+   "bytes": 209715328,
+   "shape": [
+    400,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "b265f9e0cfaaa5ee4952b839debc9fac589126b8d9d7464e290258fabb8d97c6"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Age__control_disambig.json",
+   "bytes": 50110
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Age__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "872914fc2f443183dba8a6b104b1d156528e3cf061276d2af25efbb0dbdb9b1c"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Disability_status__ambig.json",
+   "bytes": 106081
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Disability_status__ambig.npy",
+   "bytes": 209715328,
+   "shape": [
+    400,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "37080bcf3a15eae878acf266d9ba58a0afa70901f404c527318554b24fa3a5a1"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Disability_status__control_disambig.json",
+   "bytes": 44667
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Disability_status__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "c4bf4bc5f9de08c350604455ee78ec211462c5775bded744fb13fc4c47e33579"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Gender_identity__ambig.json",
+   "bytes": 90706
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Gender_identity__ambig.npy",
+   "bytes": 209715328,
+   "shape": [
+    400,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "62d6e881acd6071f5c317a231ebba0f27cf2f87634e52667c604383835c69131"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Gender_identity__control_disambig.json",
+   "bytes": 38596
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Gender_identity__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "e64be15bbbbfecc19dff70a6996d31c96b9f82dbba5910122d2a58e00cd811bc"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Nationality__ambig.json",
+   "bytes": 120925
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Nationality__ambig.npy",
+   "bytes": 209715328,
+   "shape": [
+    400,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "55bbadf45fe7e48dd3de632661b7a749a10665279f04d659e9e21d95d26de029"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Nationality__control_disambig.json",
+   "bytes": 51607
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Nationality__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "fde09c4746a74c7cab40f9b62bd4a82e63e0934c2e2a6fab76a65962dbae8912"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Physical_appearance__ambig.json",
+   "bytes": 122174
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Physical_appearance__ambig.npy",
+   "bytes": 209715328,
+   "shape": [
+    400,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "d14924de5ee39738dbd0c96428c1cad5af82f8b6ec204dbb7b21b1e3a97fe8e1"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Physical_appearance__control_disambig.json",
+   "bytes": 49763
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Physical_appearance__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "ef0f10830d08aaeaf9cc8be27aac022d2ff84ce7970bd2060b49a7a816d8d2bd"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_ethnicity__ambig.json",
+   "bytes": 111597
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_ethnicity__ambig.npy",
+   "bytes": 209715328,
+   "shape": [
+    400,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "aa67e12af72e2a3f9abb992c50af60019befe9636df99d60d851d54991e42e39"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_ethnicity__control_disambig.json",
+   "bytes": 47493
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_ethnicity__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "b0ad25becd22a6fb6e22e1dde104a52ff3f986855db6dbac1092e7198f0707c5"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_x_SES__ambig.json",
+   "bytes": 133407
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_x_SES__ambig.npy",
+   "bytes": 209715328,
+   "shape": [
+    400,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "aa52ecc6fa1705e9b3dac2e199967ba6c3da44cd2d84bc830b4bf952b0afa100"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_x_SES__control_disambig.json",
+   "bytes": 51065
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_x_SES__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "ee8eb70a86d352777741de5e593acdf9f8705ce60727b54bce015186c5206f4e"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_x_gender__ambig.json",
+   "bytes": 100605
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_x_gender__ambig.npy",
+   "bytes": 209715328,
+   "shape": [
+    400,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "cb63a47f6c5f75d429b39e24d283769f0b81797329b4ec635e273eb9d6fc67b9"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_x_gender__control_disambig.json",
+   "bytes": 40022
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Race_x_gender__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "00b332fe7e3af12cedd46ae36557f410ecaead8375b20ee656740028da97ea04"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Religion__ambig.json",
+   "bytes": 112292
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Religion__ambig.npy",
+   "bytes": 209715328,
+   "shape": [
+    400,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "e8cb2bd60fbfe5281e70a1b7811019cb5f8cb2849e37229d20e66f22aae5f63d"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Religion__control_disambig.json",
+   "bytes": 47967
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Religion__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "3d3363c3eecdc2577cf40aab6d75b46e09635810f8418b504dbcf3cbddd7e849"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Sexual_orientation__ambig.json",
+   "bytes": 66575
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Sexual_orientation__ambig.npy",
+   "bytes": 121634944,
+   "shape": [
+    232,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "28cb2a5d98be769a312efcc62e5728290877457533a943fa894a0b3b6d009898"
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Sexual_orientation__control_disambig.json",
+   "bytes": 49504
+  },
+  {
+   "model": "yi-6b",
+   "file": "runs/r3_behavioural_yi-6b/residuals/Sexual_orientation__control_disambig.npy",
+   "bytes": 52428928,
+   "shape": [
+    100,
+    32,
+    4096
+   ],
+   "dtype": "float32",
+   "sha256": "78e723dc3f7ce9873c42f6e5145b1c9e77f015cda36c85459c6c0e148ad3faf4"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Age__ambig.json",
+   "bytes": 109588
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Age__ambig.npy",
+   "bytes": 327680128,
+   "shape": [
+    400,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "a5dc01741ebe836182d44e080cbde0998058ff31d8d518e9d1ec9be9f97be97e"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Age__control_disambig.json",
+   "bytes": 50118
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Age__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "82c68bd6069aec632a522c817a9efa68a7ef701b34c941af1f639cea572fc373"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Disability_status__ambig.json",
+   "bytes": 106089
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Disability_status__ambig.npy",
+   "bytes": 327680128,
+   "shape": [
+    400,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "4f4073c0d520eacd72a4a7127051f081e06901fa03a9f06db085b9e7208e0b9d"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Disability_status__control_disambig.json",
+   "bytes": 44675
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Disability_status__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "117bf4d4a7dbc2663f4b70f9bc7d2e2fc3fc2e66d3f254b65295310cdd2c9b20"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Gender_identity__ambig.json",
+   "bytes": 90714
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Gender_identity__ambig.npy",
+   "bytes": 327680128,
+   "shape": [
+    400,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "554391391437d6ca231ae19d13b4136501d71172a43619f37f6fc24e11aee78e"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Gender_identity__control_disambig.json",
+   "bytes": 38604
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Gender_identity__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "72686b476463c1ddb7f8d7017f6178f3bbbb94203aff3b0d5d33bf0b7e1562af"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Nationality__ambig.json",
+   "bytes": 120933
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Nationality__ambig.npy",
+   "bytes": 327680128,
+   "shape": [
+    400,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "fa70bd7164b453fe9090ef6abd5815a244a9c2f1a97aa5d40036b7e87bc40b35"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Nationality__control_disambig.json",
+   "bytes": 51615
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Nationality__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "7a51c76936f0422381f5d45771937f2104df460803ab5136821d95692f4fdc48"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Physical_appearance__ambig.json",
+   "bytes": 122182
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Physical_appearance__ambig.npy",
+   "bytes": 327680128,
+   "shape": [
+    400,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "fcfac112b25f826d0c165e186aaf9712f03a3e7774b007d576ae188050868343"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Physical_appearance__control_disambig.json",
+   "bytes": 49771
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Physical_appearance__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "00330ff93b84a1973c9ee69886f3eca13e2287285167fc48687c866e8893047c"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_ethnicity__ambig.json",
+   "bytes": 111605
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_ethnicity__ambig.npy",
+   "bytes": 327680128,
+   "shape": [
+    400,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "38a203cccaae9785697a311ecf1e26b9483f7b9e8ebc7b30846c37f2c4acdfcd"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_ethnicity__control_disambig.json",
+   "bytes": 47501
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_ethnicity__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "071a21d364e1a1089abb1433c08d9fbe6ec51c220eb51fd860b0c145bb2193bc"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_x_SES__ambig.json",
+   "bytes": 133415
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_x_SES__ambig.npy",
+   "bytes": 327680128,
+   "shape": [
+    400,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "b3122d39f6b1b68c402f9e28a38286027ad492d83cf627a8d8f586f305b1d42a"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_x_SES__control_disambig.json",
+   "bytes": 51073
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_x_SES__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "fcfdff372dfce2ff618d70ebadd3eeab6bdb6b94184ee8db1ee2bb43e2f25a57"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_x_gender__ambig.json",
+   "bytes": 100613
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_x_gender__ambig.npy",
+   "bytes": 327680128,
+   "shape": [
+    400,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "f721459d9ee82cb84448a2dbe8516358584dd5691ee76145626c47f25c0af8aa"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_x_gender__control_disambig.json",
+   "bytes": 40030
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Race_x_gender__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "d60b35e792dc0b48675e8498cf8eafefb1c0ffba809bdd24d339bc19a5ef0d28"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Religion__ambig.json",
+   "bytes": 112300
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Religion__ambig.npy",
+   "bytes": 327680128,
+   "shape": [
+    400,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "60ceaefccbf7b0b7872298af3c250c934e5aae8f1a5221a8276b54984e52bf90"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Religion__control_disambig.json",
+   "bytes": 47975
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Religion__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "8274e20bf50c295638cceef09486d0bc177b988e5916ba63ee2671eda8d8a1b7"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Sexual_orientation__ambig.json",
+   "bytes": 66583
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Sexual_orientation__ambig.npy",
+   "bytes": 190054528,
+   "shape": [
+    232,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "bd7ff761499eb721c88f525dceee038740990e13bdf83f12e72f00f962e2eaf4"
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Sexual_orientation__control_disambig.json",
+   "bytes": 49512
+  },
+  {
+   "model": "qwen-14b",
+   "file": "runs/r3_behavioural_qwen-14b/residuals/Sexual_orientation__control_disambig.npy",
+   "bytes": 81920128,
+   "shape": [
+    100,
+    40,
+    5120
+   ],
+   "dtype": "float32",
+   "sha256": "48738986acb84822829dffca8548fbf7b6fba53a6ebbb116dd661bbf080f7381"
+  },
+  {
+   "model": "_control_qwen-1.8b",
+   "file": "runs/_control_r3_qwen-1.8b/residuals/Nationality__vs__Sexual_orientation.json",
+   "bytes": 10960
+  },
+  {
+   "model": "_control_qwen-1.8b",
+   "file": "runs/_control_r3_qwen-1.8b/residuals/Nationality__vs__Sexual_orientation.npy",
+   "bytes": 78643328,
+   "shape": [
+    400,
+    24,
+    2048
+   ],
+   "dtype": "float32",
+   "sha256": "701153605c487ee9bdf45a707684599a04207d8bdc67d5de1f49b93999e3072c"
+  },
+  {
+   "model": "_control_qwen-1.8b",
+   "file": "runs/_control_r3_qwen-1.8b/residuals/Race_ethnicity__vs__Gender_identity.json",
+   "bytes": 11185
+  },
+  {
+   "model": "_control_qwen-1.8b",
+   "file": "runs/_control_r3_qwen-1.8b/residuals/Race_ethnicity__vs__Gender_identity.npy",
+   "bytes": 78643328,
+   "shape": [
+    400,
+    24,
+    2048
+   ],
+   "dtype": "float32",
+   "sha256": "de339d2aa00564765316c7e8425e2232c2b38938eaa0157abf5a5d3472b099f2"
+  },
+  {
+   "model": "_control_qwen-1.8b",
+   "file": "runs/_control_r3_qwen-1.8b/residuals/Religion__vs__Age.json",
+   "bytes": 7394
+  },
+  {
+   "model": "_control_qwen-1.8b",
+   "file": "runs/_control_r3_qwen-1.8b/residuals/Religion__vs__Age.npy",
+   "bytes": 78643328,
+   "shape": [
+    400,
+    24,
+    2048
+   ],
+   "dtype": "float32",
+   "sha256": "c7b647a22dac3f997bf3e776f3883e1eac680b22000cc25f110e502e494c1397"
+  }
+ ],
+ "total_bytes": 6730788291,
+ "n_files": 86
+}

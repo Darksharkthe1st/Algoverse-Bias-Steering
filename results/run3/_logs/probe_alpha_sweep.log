@@ -1,0 +1,44 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:   8%|▊         | 40/483 [00:00<00:01, 393.72it/s]Loading weights:  17%|█▋        | 80/483 [00:00<00:01, 371.29it/s]Loading weights:  24%|██▍       | 118/483 [00:00<00:01, 337.93it/s]Loading weights:  32%|███▏      | 153/483 [00:00<00:01, 315.84it/s]Loading weights:  38%|███▊      | 185/483 [00:00<00:00, 308.72it/s]Loading weights:  45%|████▍     | 217/483 [00:00<00:00, 304.45it/s]Loading weights:  51%|█████▏    | 248/483 [00:00<00:00, 282.58it/s]Loading weights:  59%|█████▉    | 287/483 [00:00<00:00, 311.10it/s]Loading weights:  66%|██████▌   | 319/483 [00:01<00:00, 303.96it/s]Loading weights:  73%|███████▎  | 352/483 [00:01<00:00, 310.71it/s]Loading weights:  80%|███████▉  | 384/483 [00:01<00:00, 306.89it/s]Loading weights:  86%|████████▌ | 415/483 [00:01<00:00, 301.63it/s]Loading weights:  92%|█████████▏| 446/483 [00:01<00:00, 303.75it/s]Loading weights: 100%|█████████▉| 482/483 [00:01<00:00, 319.38it/s]Loading weights: 100%|██████████| 483/483 [00:01<00:00, 314.39it/s]
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+Moving model to device:  cuda
+qwen-14b  n_layers=40 d_model=5120
+alphas: [1.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0]
+
+category                      1e+00      1e+02      1e+03      1e+04      1e+05      1e+06
+------------------------------------------------------------------------------------------
+Religion                     0.190      0.262      0.497      0.547*     0.612*     0.686*
+Race_ethnicity              -0.001      0.009      0.004      0.007     -0.036     -0.059 
+Gender_identity              0.084      0.164      0.135      0.162      0.062      0.030 
+Age                          0.270      0.370      0.529*     0.731*     0.770*     0.827*
+Nationality                  0.111      0.200      0.302      0.348      0.440      0.506*
+Physical_appearance          0.321      0.441      0.556*     0.706*     0.735*     0.749*
+Disability_status            0.461      0.599*     0.660*     0.734*     0.830*     0.880*
+Sexual_orientation           0.200      0.261      0.300      0.278      0.189      0.168 
+Race_x_gender                0.089      0.153      0.257      0.315      0.320      0.239 
+Race_x_SES                   0.034      0.046      0.023      0.011     -0.040     -0.120 
+
+* clears the usability threshold (0.5)
+
+best alpha per category:
+  Disability_status        alpha=    1e+06  q05=+0.880  USABLE
+  Age                      alpha=    1e+06  q05=+0.827  USABLE
+  Physical_appearance      alpha=    1e+06  q05=+0.749  USABLE
+  Religion                 alpha=    1e+06  q05=+0.686  USABLE
+  Nationality              alpha=    1e+06  q05=+0.506  USABLE
+  Race_x_gender            alpha=    1e+05  q05=+0.320  
+  Sexual_orientation       alpha=    1e+03  q05=+0.300  
+  Gender_identity          alpha=    1e+02  q05=+0.164  
+  Race_x_SES               alpha=    1e+02  q05=+0.046  
+  Race_ethnicity           alpha=    1e+02  q05=+0.009  
+
+categories reproducible under SOME alpha: 5 -> ['Religion', 'Age', 'Nationality', 'Physical_appearance', 'Disability_status']
+Compare against the extremes contrast, which reproduced 4/10 on
+qwen-14b (Disability_status, Age, Religion, Physical_appearance).
+
+If a tuned probe lifts categories the extremes contrast missed, then
+'no recoverable direction' was an estimator limit for those categories,
+not a fact about the model.
+
+written to runs/_probe_alpha_sweep_qwen-14b.json

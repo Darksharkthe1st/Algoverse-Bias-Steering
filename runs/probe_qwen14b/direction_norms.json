@@ -1,0 +1,82 @@
+[
+  {
+    "category": "Disability_status",
+    "frobenius_norm": 130.16470940641508,
+    "max_layer_norm": 47.88972240025676,
+    "mean_layer_norm": 14.978046458955873,
+    "floor": 0.4570294273396085,
+    "quintile_separation": 13.626123835643131
+  },
+  {
+    "category": "Physical_appearance",
+    "frobenius_norm": 97.20998009939777,
+    "max_layer_norm": 31.013807245315018,
+    "mean_layer_norm": 11.97029807699381,
+    "floor": 0.32816507545134166,
+    "quintile_separation": 8.734334766864777
+  },
+  {
+    "category": "Age",
+    "frobenius_norm": 84.15403642335625,
+    "max_layer_norm": 20.85841717537698,
+    "mean_layer_norm": 10.861900412742658,
+    "floor": 0.2635603397076899,
+    "quintile_separation": 7.454382287462552
+  },
+  {
+    "category": "Sexual_orientation",
+    "frobenius_norm": 63.76355785887016,
+    "max_layer_norm": 15.511625075767444,
+    "mean_layer_norm": 8.313811606588438,
+    "floor": 0.2030699327562745,
+    "quintile_separation": 6.86070704460144
+  },
+  {
+    "category": "Religion",
+    "frobenius_norm": 62.654866586061836,
+    "max_layer_norm": 16.03158050705997,
+    "mean_layer_norm": 8.136281286809881,
+    "floor": 0.17617631108488804,
+    "quintile_separation": 5.694934918483098
+  },
+  {
+    "category": "Nationality",
+    "frobenius_norm": 96.28914711579016,
+    "max_layer_norm": 22.589750713874917,
+    "mean_layer_norm": 12.762578623952844,
+    "floor": 0.11337322013183765,
+    "quintile_separation": 7.7864459892113995
+  },
+  {
+    "category": "Race_x_gender",
+    "frobenius_norm": 108.2213673458118,
+    "max_layer_norm": 26.693252054139208,
+    "mean_layer_norm": 13.791605088129241,
+    "floor": 0.0898857489393444,
+    "quintile_separation": 8.133813283840816
+  },
+  {
+    "category": "Gender_identity",
+    "frobenius_norm": 194.13307124742633,
+    "max_layer_norm": 50.06302299906367,
+    "mean_layer_norm": 25.56758521873821,
+    "floor": 0.08650087384414817,
+    "quintile_separation": 15.446252468253384
+  },
+  {
+    "category": "Race_x_SES",
+    "frobenius_norm": 56.86883269042892,
+    "max_layer_norm": 14.150449295077928,
+    "mean_layer_norm": 7.389079564081657,
+    "floor": 0.03594668766620126,
+    "quintile_separation": 4.202533647418022
+  },
+  {
+    "category": "Race_ethnicity",
+    "frobenius_norm": 127.78596807004654,
+    "max_layer_norm": 31.016630467914702,
+    "mean_layer_norm": 16.552816131500084,
+    "floor": 0.00027131509539409394,
+    "quintile_separation": 9.547175309062004
+  }
+]

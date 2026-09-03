@@ -1,0 +1,65 @@
+{
+  "model": "qwen-1.8b",
+  "per_category": 8,
+  "categories": {
+    "Religion": {
+      "biased": 4,
+      "unknown": 0,
+      "other": 4,
+      "unresolved": 0,
+      "scored": 8,
+      "bias_rate": 0.5,
+      "usable": false,
+      "sampled": 8,
+      "chosen_position": {
+        "biased": {
+          "n": 4,
+          "share": [
+            0.0,
+            0.25,
+            0.75
+          ]
+        },
+        "other": {
+          "n": 4,
+          "share": [
+            0.25,
+            0.0,
+            0.75
+          ]
+        }
+      },
+      "position_gap_biased_vs_other": 0.25
+    },
+    "Age": {
+      "biased": 4,
+      "unknown": 0,
+      "other": 4,
+      "unresolved": 0,
+      "scored": 8,
+      "bias_rate": 0.5,
+      "usable": false,
+      "sampled": 8,
+      "chosen_position": {
+        "biased": {
+          "n": 4,
+          "share": [
+            0.25,
+            0.25,
+            0.5
+          ]
+        },
+        "other": {
+          "n": 4,
+          "share": [
+            0.5,
+            0.25,
+            0.25
+          ]
+        }
+      },
+      "position_gap_biased_vs_other": 0.25
+    }
+  },
+  "usable_categories": []
+}

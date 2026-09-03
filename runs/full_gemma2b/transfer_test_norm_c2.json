@@ -1,0 +1,53 @@
+{
+  "model": "gemma-2b",
+  "coeff": 2.0,
+  "normalized": true,
+  "categories": [
+    "Disability_status",
+    "Physical_appearance"
+  ],
+  "baseline_margin": {
+    "Disability_status": 0.2525936096906662,
+    "Physical_appearance": 1.668115895986557
+  },
+  "effects": {
+    "Disability_status": {
+      "Disability_status": -0.13021303117275237,
+      "Physical_appearance": -0.022662708163261325
+    },
+    "Physical_appearance": {
+      "Disability_status": -0.10275302231311798,
+      "Physical_appearance": -0.030801752209663302
+    }
+  },
+  "controls": {
+    "random_Disability_status": {
+      "Disability_status": 0.022468666732311238,
+      "Physical_appearance": 0.003851559758186296
+    },
+    "random_Physical_appearance": {
+      "Disability_status": 0.014520321786403667,
+      "Physical_appearance": -0.005072367191314653
+    }
+  },
+  "sign_flip": {
+    "Disability_status": {
+      "pos": -0.13021303117275237,
+      "neg": 0.09215889871120453,
+      "opposite_signs": true
+    },
+    "Physical_appearance": {
+      "pos": -0.030801752209663302,
+      "neg": 0.009085389971733138,
+      "opposite_signs": true
+    }
+  },
+  "summary": {
+    "mean_own_effect": -0.08050739169120784,
+    "mean_cross_effect": -0.06270786523818965,
+    "mean_random_effect": 0.011478228867053963,
+    "specificity_own_minus_cross": -0.01779952645301819,
+    "n_sign_flips_good": 2,
+    "n_categories": 2
+  }
+}

@@ -1,0 +1,281 @@
+{
+  "model": "gemma-2b",
+  "coeff": 5.0,
+  "categories": [
+    "Age",
+    "Disability_status",
+    "Nationality",
+    "Physical_appearance",
+    "Race_ethnicity",
+    "Race_x_SES",
+    "Race_x_gender",
+    "Religion",
+    "Sexual_orientation"
+  ],
+  "baseline_margin": {
+    "Age": -0.13326957523822786,
+    "Disability_status": 0.2525936096906662,
+    "Nationality": 0.03784134089946747,
+    "Physical_appearance": 1.668115895986557,
+    "Race_ethnicity": -0.6971822619438172,
+    "Race_x_SES": -0.29984990060329436,
+    "Race_x_gender": -0.8430721193552018,
+    "Religion": -0.24232826232910157,
+    "Sexual_orientation": -0.37084906697273257
+  },
+  "effects": {
+    "Age": {
+      "Age": -0.028574663400650013,
+      "Disability_status": 0.21122284382581713,
+      "Nationality": -0.004647520184516904,
+      "Physical_appearance": -0.05247811079025255,
+      "Race_ethnicity": 0.03937835991382599,
+      "Race_x_SES": -0.04027559608221054,
+      "Race_x_gender": 0.06472796499729161,
+      "Religion": 0.08871711492538453,
+      "Sexual_orientation": -0.08154509067535398
+    },
+    "Disability_status": {
+      "Age": 0.042389425635337846,
+      "Disability_status": -0.41314507573843,
+      "Nationality": 0.018741074204444888,
+      "Physical_appearance": -0.4814126282930373,
+      "Race_ethnicity": 0.15489946007728583,
+      "Race_x_SES": 0.21565362513065336,
+      "Race_x_gender": -0.18359563648700705,
+      "Religion": 0.14427947998046875,
+      "Sexual_orientation": -0.13463484644889834
+    },
+    "Nationality": {
+      "Age": -0.00508490055799482,
+      "Disability_status": 0.003982821106910728,
+      "Nationality": 0.0716481775045395,
+      "Physical_appearance": -0.08283163011074057,
+      "Race_ethnicity": 0.07386943399906165,
+      "Race_x_SES": 0.046438145637512196,
+      "Race_x_gender": -0.0033490270376205222,
+      "Religion": -0.012827670574188238,
+      "Sexual_orientation": -0.01428290009498595
+    },
+    "Physical_appearance": {
+      "Age": 0.13753730952739718,
+      "Disability_status": -0.4420166239142418,
+      "Nationality": 0.0040902167558670086,
+      "Physical_appearance": -0.2932311058044432,
+      "Race_ethnicity": 0.15230587124824524,
+      "Race_x_SES": 0.07190573215484619,
+      "Race_x_gender": -0.15949032008647923,
+      "Religion": -0.00021408200263975385,
+      "Sexual_orientation": -0.16675211191177364
+    },
+    "Race_ethnicity": {
+      "Age": 0.00888325721025468,
+      "Disability_status": 0.03526805788278581,
+      "Nationality": -0.01895199120044708,
+      "Physical_appearance": -0.013569009304046586,
+      "Race_ethnicity": -0.020000255107879616,
+      "Race_x_SES": -0.057749927043914795,
+      "Race_x_gender": 0.10755859315395355,
+      "Religion": 0.004360505938529963,
+      "Sexual_orientation": -0.07756223082542418
+    },
+    "Race_x_SES": {
+      "Age": 0.04972474873065949,
+      "Disability_status": -0.19726591557264328,
+      "Nationality": -0.014626961946487424,
+      "Physical_appearance": 0.007925462722778276,
+      "Race_ethnicity": 0.06099109947681425,
+      "Race_x_SES": 0.05288991332054138,
+      "Race_x_gender": -0.09364195466041558,
+      "Religion": -0.009582591056823714,
+      "Sexual_orientation": -0.067309957742691
+    },
+    "Race_x_gender": {
+      "Age": -0.002698071300983429,
+      "Disability_status": -0.134186252951622,
+      "Nationality": -0.0030207931995391846,
+      "Physical_appearance": -0.06117866933345795,
+      "Race_ethnicity": 0.009169059991836592,
+      "Race_x_SES": 0.034573574364185344,
+      "Race_x_gender": -0.038890463113784746,
+      "Religion": 0.05976322293281555,
+      "Sexual_orientation": -0.03191015124320984
+    },
+    "Religion": {
+      "Age": -0.02062847763299941,
+      "Disability_status": -0.13799624443054198,
+      "Nationality": 0.021363484859466556,
+      "Physical_appearance": -0.18659928292036043,
+      "Race_ethnicity": 0.1408780813217163,
+      "Race_x_SES": 0.010741442441940308,
+      "Race_x_gender": 0.06435531973838815,
+      "Religion": 0.15294209122657776,
+      "Sexual_orientation": 0.007527947425842285
+    },
+    "Sexual_orientation": {
+      "Age": -0.025475616008043267,
+      "Disability_status": -0.23239322304725646,
+      "Nationality": -0.010727795958518981,
+      "Physical_appearance": -0.20160877108573905,
+      "Race_ethnicity": -0.008052267134189606,
+      "Race_x_SES": -0.020920835435390472,
+      "Race_x_gender": 0.08127519190311439,
+      "Religion": 0.08879900872707366,
+      "Sexual_orientation": 0.026033252477645874
+    }
+  },
+  "controls": {
+    "random_Age": {
+      "Age": 0.018064369261264812,
+      "Disability_status": 0.049855445325374614,
+      "Nationality": 0.009296992421150209,
+      "Physical_appearance": -0.016296240687370345,
+      "Race_ethnicity": 0.002843797206878662,
+      "Race_x_SES": -0.006081193685531616,
+      "Race_x_gender": 0.03552307486534123,
+      "Religion": -0.0058128684759140015,
+      "Sexual_orientation": 0.024103546142578147
+    },
+    "random_Disability_status": {
+      "Age": -0.035767017304897286,
+      "Disability_status": 0.08934857994318007,
+      "Nationality": 0.020098561048507692,
+      "Physical_appearance": -0.008726406097412154,
+      "Race_ethnicity": 0.06453198492527012,
+      "Race_x_SES": 0.022553385794162717,
+      "Race_x_gender": -0.02154775857925406,
+      "Religion": -0.00989618301391601,
+      "Sexual_orientation": -0.06673610806465147
+    },
+    "random_Nationality": {
+      "Age": 0.018973131477832805,
+      "Disability_status": 0.008863261342048678,
+      "Nationality": 0.01264159381389618,
+      "Physical_appearance": -0.0037371098995209184,
+      "Race_ethnicity": -0.0004008054733276589,
+      "Race_x_SES": -0.0021297872066498025,
+      "Race_x_gender": 0.02495425343513491,
+      "Religion": 0.013469362258911127,
+      "Sexual_orientation": 0.01237497925758363
+    },
+    "random_Physical_appearance": {
+      "Age": 0.022894679009914404,
+      "Disability_status": 0.050043055415153526,
+      "Nationality": -0.017215749621391295,
+      "Physical_appearance": 0.011197012662887529,
+      "Race_ethnicity": -0.008274242281913757,
+      "Race_x_SES": -0.02873837500810622,
+      "Race_x_gender": 0.020640271902084395,
+      "Religion": 0.045653343200683594,
+      "Sexual_orientation": 0.012422883510589622
+    },
+    "random_Race_ethnicity": {
+      "Age": 0.006950964033603679,
+      "Disability_status": 0.005165474116802238,
+      "Nationality": -0.02043875753879547,
+      "Physical_appearance": 0.007712075114250316,
+      "Race_ethnicity": -0.014665475487709023,
+      "Race_x_SES": -0.021199236810207356,
+      "Race_x_gender": 0.008403691649436995,
+      "Religion": -0.00040337145328520063,
+      "Sexual_orientation": -0.007737976312637285
+    },
+    "random_Race_x_SES": {
+      "Age": -0.0048561140894889665,
+      "Disability_status": -0.0010918706655502208,
+      "Nationality": 0.00897633135318756,
+      "Physical_appearance": 0.006046259403228893,
+      "Race_ethnicity": -0.005345854163169794,
+      "Race_x_SES": -0.0029685497283935547,
+      "Race_x_gender": 0.010363686084747359,
+      "Religion": -0.01092148125171663,
+      "Sexual_orientation": 0.023318189382553145
+    },
+    "random_Race_x_gender": {
+      "Age": -0.012744879722595193,
+      "Disability_status": 0.02171050161123278,
+      "Nationality": 0.018316426873207094,
+      "Physical_appearance": -0.02275190949439998,
+      "Race_ethnicity": -0.028932937979698203,
+      "Race_x_SES": 0.001403282582759846,
+      "Race_x_gender": 0.02926536798477175,
+      "Religion": 0.013083070516586304,
+      "Sexual_orientation": 0.01270989775657655
+    },
+    "random_Religion": {
+      "Age": -0.017555230855941767,
+      "Disability_status": 0.0009692400693893655,
+      "Nationality": 0.027873155474662785,
+      "Physical_appearance": -0.004793637990951449,
+      "Race_ethnicity": -0.011491963267326377,
+      "Race_x_SES": 0.018544939160346996,
+      "Race_x_gender": -0.04065348505973809,
+      "Religion": -0.004013341665267928,
+      "Sexual_orientation": -0.011800372600555387
+    },
+    "random_Sexual_orientation": {
+      "Age": -0.011398576200008392,
+      "Disability_status": -0.003932587802410126,
+      "Nationality": -0.002891105413436887,
+      "Physical_appearance": -0.03637753725051884,
+      "Race_ethnicity": 0.057900029420852706,
+      "Race_x_SES": 0.010106745362281788,
+      "Race_x_gender": 0.014885365962982178,
+      "Religion": 0.02445560395717622,
+      "Sexual_orientation": 0.006594139337539717
+    }
+  },
+  "sign_flip": {
+    "Age": {
+      "pos": -0.028574663400650013,
+      "neg": 0.06181813925504685,
+      "opposite_signs": true
+    },
+    "Disability_status": {
+      "pos": -0.41314507573843,
+      "neg": -0.23382407575845718,
+      "opposite_signs": false
+    },
+    "Nationality": {
+      "pos": 0.0716481775045395,
+      "neg": -0.04763862788677216,
+      "opposite_signs": true
+    },
+    "Physical_appearance": {
+      "pos": -0.2932311058044432,
+      "neg": -0.42038251161575313,
+      "opposite_signs": false
+    },
+    "Race_ethnicity": {
+      "pos": -0.020000255107879616,
+      "neg": 0.032292467355728216,
+      "opposite_signs": true
+    },
+    "Race_x_SES": {
+      "pos": 0.05288991332054138,
+      "neg": -0.03234350532293323,
+      "opposite_signs": true
+    },
+    "Race_x_gender": {
+      "pos": -0.038890463113784746,
+      "neg": 0.05234283506870274,
+      "opposite_signs": true
+    },
+    "Religion": {
+      "pos": 0.15294209122657776,
+      "neg": 0.0265903949737549,
+      "opposite_signs": false
+    },
+    "Sexual_orientation": {
+      "pos": 0.026033252477645874,
+      "neg": -0.13666879534721377,
+      "opposite_signs": true
+    }
+  },
+  "summary": {
+    "mean_own_effect": -0.05448090318176478,
+    "mean_cross_effect": -0.01708053817144697,
+    "mean_random_effect": 0.017968248143608194,
+    "specificity_own_minus_cross": -0.03740036501031781
+  }
+}

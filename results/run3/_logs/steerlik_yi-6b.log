@@ -1,0 +1,42 @@
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  17%|█▋        | 50/291 [00:00<00:00, 491.44it/s]Loading weights:  34%|███▍      | 100/291 [00:00<00:00, 459.82it/s]Loading weights:  51%|█████     | 147/291 [00:00<00:00, 448.19it/s]Loading weights:  66%|██████▌   | 192/291 [00:00<00:00, 439.45it/s]Loading weights:  81%|████████  | 236/291 [00:00<00:00, 434.30it/s]Loading weights:  96%|█████████▌| 280/291 [00:00<00:00, 422.40it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 443.57it/s]
+Loaded pretrained model 01-ai/Yi-6B-Chat into HookedTransformer
+Moving model to device:  cuda
+  yi-6b: 5 directions, 200 held-out items each, alphas [0.02, 0.05, 0.1, 0.5, 1.0]
+
+  Age: baseline margin +0.0487 [-0.3104,+0.4117]  n=200  task acc 0.667
+    a=0.02  ++0.0290 -+0.0341 rand +0.0574  task acc 0.683
+    a=0.05  ++0.0200 -+0.0730 rand +0.0151  task acc 0.667
+    a=0.1   +-0.0386 --0.0415 rand -0.0183  task acc 0.600
+    a=0.5   +-0.1097 --0.0104 rand +0.0411  task acc 0.400
+    a=1.0   +-0.1116 --0.0001 rand +0.0377  task acc 0.383
+
+  Disability_status: baseline margin -0.3055 [-0.8824,+0.2935]  n=200  task acc 0.650
+    a=0.02  ++0.0170 --0.0976 rand +0.1219  task acc 0.633
+    a=0.05  +-0.0021 --0.2650 rand +0.1748  task acc 0.567
+    a=0.1   ++0.0375 --0.2879 rand +0.0974  task acc 0.517
+    a=0.5   ++0.6847 --0.0985 rand +0.8608  task acc 0.350
+    a=1.0   ++0.7494 --0.1448 rand +0.9089  task acc 0.367
+
+  Nationality: baseline margin +0.0220 [-0.2472,+0.2968]  n=200  task acc 0.583
+    a=0.02  ++0.0230 --0.0460 rand +0.0125  task acc 0.650
+    a=0.05  ++0.0047 --0.0023 rand +0.0126  task acc 0.667
+    a=0.1   +-0.0532 -+0.1358 rand +0.1075  task acc 0.650
+    a=0.5   +-0.2228 -+0.2317 rand +0.1606  task acc 0.433
+    a=1.0   +-0.2361 -+0.2242 rand +0.1435  task acc 0.483
+
+  Physical_appearance: baseline margin +0.6425 [+0.1853,+1.1388]  n=200  task acc 0.617
+    a=0.02  +-0.0122 --0.0413 rand +0.1163  task acc 0.667
+    a=0.05  ++0.0182 --0.0377 rand +0.1834  task acc 0.700
+    a=0.1   +-0.0516 --0.3009 rand -0.0115  task acc 0.650
+    a=0.5   +-0.4546 --0.7629 rand -0.5417  task acc 0.317  [+ shift CI excludes 0]
+    a=1.0   +-0.4489 --0.8083 rand -0.5765  task acc 0.367  [+ shift CI excludes 0]
+
+  Religion: baseline margin -0.0329 [-0.2588,+0.2019]  n=200  task acc 0.650
+    a=0.02  ++0.0183 -+0.0260 rand +0.0154  task acc 0.633
+    a=0.05  ++0.0100 --0.0067 rand +0.0349  task acc 0.700
+    a=0.1   ++0.0576 --0.0006 rand +0.0559  task acc 0.700
+    a=0.5   ++0.0604 --0.0007 rand +0.0428  task acc 0.500
+    a=1.0   ++0.0668 --0.0052 rand +0.0506  task acc 0.517
+
+wrote runs/r3_behavioural_yi-6b/report_steering_likelihood.json
+  Read every dose against BOTH the random control AND the task accuracy: a shift a norm/covariance-matched random vector also produces is not evidence about this direction, and a shift with collapsed task accuracy is damage rather than steering.
