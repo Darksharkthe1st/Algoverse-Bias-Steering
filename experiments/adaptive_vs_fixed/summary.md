@@ -98,7 +98,7 @@ equivalent reframing of the same effect. (Non-identifiability holds regardless
 — neither steering succeeding nor failing at moving the judge label identifies
 what the direction *represents*, CLAUDE.md §5.)
 
-### adaptive_add — INVALID at every tested target (2, 4, 8), not a negative result
+### adaptive_add (pin-to-target) — INVALID at every tested target (2, 4, 8), not a negative result
 
 Ran the calibration + sweep GPU_RUN_PROMPT.md asked for
 (`runs/20260902-093958_.../`, `.../095400_.../`, `.../100757_.../`, targets 2/4/8
@@ -113,11 +113,49 @@ that pin-to-target steering achieves stronger neutrality than `fixed_add` — th
 would be an overclaim CLAUDE.md §6 rules out. Per CLAUDE.md §6 ("an invalid run
 is not a negative — fix and rerun"), this arm is **not** included in the
 comparison table above; the raw counts and generated text are still committed
-as evidence (nothing hidden), just not asserted as a finding. Fixing it is a
-scope change to `docs/SCOPE_adaptive_steering.md` (a different targeting
-scheme — e.g. per-layer-scaled targets, or a target within each layer's own
-natural range rather than one global scalar hard-reset at all 36 layers on
-every generated token) and out of scope for this run.
+as evidence (nothing hidden), just not asserted as a finding.
+
+### adaptive_add_linear (one-sided linear floor/ceiling) — fixes the degeneracy, VALID
+
+Root cause of the above: `apply_adaptive_additive_perlayer` hard-resets
+`(x·r̂_L)` to the *same absolute scalar* at all 36 layers, on every generated
+token — even when that means subtracting a much larger existing projection
+back down (deep-layer natural projections run ~10¹–10², per the calibration
+in `GPU_RUN_LOG.md`). `apply_adaptive_additive_linear_floor`
+(`steering.py`, method `adaptive_add_linear`) fixes this two ways: (1) a
+per-layer **linear** target `coeff·L/52` (1-indexed layer `L`) instead of one
+global scalar, and (2) **one-sided** — it raises a projection that starts
+below its layer's target, but never subtracts one that already starts above
+it (mirrored as a ceiling for negative `coeff`/the NEG arm): "do not
+subtract if the model already has an existing vector coefficient greater
+than that value."
+
+Ran with `coeff=1.0` (targets `1/52, 2/52, ..., 36/52`) —
+`runs/20260903-004434_adaptive-add-linear-qwen3-8b_qwen3-8b`. **Output is
+fully coherent** (spot-checked `logs/eval.txt`; no repetition loops, in
+contrast to every `adaptive_add` sample). Paired init→steered transitions,
+`n=200`:
+
+| init \ steered_pos | neutral | opinionated |
+|---|---|---|
+| **neutral** | 115 | 31 |
+| **opinionated** | 8 | 46 |
+
+| init \ steered_neg | neutral | opinionated |
+|---|---|---|
+| **neutral** | 142 | 4 |
+| **opinionated** | 36 | 18 |
+
+**Reading:** `adaptive_add_linear` sits **between** `adaptive_ablation` and
+`fixed_add` in effect size — neutral→opinionated flips (31/146) exceed
+ablation's (12/149) but fall short of `fixed_add`'s (66/146); opinionated→neutral
+flips (36/54) likewise exceed ablation's (23/51) but trail `fixed_add`'s
+(45/54). Unlike `adaptive_add`'s pin, this variant is both **valid** (coherent
+generations) and gives **a** direction's natural per-layer scale room to
+matter (early layers barely nudged, since their tiny targets are usually
+already exceeded or nearly so; later layers get a larger nudge) rather than
+forcing an identical absolute value everywhere. Same judge version as every
+other arm in this table (pinned above).
 
 ## Files
 
@@ -125,8 +163,8 @@ every generated token) and out of scope for this run.
   anywhere; produces `mechanism.csv` / `mechanism_summary.json` above).
 - `GPU_RUN_PROMPT.md` — the self-contained brief handed to the GPU agent.
 - `GPU_RUN_LOG.md` — process log: environment, calibration methodology, the
-  degenerate-output root-cause analysis, and a note on a `Monitor`-tooling
-  quirk observed during the run.
-- Judged evidence lives under `runs/`, not this directory: the five run
+  degenerate-output root-cause analysis, the `adaptive_add_linear` follow-up,
+  and a note on a `Monitor`-tooling quirk observed during the run.
+- Judged evidence lives under `runs/`, not this directory: the six run
   folders named above (each with `results.csv`, `summary.md`, `manifest.json`,
   `steering_vector.safetensors`, `logs/eval.txt` with full generated text).

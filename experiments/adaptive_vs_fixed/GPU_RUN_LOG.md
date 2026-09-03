@@ -267,4 +267,55 @@ would be exactly the overclaim CLAUDE.md §6 rules out. The raw counts +
 verbatim degenerate samples still get committed as evidence (nothing is
 hidden), just not asserted as "adaptive_add achieves stronger neutrality."
 
+## Follow-up: adaptive_add_linear — one-sided linear floor/ceiling (2026-09-03)
+
+User asked for a targeted fix, described precisely: a per-layer **linear**
+target (`layer 1 → 1/52, layer 2 → 2/52, ...`) instead of one global scalar,
+and — critically — "do not subtract if the model already has an existing
+vector coefficient greater than that value," i.e. only ever *raise* a
+projection toward the target, never pull an already-larger one back down.
+That second part is exactly the fix for the degeneracy diagnosed above: the
+old `apply_adaptive_additive_perlayer` hard-resets to the target regardless
+of direction, which is what forced deep-layer projections (natural median
+~109 at layer 35) down to single digits and broke generation.
+
+Added `apply_adaptive_additive_linear_floor` in `steering.py` (right after
+its `apply_adaptive_additive_perlayer` sibling): per layer `L` (1-indexed),
+`target_L = coeff * L / 52`; the hook computes `delta = target - proj` and
+clamps it to `[0, ∞)` when `target≥0` or `(-∞, 0]` when `target<0` before
+applying — so a correction that would move the projection *away* from
+target (i.e. subtract from an already-above-target value, or add to an
+already-below one) becomes a no-op instead. `coeff` still carries sign/scale
+for the existing `+coeffs.opinion` / `-coeffs.neutral` POS/NEG-arm contract,
+so no changes needed anywhere else (`_evaluate_and_persist`, CLI, configs
+pattern) — genuinely the "very small code change" asked for: one new
+function (~40 lines, mirroring the existing two adaptive methods' structure
+and reusing their shape guards / `unit_perlayer` / `_grouped_resid_points`
+helpers), one registry line, one config, two unit tests.
+
+**Verification before trusting it:** traced the clamp logic against the
+user's own worked numeric examples (target=4/26 vs proj=5/26 and 3/26, and
+the negative-target mirror) by hand in conversation, then added
+`test_adaptive_additive_linear_floor_never_subtracts_above_target` asserting
+the same two branches (below-target raised to exactly target; above-target
+left byte-for-byte unchanged) programmatically, plus a registration/validate
+test. Full suite: 33/33 (`tests/test_phase1.py`).
+
+**GPU verification:** ran `configs/exp/adaptive_add_linear_qwen3_8b.py`
+(`coeff=1.0`) — `runs/20260903-004434_adaptive-add-linear-qwen3-8b_qwen3-8b`.
+Spot-checked `logs/eval.txt`: fully coherent generations, no repetition
+loops (contrast with every `adaptive_add` sample above). Paired
+init→steered transitions land strictly between `adaptive_ablation` and
+`fixed_add` in effect size — see `summary.md`'s new section for the tables
+and reading. This is now a **valid** fourth comparator, unlike the pin-to-
+target `adaptive_add` it replaces as the "adaptive additive" arm going
+forward.
+
+Code + config + tests were committed and pushed separately from this run's
+`runs/` output (commit `8800fe3`, ahead of the run finishing) at the user's
+request, so they could pull the code onto their local machine while the GPU
+job was still in flight; the run folder is committed in a follow-up commit
+once its evidence existed and was spot-checked for coherence, per CLAUDE.md
+§4 ("a task is done when its evidence exists and validates").
+
 *(Updated as the run progresses — see the bottom of this file for the latest status.)*
