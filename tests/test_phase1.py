@@ -690,6 +690,78 @@ def test_adaptive_additive_linear_floor_default_denom_reaches_coeff_at_last_laye
         f"default denom should make the last layer's target == coeff, got {proj}"
 
 
+def test_linear_add_adds_full_increment_regardless_of_start():
+    """The unconditional linear-add ALWAYS adds `increment_L = coeff*L/denom` to the
+    projection, no matter where it started: (x·r̂_L) == old_proj + increment_L for
+    BOTH a token below and one far above the increment's scale. This is what proves
+    the state-dependent clamp is gone -- unlike apply_adaptive_additive_linear_floor,
+    a token already 'past' the target still gets the full increment, not a no-op."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    torch.manual_seed(5)
+    n_layers, d_model = 4, 6
+    model = _FakeModel(n_layers, d_model)
+    vector = torch.randn(n_layers, d_model)
+    r_hat = steering.unit_perlayer(vector)
+    coeff, denom = 8.0, 52.0
+
+    hooks = steering.apply_linear_add_perlayer(model, vector, coeff=coeff, denom=denom)
+    assert len(hooks) == n_layers
+    for layer, (name, fn) in enumerate(hooks):
+        increment = coeff * (layer + 1) / denom
+        for start in (increment - 1.0, increment + 100.0):  # below target, then far above
+            x = (r_hat[layer] * start).reshape(1, 1, d_model).clone()
+            old_proj = (x @ r_hat[layer]).item()
+            out = fn(x.clone(), hook=None)
+            new_proj = (out @ r_hat[layer]).item()
+            assert abs(new_proj - (old_proj + increment)) < 1e-4, (
+                f"layer {layer} start={start}: expected proj {old_proj + increment}, "
+                f"got {new_proj} (state-dependent clamp not removed?)"
+            )
+
+
+def test_linear_add_registered_and_selectable():
+    assert "linear_add" in registry.METHODS
+    cfg = ExperimentConfig(
+        label="t", models=["qwen-7b"],
+        dataset=DatasetSpec(name="bbq", path="x"),
+        judge=JudgeSpec(name="neutrality"), coeffs=Coeffs(1.0, 1.0),
+        method="linear_add",
+    )
+    registry.validate(cfg)  # raises if the method key is unregistered
+
+
+def test_linear_add_default_denom_reaches_coeff_at_last_layer():
+    """With no explicit `denom`, the ramp uses the model's own n_layers, so the
+    deepest layer's increment is exactly `coeff` -- and, there being no clamp, that
+    increment is added outright: the last layer's projection rises by exactly `coeff`
+    regardless of where it started."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    torch.manual_seed(6)
+    n_layers, d_model = 5, 6
+    model = _FakeModel(n_layers, d_model)
+    vector = torch.randn(n_layers, d_model)
+    r_hat = steering.unit_perlayer(vector)
+    coeff = 8.0
+
+    hooks = steering.apply_linear_add_perlayer(model, vector, coeff=coeff)
+    last_layer = n_layers - 1
+    _, fn = hooks[last_layer]
+    start = 3.0
+    x = (r_hat[last_layer] * start).reshape(1, 1, d_model).clone()
+    out = fn(x.clone(), hook=None)
+    proj = (out @ r_hat[last_layer]).item()
+    assert abs(proj - (start + coeff)) < 1e-4, \
+        f"default denom should make the last layer's increment == coeff, got {proj - start}"
+
+
 def test_adaptive_hook_asserts_shapes_at_the_arithmetic():
     """The in-hook guard fires if a direction/residual width mismatch reaches the
     projection step — the silent-broadcast bug class, caught at the arithmetic and
@@ -710,6 +782,7 @@ def test_adaptive_hook_asserts_shapes_at_the_arithmetic():
         lambda: steering.apply_adaptive_ablation_perlayer(model, vector),
         lambda: steering.apply_adaptive_additive_perlayer(model, vector, coeff=1.0),
         lambda: steering.apply_adaptive_additive_linear_floor(model, vector, coeff=1.0),
+        lambda: steering.apply_linear_add_perlayer(model, vector, coeff=1.0),
     ):
         _, fn = build()[0]
         bad = torch.randn(1, 4, d_model + 1)  # width d_model+1 != len(r)

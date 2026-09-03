@@ -369,6 +369,65 @@ def apply_adaptive_additive_linear_floor(model, vector, coeff: float = 1.0,
     ]
 
 
+def apply_linear_add_perlayer(model, vector, coeff: float = 1.0,
+                              *, denom: float | None = None,
+                              all_resid_points: bool = False):
+    """UNCONDITIONAL additive steering with a per-layer LINEAR schedule --
+    isolates the linear-schedule half of `apply_adaptive_additive_linear_floor`
+    from its state-dependent, one-sided floor/ceiling half.
+
+    At layer L (1-indexed), `increment_L = coeff * L / denom` (denom defaults
+    to the model's own n_layers, same convention as the linear-floor sibling).
+    Unlike that sibling, this ALWAYS applies the full increment, regardless of
+    the token's current projection:
+
+        x <- x + increment_L * r_hat_L      # every position, every time
+
+    This is `apply_resid_pre_add`'s mechanism (fixed_add's: an unconditional
+    per-layer add, no dependence on the residual being modified) with a
+    per-layer-RAMPED magnitude instead of a flat one, and using the per-layer
+    UNIT direction r_hat_L (matching the adaptive family's convention) rather
+    than fixed_add's raw vector[L] -- so this isolates exactly the "linear
+    schedule" variable against `apply_adaptive_additive_linear_floor` (same
+    target formula, same direction convention, only the clamp differs) while
+    remaining in the same "unconditional" mechanism family as fixed_add for
+    the three-way comparison this exists to support.
+
+    See experiments/adaptive_vs_fixed/GPU_RUN_LOG.md (fk/adaptive-steering-
+    qwen3-run) for why this isolation matters: adaptive_add_linear's growth
+    with coeff, and a coherence caveat at coeff=30, could come from the linear
+    schedule, the state-dependent one-sidedness, or their interaction -- this
+    method has the former without the latter.
+
+    Same shape guard and per-layer-unit-direction convention as its adaptive
+    siblings; a 1-D vector fails loud (CLAUDE.md §6)."""
+    import functools
+
+    n_layers = model.cfg.n_layers
+    assert_steering_shape(vector, n_layers, getattr(model.cfg, "d_model", None))
+    denom = denom if denom is not None else n_layers
+    r_hat = unit_perlayer(vector)
+
+    def _add(value, hook, r, increment):
+        r = r.to(value.dtype).to(value.device)
+        _assert_hook_direction(value, r)                # r is 1-D d_model — before the broadcast
+        applied = (increment * r).expand_as(value)       # (d_model,) -> (batch, seq, d_model), explicit
+        _assert_hook_update(value, applied)              # applied now matches the residual exactly
+        value += applied                                 # UNCONDITIONAL: no read of value's projection
+        return value
+
+    increments = [coeff * (layer + 1) / denom for layer in range(n_layers)]
+    if all_resid_points:
+        return [
+            (name, functools.partial(_add, r=r_hat[layer], increment=increments[layer]))
+            for layer, name in _grouped_resid_points(n_layers)
+        ]
+    return [
+        (name, functools.partial(_add, r=r_hat[layer], increment=increments[layer]))
+        for layer, name in enumerate(resid_pre_hook_names(n_layers))
+    ]
+
+
 def capture_last(cache, n_layers: int):
     """Last-token `resid_pre` per layer -> (n_layers, d_model).
 
@@ -561,6 +620,13 @@ register(METHODS, "adaptive_add",
 # projection back down (see apply_adaptive_additive_linear_floor's docstring).
 register(METHODS, "adaptive_add_linear",
          SteeringMethod("adaptive_add_linear", apply=apply_adaptive_additive_linear_floor))
+# Unconditional counterpart to adaptive_add_linear: same coeff*L/denom per-layer
+# schedule and unit-direction convention, but ALWAYS adds the full increment (no
+# state-dependent clamp) -- isolates the linear-schedule variable from the
+# one-sidedness for the three-way comparison (see apply_linear_add_perlayer's
+# docstring and docs/SCOPE_linear_scaling_isolation.md).
+register(METHODS, "linear_add",
+         SteeringMethod("linear_add", apply=apply_linear_add_perlayer))
 
 
 # --------------------------------------------------------------------------- #
