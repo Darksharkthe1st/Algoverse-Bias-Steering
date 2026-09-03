@@ -507,22 +507,36 @@ extracted away from. Both models score the identical held-out set.
 
 ### 9.2 Dose calibration — a finding in its own right
 
-The pre-registered dose grid was α ∈ {0.25, 0.5, 1.0, 2.0}. We measured
-completion coherence on the box and found that **every value in that grid
-destroys the model**: at α ≥ 0.35 completions collapse into a single repeated
-token, including under the random-direction control.
+The pre-registered dose grid was α ∈ {0.25, 0.5, 1.0, 2.0}. **Every value in
+that grid destroys the model.**
 
-The committed evidence for this is `qwen-14b/report_steering.json`, the judged
-generation arm. At α = 0.5 and α = 1.0, across both categories and **all four
+**What the artifacts show.** `qwen-14b/report_steering.json`, the judged
+generation arm: at α = 0.5 and α = 1.0, across both categories and **all four
 arms** (`plus`, `minus`, `random_plus`, and the informative-item task control),
-the unparsable rate is **1.000** — every one of 200 completions per arm, 3,200
-generations in total, produced nothing a judge could label. Biased rate 0.000,
-refusal rate 0.000, items scorable for accuracy 0. Baselines in the same file
-are healthy (accuracy 0.687 for `Age`, 0.853 for `Religion`), so the collapse is
-caused by the dose and not by the harness.
+the unparsable rate is **1.000**. Every one of 200 completions per arm — 3,200
+generations in total — produced nothing the judge could extract an answer from.
+Biased rate 0.000, refusal rate 0.000, items scorable for accuracy 0. Baselines
+in the same file are healthy (accuracy 0.687 for `Age`, 0.853 for `Religion`),
+and the *task control* and the *random direction* collapse identically, so this
+is the dose breaking the model, not the harness and not anything specific to the
+bias directions.
+
+**What the artifacts do not show, and a caveat you must carry.** The raw
+completions at those doses were **not recovered**.
+`qwen-14b/steering_responses.jsonl` is 0 bytes. The generation code persists
+every completion unconditionally — the loss happened between the box and the
+laptop, and the instance has since been terminated — but the effect is the same:
+we can state that **100% of completions were unparsable**, and we cannot show
+what they said. The stronger characterisation that appears in the code
+docstring, that completions "collapse into a single repeated token," comes from
+a separate dose-calibration measurement whose raw output was likewise not kept.
+
+**Write the parsable-rate claim, not the repeated-token claim.** The first is
+in a committed report; the second is a recollection. They support the same
+conclusion, but only one of them survives a reviewer asking to see the data.
 
 This is why the causal arm reports likelihood margins rather than generations:
-at the declared doses there are no generations left to judge.
+at the declared doses there are no usable generations left to judge.
 
 Rather than replace the declared grid, we **kept it and added lower doses**, so
 every model is run at the same settings and the destructive doses remain as
@@ -715,6 +729,16 @@ how much a reviewer will care.
 12. **Single capture site.** All results are at `hook_resid_pre`, final prompt
     token. We did not test other sites or token positions.
 
+13. **The `qwen-14b` steering completions were not preserved.** The rates are in
+    `report_steering.json` and are sound, but the 3,200 raw completions behind
+    the 1.000 unparsable rate are gone (`steering_responses.jsonl` is 0 bytes;
+    the file did not make it off the box before the instance was terminated).
+    So we can report *that* every completion was unparsable but cannot show
+    *what* the model emitted. `yi-6b` retains 600 completions at baseline and
+    α = 0.02. This is a recurrence of defect S5 in its exact shape — the code
+    persisted the data correctly, the transfer did not — and it should be
+    disclosed rather than glossed.
+
 ---
 
 ## 12 · Where every number lives
@@ -739,8 +763,11 @@ results/run3/
 │   ├── report_steering.json        ← judged generation arm (qwen-14b only);
 │   │                                 the α≥0.5 collapse evidence in §9.2
 │   ├── steering_responses.jsonl    ← completions under steering. yi-6b: 600
-│   │                                 lines (baseline + α=0.02). qwen-14b: empty
-│   │                                 — its generations collapsed, see §9.2
+│   │                                 lines (baseline, α=0.02, system-prompt
+│   │                                 baseline). qwen-14b: 0 bytes — the raw
+│   │                                 text was not recovered from the box. Its
+│   │                                 RATES survive in report_steering.json.
+│   │                                 See §9.2 and limitation 13.
 │   ├── directions/*.npy            ← the extracted V_C, one per category
 │   ├── residual_sidecars/*.json    ← item_ids, eval_holdout_n, capture metadata
 │   ├── capture_site.json
