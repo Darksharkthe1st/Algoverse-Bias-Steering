@@ -205,23 +205,26 @@ def forward_norm_analysis(config, vector, coeffs, n_prompts, batch_size):
 
 # --------------------------------------------------------------------------- #
 def _print_summary(offline, forward, coeffs):
-    n = offline["n_layers"]
-    dp = offline["dprime_per_layer"]
-    vn = offline["vector_norm_per_layer"]
-    print("\n================ #3 signal (d-prime of r_hat_L: opinion vs neutral) ================")
-    print(f"  layer 1:   d'={dp[0]:+.3f}   ||vector||={vn[0]:.3f}")
-    print(f"  layer {n//2:>2}:  d'={dp[n//2]:+.3f}   ||vector||={vn[n//2]:.3f}")
-    print(f"  layer {n:>2}:  d'={dp[-1]:+.3f}   ||vector||={vn[-1]:.3f}")
-    print(f"  (near-0 d' at shallow layers => that layer's direction barely encodes the contrast)")
+    if offline is not None:
+        n = offline["n_layers"]
+        dp = offline["dprime_per_layer"]
+        vn = offline["vector_norm_per_layer"]
+        print("\n================ #3 signal (d-prime of r_hat_L: opinion vs neutral) ================")
+        print(f"  layer 1:   d'={dp[0]:+.3f}   ||vector||={vn[0]:.3f}")
+        print(f"  layer {n//2:>2}:  d'={dp[n//2]:+.3f}   ||vector||={vn[n//2]:.3f}")
+        print(f"  layer {n:>2}:  d'={dp[-1]:+.3f}   ||vector||={vn[-1]:.3f}")
+        print(f"  (near-0 d' at shallow layers => that layer's direction barely encodes the contrast)")
 
-    print("\n================ #4 clamp-inactivity (fraction already past target) ================")
-    for c in coeffs:
-        frac = offline["per_coeff"][str(c)]["clamp_inactive_frac"]
-        cross = next((L + 1 for L, f in enumerate(frac) if f >= 0.5), None)
-        print(f"  coeff={c}: clamp inactive for >=50% of examples from layer "
-              f"{cross if cross else '(never)'} onward "
-              f"(L1={frac[0]:.2f}, L{n}={frac[-1]:.2f}) "
-              f"-> deep layers self-limit under adaptive, but linear_add still adds there")
+        print("\n================ #4 clamp-inactivity (fraction already past target) ================")
+        for c in coeffs:
+            frac = offline["per_coeff"][str(c)]["clamp_inactive_frac"]
+            cross = next((L + 1 for L, f in enumerate(frac) if f >= 0.5), None)
+            print(f"  coeff={c}: clamp inactive for >=50% of examples from layer "
+                  f"{cross if cross else '(never)'} onward "
+                  f"(L1={frac[0]:.2f}, L{n}={frac[-1]:.2f}) "
+                  f"-> deep layers self-limit under adaptive, but linear_add still adds there")
+    else:
+        print("\n(#3/#4 skipped: residuals.safetensors not available on this box)")
 
     if forward is not None:
         print("\n================ #1 residual-stream norm ||x_L|| (deepest layer) ================")
@@ -261,14 +264,19 @@ def main():
     vector = artifacts.load_vector(str(vec_path))
     assert vector.ndim == 2, f"vector must be (n_layers, d_model); got {tuple(vector.shape)} (CLAUDE.md §6)"
 
-    if not resid_path.is_file():
+    offline = None
+    if resid_path.is_file():
+        offline = offline_resid_analysis(resid_path, vector, contrast, coeffs)
+    elif args.skip_forward:
         raise SystemExit(
-            f"residuals not found at {resid_path}. This file is git-ignored (bulky), so it "
-            f"lives only on the box that ran extraction. If the anchor run predates save_residuals, "
-            f"re-extract (or point --residuals at wherever the (n_ex, n_layers, d_model) stacks are). "
-            f"#1 (--skip-forward-able) does NOT need it; #3/#4 do."
+            f"residuals not found at {resid_path}, and --skip-forward was given so there is "
+            f"nothing else to run. This file is git-ignored (bulky), so it lives only on the "
+            f"box that ran extraction. If the anchor run predates save_residuals, re-extract "
+            f"(or point --residuals at wherever the (n_ex, n_layers, d_model) stacks are)."
         )
-    offline = offline_resid_analysis(resid_path, vector, contrast, coeffs)
+    else:
+        print(f"[warn] residuals not found at {resid_path}; skipping #3/#4 (signal + relative-dose), "
+              f"running #1 only.", flush=True)
 
     forward = None
     if not args.skip_forward:
