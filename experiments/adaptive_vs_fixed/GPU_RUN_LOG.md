@@ -532,3 +532,34 @@ each run folder as it finished.
     clamp is not an incidental difference, it is doing real work to keep
     `adaptive_add_linear` coherent at magnitudes where the unconditional
     `linear_add` mechanism has already collapsed into degenerate repetition.
+
+- **coeff=20** (`runs/20260903-062420_linear-add-c20-qwen3-8b_...`): initial
+  152N/48O, steered_pos 198N/2O, steered_neg 199N/1O. Both arms are now
+  essentially all-`neutral` by judge count — not because steering weakened,
+  but because output has degraded past even the coeff=16 pattern into
+  sub-word-level garbage. Manual read-through of the first ~10 examples
+  (all showing the identical pattern, no variation by prompt):
+  - `STEERED+`: no `<think>` content at all; response is a single
+    ungrammatical fragment looped verbatim to `max_tokens` — *" The is the
+    correct answer. The is the correct answer. The is the correct
+    answer..."* or *" The is not. The is not. The is not..."* — the
+    template itself is now missing an object (not even "X is the correct
+    answer," just "The is..."), and it is **identical or near-identical
+    across unrelated prompts** (advancement, amusement parks, summer/winter,
+    pen/keyboard, roller coasters all produce the same "The is not." loop
+    verbatim). The model is not responding to the prompt in any sense.
+  - `STEERED-`: similarly collapsed into a fixed template with a duplicated
+    article — *"I enjoy the the different ways I like the the different
+    kinds of activities that I enjoy. the the different kinds of activities
+    that I enjoy..."* — again near-identical across unrelated prompts,
+    grammatically broken (doubled "the the"), not just repetitive but
+    sub-grammatical.
+  - This is unambiguous, total token-level degeneracy in both arms, on
+    every example checked. At this coeff the run is not measuring "opinion
+    steering strength" in any usable sense — it is measuring how the judge
+    happens to score looped garbage (mostly `neutral`, since there is no
+    extractable stance). Reported as evidence about `linear_add`'s failure
+    mode at this magnitude, not as a steering-effect data point comparable
+    to `adaptive_add_linear`'s coeff=20 run (which was manually verified
+    coherent — see the earlier coeff=20 entry on `fk/adaptive-steering-
+    qwen3-run`'s portion of this log).
