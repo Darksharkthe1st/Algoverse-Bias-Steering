@@ -563,3 +563,61 @@ each run folder as it finished.
     to `adaptive_add_linear`'s coeff=20 run (which was manually verified
     coherent — see the earlier coeff=20 entry on `fk/adaptive-steering-
     qwen3-run`'s portion of this log).
+
+- **coeff=30** (`runs/20260903-063807_linear-add-c30-qwen3-8b_...`) — THE
+  direct match to the `adaptive_add_linear` coeff=30 caveat this whole
+  sweep exists to resolve. initial 151N/49O, **steered_pos 200N/0O,
+  steered_neg 200N/0O** — complete collapse, both arms, no exceptions.
+  Manually read the first ~10 examples and a mid-file span (offset ~2000
+  lines): identical pattern throughout, no prompt-dependence at all:
+  - `STEERED+`: `<think>` is either empty or dozens of blank lines, followed
+    by pure single-token repetition with no words at all — e.g. *". is. is.
+    is. is. is. is. is. is. is. is. is. is. is. is. is. is. is. is. is. is.
+    is. is. is. is. is..."* (verbatim, `max_tokens` cutoff). This is
+    identical (same `". is. is..."` string) across unrelated prompts —
+    "advancement," "bridge safety," others — confirming it is not
+    content, it is the sampling distribution having collapsed to a single
+    high-probability token.
+  - `STEERED-`: collapses to a single repeated function word — *" the the
+    the the the the the the the..."* — again identical across unrelated
+    prompts.
+  - **This directly answers the question this branch exists to answer.**
+    The coeff=30 caveat under `adaptive_add_linear`
+    (`runs/20260903-021811_...`: steered_pos 10N/190O, 93% opinionated,
+    manually verified as "empty `<think>\n</think>` then a blunt but
+    *grammatically fine, every-sentence-is-real-English* answer," not
+    repetition-loop degeneracy — see that run's entry earlier in this log)
+    does **NOT reproduce** under `linear_add` at the same coeff. What
+    happens instead is categorically worse: not a blunter answer, but total
+    loss of language — pure single-token loops with zero extractable
+    content, both arms, no exceptions, on identical prompts/vector/
+    direction/schedule. **The caveat tracks the clamp, not the schedule —
+    and in the opposite direction from how it might first read.** Removing
+    the clamp doesn't just fail to reproduce the coeff=30 caveat, it
+    produces a far more severe failure mode, and produces it starting at
+    coeff=8 (a magnitude where `adaptive_add_linear` shows no caveat at
+    all). The one-sided floor/ceiling is load-bearing for coherence across
+    this entire coeff range, not an incidental confound alongside the
+    linear schedule.
+
+### Isolation result, stated plainly
+
+Across coeff=1/8/16/20/30, `linear_add` (linear schedule, unconditional —
+isolates (A) from `adaptive_add_linear`) and `adaptive_add_linear` (linear
+schedule, one-sided clamp) diverge sharply and monotonically with coeff:
+`linear_add` is coherent at 1, shows an emerging caveat at 8 (earlier than
+`adaptive_add_linear` shows *any* caveat), is largely collapsed by 16, and
+is totally collapsed by 20-30 — while `adaptive_add_linear` stays coherent
+through 20 and only shows a mild, still-grammatical caveat at 30. Since the
+only variable that differs between the two methods at matched coeff is the
+state-dependent one-sided clamp (B), **this is (B)'s effect, not (A)'s**:
+the clamp is what keeps `adaptive_add_linear` coherent at magnitudes where
+the unconditional linear ramp has already destroyed the model's output
+distribution. The linear schedule (A) alone, without the clamp, is not
+"a milder version of the same growth pattern" — it is a fundamentally
+more fragile mechanism once increments compound unconditionally at every
+layer regardless of the token's current state.
+
+*(This file's history for the `linear_add` sweep ends here — see
+`experiments/adaptive_vs_fixed/summary.md` for the three-way comparison
+table and the write-up proper.)*
