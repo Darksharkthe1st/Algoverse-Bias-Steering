@@ -1,0 +1,3 @@
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  14%|█▍        | 42/291 [00:00<00:00, 366.84it/s]Loading weights:  31%|███       | 90/291 [00:00<00:00, 419.56it/s]Loading weights:  46%|████▋     | 135/291 [00:00<00:00, 429.65it/s]Loading weights:  62%|██████▏   | 179/291 [00:00<00:00, 400.87it/s]Loading weights:  76%|███████▌  | 221/291 [00:00<00:00, 405.34it/s]Loading weights:  90%|█████████ | 262/291 [00:00<00:00, 403.03it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 415.82it/s]
+/home/ubuntu/.local/lib/python3.10/site-packages/transformer_lens/HookedTransformer.py:2081: UserWarning: HookedTransformer.generate received unsupported generation kwargs; ignoring: ['attention_mask']
+  warnings.warn(

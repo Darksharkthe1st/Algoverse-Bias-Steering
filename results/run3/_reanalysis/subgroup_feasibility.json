@@ -1,0 +1,146 @@
+{
+  "Age": {
+    "n_ambig": 1840,
+    "n_groups": 2,
+    "n_ge_32": 2,
+    "n_ge_172": 2,
+    "counts": {
+      "old": 824,
+      "nonOld": 1016
+    }
+  },
+  "Disability_status": {
+    "n_ambig": 778,
+    "n_groups": 8,
+    "n_ge_32": 5,
+    "n_ge_172": 3,
+    "counts": {
+      "disabled+physically disabled": 208,
+      "disabled+mentally-ill": 260,
+      "D/deaf+disabled": 46,
+      "Down's syndrome+disabled": 8,
+      "disabled+people with cognitive disabilities or mental illness": 16,
+      "autistic people+disabled": 192,
+      "disabled+people with blindness or low-vision": 40,
+      "disabled+people with cerebral palsy": 8
+    }
+  },
+  "Gender_identity": {
+    "n_ambig": 2836,
+    "n_groups": 5,
+    "n_ge_32": 4,
+    "n_ge_172": 3,
+    "counts": {
+      "F": 1672,
+      "M": 732,
+      "Transgender women+trans+transgender men": 272,
+      "trans+transgender women": 144,
+      "trans+transgender men": 16
+    }
+  },
+  "Nationality": {
+    "n_ambig": 1540,
+    "n_groups": 10,
+    "n_ge_32": 9,
+    "n_ge_172": 3,
+    "counts": {
+      "British": 60,
+      "American": 60,
+      "Irish": 40,
+      "Eritrean+Ethiopian+Guinean+Kenyan+Malian+Mozambican+Namibian+Nigerian": 500,
+      "Nigerian": 40,
+      "Afghan+Iranian+Iraqi+Libyan+Moroccan+Palestinian+Saudi+Syrian+Yemeni": 400,
+      "Indian+Pakistani+Sri Lankan": 120,
+      "Burmese+Chinese+Indonesian+Japanese+Korean+Thai+Vietnamese": 200,
+      "Italian": 20,
+      "Burmese+Chinese+Indian+Indonesian+Japanese+Korean+Pakistani+Thai+Vietnamese": 100
+    }
+  },
+  "Physical_appearance": {
+    "n_ambig": 788,
+    "n_groups": 5,
+    "n_ge_32": 5,
+    "n_ge_172": 3,
+    "counts": {
+      "obese": 280,
+      "negDress": 208,
+      "pregnant": 188,
+      "visibleDifference": 48,
+      "short": 64
+    }
+  },
+  "Race_ethnicity": {
+    "n_ambig": 3440,
+    "n_groups": 9,
+    "n_ge_32": 7,
+    "n_ge_172": 6,
+    "counts": {
+      "African American+Black+Hispanic+Latino": 180,
+      "African American+Black": 1400,
+      "Asian": 480,
+      "Native American": 40,
+      "Roma": 20,
+      "Hispanic+Latino": 520,
+      "Arab+Middle Eastern": 480,
+      "African American+Black+Hispanic+Latino+Native American": 300,
+      "Jewish": 20
+    }
+  },
+  "Race_x_SES": {
+    "n_ambig": 5580,
+    "n_groups": 4,
+    "n_ge_32": 4,
+    "n_ge_172": 4,
+    "counts": {
+      "African American+Black+Hispanic+Latino": 2160,
+      "White": 1440,
+      "Asian": 720,
+      "African American+Black": 1260
+    }
+  },
+  "Race_x_gender": {
+    "n_ambig": 7980,
+    "n_groups": 7,
+    "n_ge_32": 7,
+    "n_ge_172": 5,
+    "counts": {
+      "African American+Black": 3480,
+      "Asian": 1440,
+      "Arab+Middle Eastern": 1260,
+      "Native American": 120,
+      "Hispanic+Latino": 1260,
+      "Roma": 60,
+      "White": 360
+    }
+  },
+  "Religion": {
+    "n_ambig": 600,
+    "n_groups": 9,
+    "n_ge_32": 9,
+    "n_ge_172": 0,
+    "counts": {
+      "Muslim": 80,
+      "Catholic+Mormon+Muslim+Orthodox": 120,
+      "Jewish": 80,
+      "Christian": 80,
+      "Christian+Mormon": 40,
+      "Hindu": 60,
+      "Catholic": 40,
+      "Mormon": 40,
+      "Atheist": 60
+    }
+  },
+  "Sexual_orientation": {
+    "n_ambig": 432,
+    "n_groups": 5,
+    "n_ge_32": 5,
+    "n_ge_172": 0,
+    "counts": {
+      "gay": 144,
+      "bisexual": 96,
+      "gay+lesbian": 96,
+      "pansexual": 32,
+      "lesbian": 64
+    }
+  }
+}

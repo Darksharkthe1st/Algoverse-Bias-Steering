@@ -1,0 +1,28 @@
+overnight queue started 2026-09-02T04:52:44+00:00
+preflight: OK
+push: DISABLED on purpose (/nonexistent/push-disabled-see-notes25)
+*** NOTHING LEAVES THIS BOX BY GIT. Pull artifacts with scp/rsync
+*** BEFORE terminating, or it is defect S5 all over again.
+*** RESID_BACKUP unset: residual tensors will exist ONLY on this box.
+*** They are gitignored (GB), so no commit carries them. Either export
+*** RESID_BACKUP=user@host:/path before starting, or run
+*** sync_from_box.ps1 from the laptop BEFORE terminating. That is
+*** defect S5 and it has already cost this project a week.
+gate 1 (smoke): OK
+gate 2 (positive control): OK — bias nulls below this line are interpretable
+gate R3-1 (smoke: generate + judge + extract): OK
+gate R3-2 (positive control): OK — run-3 nulls are interpretable
+[ok]   R3a_generate_qwen-14b  (13 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local
+[ok]   R3b_judge_qwen-14b  (120 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local
+[ok]   R3c_extract_qwen-14b  (4 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local
+[ok]   R3d_toggle_qwen-14b  (212 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local
+[ok]   R3a_generate_yi-6b  (82 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local
+[ok]   R3b_judge_yi-6b  (406 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local
+[ok]   R3c_extract_yi-6b  (1 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local

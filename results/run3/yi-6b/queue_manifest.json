@@ -1,0 +1,150 @@
+{
+  "started_at": 1788345973.1897755,
+  "elapsed_s": 4936.1642434597015,
+  "n_steps": 12,
+  "steps": [
+    {
+      "name": "capture_Age",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 2.3126602172851562e-05,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Age__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Age__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Disability_status",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 2.0503997802734375e-05,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Disability_status__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Disability_status__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Gender_identity",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 1.9311904907226562e-05,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Gender_identity__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Gender_identity__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Nationality",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 2.0742416381835938e-05,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Nationality__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Nationality__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Physical_appearance",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 1.9550323486328125e-05,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Physical_appearance__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Physical_appearance__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Race_ethnicity",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 2.002716064453125e-05,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Race_ethnicity__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Race_ethnicity__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Race_x_SES",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 1.9788742065429688e-05,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Race_x_SES__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Race_x_SES__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Race_x_gender",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 8.217748641967773,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Race_x_gender__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Race_x_gender__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Religion",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 8.022341251373291,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Religion__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Religion__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Sexual_orientation",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 5.447207689285278,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/residuals/Sexual_orientation__ambig.npy",
+        "runs/r3_behavioural_yi-6b/residuals/Sexual_orientation__control_disambig.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "generate_both_passes",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 4914.276799201965,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/responses.jsonl"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "write_prompts",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 0.19349455833435059,
+      "error": null,
+      "produces": [
+        "runs/r3_behavioural_yi-6b/prompts.jsonl"
+      ],
+      "missing_outputs": []
+    }
+  ],
+  "all_ok": true
+}

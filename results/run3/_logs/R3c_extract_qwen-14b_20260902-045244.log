@@ -1,0 +1,21 @@
+verifier: 280 checks, 0 failures
+using judge labels from runs/r3_behavioural_qwen-14b/judge_labels.jsonl (4832 items, judge v2-bbq-choice-llm / gpt-4o-mini)
+  + 3832 judged SWAPPED labels -- the N6 model-side control gets a judge-scored version too
+  Age                    TESTABLE   n_b=  54 n_r= 337 pos-bias 0.93 floor +0.926
+  Disability_status      UNTESTABLE n_b=   6 n_r= 388 pos-bias 0.96 
+  Gender_identity        UNTESTABLE n_b=   8 n_r= 386 pos-bias 0.98 
+  Nationality            UNTESTABLE n_b=   8 n_r= 392 pos-bias 0.98 
+  Physical_appearance    UNTESTABLE n_b=   3 n_r= 395 pos-bias 0.99 
+  Race_ethnicity         UNTESTABLE n_b=   3 n_r= 394 pos-bias 0.97 
+  Race_x_SES             UNTESTABLE n_b=   1 n_r= 397 pos-bias 1.00 
+  Race_x_gender          UNTESTABLE n_b=   0 n_r= 400 pos-bias 0.97 
+  Religion               TESTABLE   n_b=  41 n_r= 352 pos-bias 0.99 floor +0.977
+  Sexual_orientation     UNTESTABLE n_b=   5 n_r= 224 pos-bias 0.99 
+  refusal proxy: |cos(answerable, ambiguous)| = 0.747 vs ceiling 0.973 (ratio 0.768) -- descriptive, not a gate; near 1.0 supports the proxy, low is ambiguous
+
+  refusal de-coupling: 0/2 categories REFUSAL-DOMINATED (control usable=True)
+  mean refusal variance share per category: 0.441
+  cross-category median |cos|  raw +0.620  ->  orthogonalised +0.359  (retained 0.580; under matched random 0.937)
+  -> SHARED STRUCTURE SURVIVES
+
+wrote runs/r3_behavioural_qwen-14b/report_behavioural.json

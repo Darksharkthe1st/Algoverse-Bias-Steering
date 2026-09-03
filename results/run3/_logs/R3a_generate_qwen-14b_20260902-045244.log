@@ -1,0 +1,21 @@
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:  10%|█         | 50/483 [00:00<00:00, 473.59it/s]Loading weights:  20%|██        | 98/483 [00:00<00:01, 374.25it/s]Loading weights:  28%|██▊       | 137/483 [00:00<00:01, 344.93it/s]Loading weights:  36%|███▌      | 173/483 [00:00<00:00, 338.35it/s]Loading weights:  43%|████▎     | 208/483 [00:00<00:00, 327.83it/s]Loading weights:  50%|████▉     | 241/483 [00:00<00:00, 322.61it/s]Loading weights:  57%|█████▋    | 276/483 [00:00<00:00, 325.07it/s]Loading weights:  64%|██████▍   | 309/483 [00:00<00:00, 325.68it/s]Loading weights:  71%|███████   | 342/483 [00:01<00:00, 318.80it/s]Loading weights:  78%|███████▊  | 377/483 [00:01<00:00, 321.50it/s]Loading weights:  85%|████████▍ | 410/483 [00:01<00:00, 323.31it/s]Loading weights:  92%|█████████▏| 443/483 [00:01<00:00, 321.11it/s]Loading weights:  99%|█████████▊| 476/483 [00:01<00:00, 322.82it/s]Loading weights: 100%|██████████| 483/483 [00:01<00:00, 334.27it/s]
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+  n_layers=40 d_model=5120
+
+  CAPTURE SITE -- look at this before trusting anything downstream:
+    index  -6  '?'
+    index  -5  '<|im_end|>'
+    index  -4  '\n'
+    index  -3  '<|im_start|>'
+    index  -2  'assistant'
+    index  -1  '\n'
+    capturing at index -1
+
+  resuming: 9 categories already logged
+/home/ubuntu/.local/lib/python3.10/site-packages/transformer_lens/HookedTransformer.py:2081: UserWarning: HookedTransformer.generate received unsupported generation kwargs; ignoring: ['attention_mask']
+  warnings.warn(
+  Sexual_orientation: 232 x2 completions
+
+generate finished in 13.4 min; all_ok=True
+
+SYNC OFF THE BOX BEFORE TERMINATING IT.

@@ -223,6 +223,12 @@ runs/**/residuals.safetensors
 # part of a run's committed record. Observed: run.log was the ONLY file missing
 # from committed runs, so bucket sizes were unrecoverable after a branch switch.
 !runs/**/*.log
+# Same rule, same reason, for collected result folders. `results/run3/_logs/`
+# holds the 63 run logs for run 3 -- the generation, judge, extraction and
+# steering stages, plus the preflight gates and the failures. Line 62 was
+# silently swallowing every one of them, which is the identical defect
+# described just above, one directory over.
+!results/**/*.log
 # Throwaway runs (opt-out pile):
 runs/_discard/
 # Ephemeral batch STATE (route/queue/control/status); coordinator CODE lives in
