@@ -137,7 +137,8 @@ def apply_resid_pre_add(model, vector, coeff: float):
     scaled = coeff / n_layers
 
     def _steer(value, hook, vec):
-        value[:, :, :] += scaled * vec.detach().clone()
+        vec = vec.detach().clone().to(value.dtype).to(value.device)
+        value[:, :, :] += scaled * vec
         return value
 
     return [

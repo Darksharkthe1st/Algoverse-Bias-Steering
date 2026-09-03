@@ -63,6 +63,26 @@ def _batches(seq, n):
         yield seq[i:i + n]
 
 
+def steer_and_judge(backend, loaded, examples, method, vector, coeff, judge_fn,
+                    judge_spec, *, max_tokens, sys_prompt):
+    """Apply `vector` at `coeff` (via `method.apply` hooks), generate on `examples`,
+    and judge. Returns `(responses, labels)`.
+
+    The single apply -> generate -> judge primitive. `coeff == 0` (or `vector is
+    None`) is the unsteered path (`backend.generate`, no hooks) — so the eval tail's
+    INITIAL condition and a coeff-sweep's baseline are the same code. Shared by
+    `_evaluate_and_persist` (initial + both steered directions) and the Phase-4
+    coeff sweep (one direction across a grid). The caller is responsible for moving
+    `vector` on-device ONCE before looping (a per-batch copy would be wasteful)."""
+    prompts = [e.prompt for e in examples]
+    if vector is None or coeff == 0:
+        responses = backend.generate(loaded, prompts, max_tokens, sys_prompt)
+    else:
+        hooks = method.apply(loaded.model, vector, coeff)
+        responses = backend.generate_with_hooks(loaded, prompts, hooks, max_tokens, sys_prompt)
+    return responses, judge_fn(responses, examples, judge_spec)
+
+
 def _contrast(config: ExperimentConfig):
     """(positive_label, negative_label). Default: the judge's two labels, with the
     second as the positive pole (matching the notebook's opinion − neutral)."""
@@ -178,16 +198,12 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
     results: list[Result] = []
     for batch in progress(list(_batches(eval_examples, config.batch_size)),
                           desc=f"{model_key} {phase_desc}"):
-        prompts = [e.prompt for e in batch]
-        initial = backend.generate(loaded, prompts, config.max_tokens, sys_prompt)
-        pos_hooks = method.apply(loaded.model, vector, config.coeffs.opinion)
-        steered_pos = backend.generate_with_hooks(loaded, prompts, pos_hooks, config.max_tokens, sys_prompt)
-        neg_hooks = method.apply(loaded.model, vector, -config.coeffs.neutral)
-        steered_neg = backend.generate_with_hooks(loaded, prompts, neg_hooks, config.max_tokens, sys_prompt)
-
-        j_init = judge_fn(initial, batch, config.judge)
-        j_pos = judge_fn(steered_pos, batch, config.judge)
-        j_neg = judge_fn(steered_neg, batch, config.judge)
+        sj = lambda coeff: steer_and_judge(  # noqa: E731
+            backend, loaded, batch, method, vector, coeff, judge_fn, config.judge,
+            max_tokens=config.max_tokens, sys_prompt=sys_prompt)
+        initial, j_init = sj(0.0)
+        steered_pos, j_pos = sj(config.coeffs.opinion)
+        steered_neg, j_neg = sj(-config.coeffs.neutral)
 
         for i, ex in enumerate(batch):
             meta = {"category": ex.metadata.get("category")}
