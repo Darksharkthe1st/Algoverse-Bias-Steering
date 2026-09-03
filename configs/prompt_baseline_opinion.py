@@ -68,12 +68,12 @@ config.intervention = "steer"  # INITIAL + STEERED_POS/NEG only -- PROMPT_POS/NE
                                 # same dataset/sample/seed/model), merged offline
                                 # instead of regenerated (see the merge script next
                                 # to this run's output).
-# Pulled from fk/qwen3-8b-opinion-vector (commit e801c2a). Shape verified (36,
-# 4096) == qwen3-8b's actual (n_layers, d_model). CAVEAT: this vector's own
-# extraction run (runs/20260901-092009_anchor-qwen3-8b_qwen3-8b) predates
-# enable_thinking and ran at max_tokens=128 with thinking ON -- the same
-# truncation bug fixed in this file's history may have contaminated the TRAIN-
-# phase residuals/verdicts it was built from. Applying it here under
-# enable_thinking=False (this run's steer arms) is a mode mismatch against how
-# it was built; treat this as exploratory, not a clean generalization test.
-config.vector_path = "runs/20260901-092009_anchor-qwen3-8b_qwen3-8b/steering_vector.safetensors"
+# RE-EXTRACTED 2026-09-03 (configs/exp/anchor_qwen3_8b.py, enable_thinking=False)
+# to replace the original (runs/20260901-092009_anchor-qwen3-8b_qwen3-8b), which
+# predated enable_thinking and ran thinking-ON at max_tokens=128 -- likely the
+# same truncation contamination fixed for the prompt arms. This vector's own
+# TRAIN/TEST battery (log_103_comparison_200, same as the original) is clean: 0
+# <think> tags, shape verified (36, 4096). Its own self-test already shows the
+# neutral direction is weak (27 good / 26 bad -- near chance) against a baseline
+# that's 70% opinionated by default under non-thinking mode.
+config.vector_path = "runs/20260903-105600_anchor-qwen3-8b_qwen3-8b/steering_vector.safetensors"

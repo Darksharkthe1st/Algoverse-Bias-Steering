@@ -41,7 +41,7 @@ def load_pt_tensor(path, *, device: str = "cpu"):
         return torch.load(str(path), map_location=device)
 
 
-def save_residuals(path, resids_by_label: dict) -> None:
+def save_residuals(path, resids_by_label: dict, *, n_layers, d_model) -> None:
     """Save per-verdict residual stacks (bulky; git-ignored). One tensor per label,
     each (n_examples, n_layers, d_model).
 
