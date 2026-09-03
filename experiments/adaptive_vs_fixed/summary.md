@@ -144,50 +144,77 @@ uses that corrected default (see `GPU_RUN_LOG.md`).
 | `runs/20260903-011119_...` | coeff=8, denom=52 (fixed) | 8·36/52 ≈ 5.54 | 35/149 | 30/51 |
 | `runs/20260903-012517_...` | coeff=8, denom=36 (default = n_layers) | 8·36/36 = 8.0 exactly | 43/150 | 26/50 |
 | `runs/20260903-014921_...` | coeff=16, denom=36 (default) | 16.0 exactly | 68/150 | 36/50 |
-| `runs/20260903-020329_...` | coeff=20, denom=36 (default) | 20.0 exactly | **83/152** | 35/48 |
+| `runs/20260903-020329_...` | coeff=20, denom=36 (default) | 20.0 exactly | 83/152 | 35/48 |
+| `runs/20260903-021811_...` | coeff=30, denom=36 (default) | 30.0 exactly | **138/148** | **42/52** |
 | `fixed_add`, c=8 (for reference) | — | — | 66/146 | 45/54 |
 
-Full paired transition matrices for coeff=20 (`n=200`, the strongest valid
-`adaptive_add_linear` run so far):
+Full paired transition matrices for coeff=30 (`n=200`, the strongest
+`adaptive_add_linear` run so far — but see the coherence caveat below before
+treating it as a clean data point):
 
 | init \ steered_pos | neutral | opinionated |
 |---|---|---|
-| **neutral** | 69 | 83 |
-| **opinionated** | 5 | 43 |
+| **neutral** | 10 | 138 |
+| **opinionated** | 0 | 52 |
 
 | init \ steered_neg | neutral | opinionated |
 |---|---|---|
-| **neutral** | 145 | 7 |
-| **opinionated** | 35 | 13 |
+| **neutral** | 145 | 3 |
+| **opinionated** | 42 | 10 |
 
-**Reading:** effect size scales with `coeff` roughly monotonically on POS
-(neutral→opinionated: 31→35→43→68→**83**) — at `coeff=20` the POS arm now
-**exceeds** `fixed_add` (83/152 vs 66/146). The NEG arm tells a different
-story: it improved sharply from coeff=8→16 (26→36) but then **plateaued**
-from 16→20 (36/50 → 35/48, statistically flat), well short of `fixed_add`'s
-45/54 (83%) at roughly 73% across both. This asymmetry is itself informative:
-manually spot-checking `logs/eval.txt` end-to-end for both runs (beginning,
-middle, and end of each 200-example file) found no repetition-loop artifacts
-at any `coeff` tested up to 20 — every run in this section is coherent. This
-complicates the earlier "structurally weaker" reading: `adaptive_add_linear`
-isn't uniformly capped below `fixed_add` — the POS (raise-toward-opinionated)
-direction scales past it with enough `coeff`, while the NEG
-(lower-toward-neutral) direction seems to hit a ceiling of its own around
-70-75% regardless of `coeff`. A plausible reason for the asymmetry: the
-one-sided floor/ceiling is a no-op for any token already past its target in
-the intended direction, and the calibration measurement showed real
-projections skew toward large *positive* values at deep layers far more often
-than large negative ones — so the POS floor (raising toward positive targets)
-has more "already past target" tokens to clear at high `coeff`, compounding
-its effect, while the NEG ceiling (lowering toward negative targets) is
-fighting a residual stream that rarely sits very negative to begin with,
-capping how much a same-magnitude negative target can additionally suppress.
-This is a genuine, reportable mechanistic difference between the two methods,
-not a tuning failure. Unlike `adaptive_add`'s hard pin, every
-`adaptive_add_linear` variant reported here is **valid** and gives **a**
-direction's natural per-layer scale room to matter rather than forcing an
-identical absolute value everywhere. Same judge
-version as every other arm in this table (pinned above).
+**Reading:** effect size scales with `coeff` on POS (neutral→opinionated:
+31→35→43→68→83→**138**, now 93% — near saturation) and, contrary to the
+"plateau" read after `coeff=20`, NEG also broke through at `coeff=30`
+(opinionated→neutral 35/48→**42/52**, 81% — nearly matching `fixed_add`'s
+83%). So the earlier NEG-plateau reading was premature; both arms keep
+scaling with `coeff`, just not at the same rate.
+
+**Coherence caveat on `coeff=30` — read before citing this row as a clean
+result.** Manually reading `logs/eval.txt` end-to-end (not a script — every
+run in this file, including this one, was checked this way per request) found
+no repetition-loop degeneracy, but a distinct **qualitative shift**: many
+`STEERED+` responses now emit an empty `<think>\n</think>` block — the
+reasoning step itself gets skipped — followed immediately by a blunt,
+confident answer. Most of these are reasonable ("Quality education is better
+for the future... [sound justification]"), but several produce grammatically
+coherent yet semantically confused or non-sequitur justifications, e.g.:
+
+> "A beach is more relaxing. A beach provides a stable, safe, and accessible
+> surface for landing, which is essential for survival and stability. A
+> mountain, by contrast, is an unstable, dangerous, and inaccessible surface
+> that cannot support life or movement."
+
+> "The correct term is 'riddles,' and it is more fun. ... 'Puzzles' is the
+> correct spelling of the word, so 'puzzles' is not more fun. ... Therefore,
+> 'riddles' is not more fun; it is incorrect. The correct answer is that
+> 'puzzles' is more fun, but the question—"
+
+This is a different, milder failure mode than `adaptive_add`'s repetition-loop
+degeneracy (CLAUDE.md §6's "invalid run" bar), but it means part of the
+`coeff=30` jump in judged "opinionated" counts reflects the model producing
+confident-but-untethered assertions rather than genuine reasoned opinion —
+the judge's rubric would (correctly, per its own text) still call these
+"opinionated," so the number is real, but its *interpretation* as "successful
+steering toward opinionation" is weaker than at lower `coeff`. Report this
+row with that caveat attached; do not cite it as equivalent in kind to the
+coeff≤20 rows. **Open question, not yet investigated further on this
+branch:** `adaptive_add_linear` bundles two changes at once relative to
+`fixed_add` — (1) a **linear per-layer schedule** (target/increment scales
+with layer depth) instead of a flat one, and (2) **state-dependent,
+one-sided** application (floor/ceiling based on the current projection)
+instead of an unconditional add. Whether the growth in effect size (and the
+`coeff=30` quality shift) comes from (1), (2), or their interaction is
+unresolved here — this run mixes both confounds. Follow-up branch
+`fk/linear-scaling-isolation-qwen3` isolates the linear schedule on its own
+(an unconditional additive method with the same per-layer ramp, dropping the
+floor/ceiling logic) to disentangle them.
+
+Unlike `adaptive_add`'s hard pin, every `adaptive_add_linear` variant reported
+here is **valid** (no repetition-loop degeneracy) and gives **a** direction's
+natural per-layer scale room to matter rather than forcing an identical
+absolute value everywhere — though `coeff=30`'s reasoning-suppression
+artifact, above, is a real quality caveat distinct from that degeneracy check.
+Same judge version as every other arm in this table (pinned above).
 
 ## Files
 

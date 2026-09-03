@@ -364,4 +364,55 @@ fraction of tokens never get pushed at all, unlike `fixed_add`'s unconditional
 per-layer shift. Reported as a genuine method-comparison finding (both valid,
 different mechanisms), not as one method failing.
 
-*(Updated as the run progresses — see the bottom of this file for the latest status.)*
+## Follow-up: coeff=16/20/30 sweep, and a quality caveat at coeff=30 (2026-09-03)
+
+User noticed `adaptive_add_linear` (coeff=8) still trailed `fixed_add` and
+asked to try much larger coeffs (16, then 20, then, conditional on 20 being
+coherent, 30). Also gave explicit process feedback mid-investigation:
+**prefer manual coherence checks over an automated script** — I had built a
+zlib-compression heuristic (`logs/check_coherence.py`) calibrated against
+every known-degenerate/coherent run in this file, correctly separating them
+at a 0.20 threshold, and staged a coherence-gated conditional launcher around
+it; the user asked for manual review instead, so I killed that gate before it
+could fire and deleted the script, and manually read `logs/eval.txt`
+beginning/middle/end (not just a couple of grep'd lines) for every subsequent
+run before deciding to proceed.
+
+Effect size scaled with `coeff` past what earlier coeffs suggested was a
+structural ceiling:
+
+- coeff=16 (`runs/20260903-014921_...`): POS 68/150, NEG 36/50 — coherent.
+- coeff=20 (`runs/20260903-020329_...`): POS 83/152 (now **exceeds**
+  `fixed_add`'s 66/146), NEG 35/48 (looked like a plateau vs coeff=16 at the
+  time). Manually verified coherent across the full 200-example file before
+  launching coeff=30.
+- coeff=30 (`runs/20260903-021811_...`): POS 138/148 (93%, near saturation),
+  NEG 42/52 (81%, breaking the apparent coeff=20 plateau — that reading was
+  premature, not a real ceiling). **But**: manual read-through surfaced a
+  qualitative change, not just a bigger number — many `STEERED+` responses
+  now emit an empty `<think>\n</think>` (reasoning skipped) followed by a
+  blunt answer, and several of those post-hoc "explanations" are grammatically
+  fine but semantically non-sequitur (verbatim examples in `summary.md`).
+  This is NOT the old repetition-loop degeneracy (CLAUDE.md §6 invalid-run
+  bar) — every sentence is real English — but it means part of the coeff=30
+  jump reflects the model asserting confident nonsense rather than reasoned
+  opinion. Flagged explicitly in `summary.md` rather than reported as a clean
+  data point equivalent to the lower-coeff rows.
+
+**User's next ask, and the confound it identifies:** continue investigating,
+but first isolate a confound — `adaptive_add_linear` changed TWO things at
+once relative to `fixed_add`: the **linear per-layer schedule** (ramping
+target/increment with layer depth) AND the **state-dependent one-sided
+floor/ceiling** (only move toward target, from `apply_adaptive_additive_perlayer`'s
+hard-pin lineage). The observed growth-with-coeff and the coeff=30 quality
+shift could come from either change, or their interaction — this branch's
+runs can't distinguish them. Spun off `fk/linear-scaling-isolation-qwen3`
+(branched from this branch's tip) to test the linear schedule as an
+UNCONDITIONAL additive method (no floor/ceiling, no dependence on current
+projection — the same mechanism family as `fixed_add`/`apply_resid_pre_add`,
+just with a per-layer-ramped coefficient instead of a flat one). See that
+branch's handoff doc for the design and the reasoning behind isolating it
+this way.
+
+*(This file's history ends here for `fk/adaptive-steering-qwen3-run` — the
+isolation follow-up continues on `fk/linear-scaling-isolation-qwen3`.)*
