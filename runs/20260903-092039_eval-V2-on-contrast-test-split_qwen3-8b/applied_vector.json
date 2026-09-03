@@ -1,0 +1,5 @@
+{
+  "source_vector_path": "runs/20260903-062503_contrast-vectors-qwen3-8b_qwen3-8b/V2.safetensors",
+  "n_layers": 36,
+  "d_model": 4096
+}
