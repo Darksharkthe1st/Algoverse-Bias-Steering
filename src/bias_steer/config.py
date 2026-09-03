@@ -121,6 +121,11 @@ class ExperimentConfig:
     system_prompt: str = DEFAULT_SYS
     max_tokens: int = 128
     batch_size: int = 32
+    # Judge the model's ANSWER, not its reasoning trace. Reasoning models (qwen3)
+    # emit `<think>...</think>answer`; with this on, the judge sees the post-think
+    # answer (residuals are still captured over the full response). Off by default
+    # so non-reasoning models are unaffected.
+    strip_reasoning: bool = False
 
     def validate(self) -> "ExperimentConfig":
         """Structural checks that need no registries. Returns self for chaining.
@@ -172,4 +177,5 @@ def from_dict(d: dict) -> ExperimentConfig:
         system_prompt=d.get("system_prompt", DEFAULT_SYS),
         max_tokens=d.get("max_tokens", 128),
         batch_size=d.get("batch_size", 32),
+        strip_reasoning=d.get("strip_reasoning", False),
     )

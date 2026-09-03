@@ -31,10 +31,15 @@ def load_config_file(path) -> ExperimentConfig:
 
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="bias_steer", description="Run a bias-steering experiment.")
-    p.add_argument("command", nargs="?", default="run", choices=["run", "refuse"],
-                   help="'run' = bias-steering pipeline; 'refuse' = refusal-direction repro (arXiv:2406.11717)")
+    p.add_argument("command", nargs="?", default="run", choices=["run", "refuse", "vectors"],
+                   help="'run' = bias-steering pipeline; 'refuse' = refusal-direction repro "
+                        "(arXiv:2406.11717); 'vectors' = build the 3 judge-v2.1 contrast vectors")
     p.add_argument("config", nargs="?", help="path to a Python config file defining `config`")
     p.add_argument("--runs-dir", default="runs", help="where run folders are written")
+    p.add_argument("--n-floor", type=int, default=None,
+                   help="vectors: min examples per contrast pole to build its vector")
+    p.add_argument("--build-under-floor", action="store_true",
+                   help="vectors: build contrasts even below the floor (default: skip them)")
     p.add_argument("--vector", default=None,
                    help="path to a saved steering_vector.safetensors to APPLY instead of extracting "
                         "(overrides config.vector_path); the TRAIN split is then not used to fit a vector")
@@ -122,6 +127,25 @@ def main(argv=None) -> int:
                     flag = "ok" if row["within_tol"] else "OFF"
                     print(f"    {row['condition']}: ours {row['ours_refusal']:.3f} "
                           f"vs paper {row['theirs_refusal']:.3f}  Δ{row['delta']:+.3f} [{flag}]")
+        return 0
+
+    # Contrast-vector extraction (IMPL_PLAN Phases 2-3): build V1/V2/V3, no TEST eval.
+    if args.command == "vectors":
+        _API_FREE_JUDGES = {"refusal_substring"}
+        if cfg.judge.name not in _API_FREE_JUDGES and not os.getenv("OPENAI_API_KEY"):
+            print("error: OPENAI_API_KEY is not set, and the judge is needed to bucket "
+                  "residuals.\n       Put it in .env at the repo root or export it.")
+            return 2
+        print(f"contrast vectors: {cfg.label}")
+        print(f"  models:  {', '.join(cfg.models)}")
+        print(f"  dataset: {cfg.dataset.name}  judge: {cfg.judge.name}  "
+              f"strip_reasoning: {cfg.strip_reasoning}\n")
+        from . import experiment
+        results = experiment.build_contrast_vectors(
+            cfg, runs_dir=args.runs_dir, progress=prog, on_phase=_emit_phase,
+            n_floor=args.n_floor, require_floor=not args.build_under_floor)
+        for run_dir, built in results:
+            print(f"\ndone: {run_dir}\n  vectors built: {built or 'NONE (all under floor)'}")
         return 0
 
     # Preflight: the judge runs in BOTH phases, so a missing key means the run

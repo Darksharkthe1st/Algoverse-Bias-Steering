@@ -18,13 +18,10 @@ only torch touch is `build_three_vectors`, which delegates to
 
 from __future__ import annotations
 
-import json
 from collections import Counter
-from pathlib import Path
 from typing import Callable
 
 from .judges.v2 import collapse
-from .steering import assert_steering_shape
 
 # The pooled "any stance" bucket = stance-factual + stance-evaluative.
 STANCE = "stance"
@@ -91,16 +88,6 @@ def floor_gate(
     return report
 
 
-def format_gate(gate: dict[str, dict]) -> str:
-    """The Phase 2 observable: a small table of each contrast's pole counts + verdict."""
-    lines = [f"{'vector':6} {'contrast':34} {'pos_n':>6} {'neg_n':>6}  floor"]
-    for name, r in gate.items():
-        contrast = f"{r['pos']} <- {r['neg']}"
-        flag = "OK" if r["buildable"] else f"UNDER (<{r['n_floor']})"
-        lines.append(f"{name:6} {contrast:34} {r['pos_n']:>6} {r['neg_n']:>6}  {flag}")
-    return "\n".join(lines)
-
-
 def build_three_vectors(
     buckets: dict[str, list],
     *,
@@ -129,72 +116,3 @@ def build_three_vectors(
             continue
         vectors[name] = build(buckets, (pos, neg))
     return vectors
-
-
-# --------------------------------------------------------------------------- #
-# Phase 3: validate + persist the built vectors, with a per-layer norm profile.
-# --------------------------------------------------------------------------- #
-
-def norm_profile(vector) -> list[float]:
-    """Per-layer L2 norm of a (n_layers, d_model) vector -> list of n_layers floats.
-
-    The norm profile is the cheap sanity read on a built vector: a near-zero layer
-    means that layer's two class means barely differ (nothing to steer there), and
-    a wildly spiking layer flags a degenerate bucket. Logged in the manifest so a
-    reviewer can eyeball the vector without loading tensors.
-    """
-    return [float(vector[i].norm()) for i in range(vector.shape[0])]
-
-
-def save_three_vectors(
-    vectors: dict[str, object],
-    out_dir,
-    *,
-    n_layers: int,
-    d_model: int,
-    buckets: dict[str, list] | None = None,
-    judge_version: str = "v2.1",
-    contrasts: dict[str, tuple[str, str]] = CONTRASTS,
-    save_fn: Callable | None = None,
-    norm_fn: Callable = norm_profile,
-) -> dict:
-    """Validate every built vector, save each to `<out_dir>/<name>.safetensors`, and
-    write `<out_dir>/vectors_manifest.json`. Returns the manifest dict.
-
-    Each vector is shape-checked with `assert_steering_shape` (the (n_layers,
-    d_model) guard, CLAUDE.md §6) BEFORE it is saved — a mis-shaped vector fails
-    loud here, not silently in a later run. The manifest records, per vector, its
-    contrast, shape, per-layer norm profile, and (if `buckets` given) the pole
-    counts it was built from — the provenance a reviewer needs.
-
-    `save_fn` defaults to `artifacts.save_vector` (which re-asserts shape at the
-    safetensors boundary); injected, along with `norm_fn`, for torch-free testing.
-    """
-    out = Path(out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    if save_fn is None:
-        from . import artifacts
-        save_fn = artifacts.save_vector
-
-    counts = bucket_counts(buckets) if buckets is not None else {}
-    manifest = {
-        "judge_version": judge_version,
-        "n_layers": n_layers,
-        "d_model": d_model,
-        "vectors": {},
-    }
-    for name, vector in vectors.items():
-        assert_steering_shape(vector, n_layers, d_model)
-        pos, neg = contrasts[name]
-        path = out / f"{name}.safetensors"
-        save_fn(path, vector, n_layers=n_layers, d_model=d_model)
-        manifest["vectors"][name] = {
-            "contrast": {"pos": pos, "neg": neg},
-            "shape": [n_layers, d_model],
-            "norm_profile": norm_fn(vector),
-            "pos_n": counts.get(pos),
-            "neg_n": counts.get(neg),
-            "path": path.name,
-        }
-    (out / "vectors_manifest.json").write_text(json.dumps(manifest, indent=2))
-    return manifest

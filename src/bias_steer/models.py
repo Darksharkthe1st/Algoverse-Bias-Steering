@@ -15,6 +15,22 @@ from .config import ModelSpec
 from .registry import register, MODELS
 
 
+_THINK_CLOSE = "</think>"
+
+
+def answer_text(response: str) -> str:
+    """The model's answer with any reasoning trace stripped.
+
+    Reasoning models (qwen3) emit ``<think>...</think>answer``; the answer is
+    everything after the LAST ``</think>``. Responses without the marker are
+    returned unchanged, so this is safe to apply to any model's output. Used to
+    feed the JUDGE the answer rather than the reasoning trace (config
+    ``strip_reasoning``); residual capture still uses the full response.
+    """
+    i = response.rfind(_THINK_CLOSE)
+    return response[i + len(_THINK_CLOSE):].strip() if i != -1 else response
+
+
 def get_device() -> str:
     """CUDA (RunPod/Lambda) > MPS (Apple) > CPU. Ports notebook `getDevice`."""
     import torch

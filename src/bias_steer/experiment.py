@@ -15,6 +15,7 @@ whole wiring runs without torch/OpenAI; the numeric correctness of capture/build
 lives in the (torch-gated) steering tests.
 """
 
+import csv
 import json
 import random
 from dataclasses import dataclass
@@ -22,7 +23,7 @@ from pathlib import Path
 from typing import Callable
 
 from ..utils import get_current_time_str
-from . import artifacts, datasets, metrics, models, steering
+from . import artifacts, contrasts, datasets, metrics, models, steering
 from .config import ExperimentConfig
 from .logs import RunLogger
 from .registry import DATASETS, JUDGES, METHODS, MODELS, validate
@@ -238,6 +239,32 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
     return RunResult(handle.run_id, handle.dir, results_csv, summary_md, counts, quality)
 
 
+def _capture_by_verdict(config, examples, loaded, method, judge_fn, backend,
+                        n_layers, progress, log, *, desc, answer_of=None):
+    """Generate on `examples`, judge each response, bucket its residual by verdict.
+
+    Returns `resids_by_label` and logs each `(example, judged_text, verdict)` via
+    `log.train` as it goes. `answer_of`, if given, transforms each response BEFORE
+    judging (e.g. strip a reasoning trace); the residual is always captured over the
+    full response. Shared by `_extract_vector` (one vector) and
+    `build_contrast_vectors` (the three v2.1 contrasts).
+    """
+    sys_prompt = config.system_prompt
+    resids_by_label: dict = {}
+    for batch in progress(list(_batches(examples, config.batch_size)), desc=desc):
+        prompts = [e.prompt for e in batch]
+        responses, caches = backend.generate_with_cache(
+            loaded, prompts, config.max_tokens, sys_prompt,
+            capture_names=method.names(n_layers),
+        )
+        judged = [answer_of(r) for r in responses] if answer_of else responses
+        verdicts = judge_fn(judged, batch, config.judge)
+        for ex, text, cache, verdict in zip(batch, judged, caches, verdicts):
+            resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))
+            log.train(ex, text, verdict)
+    return resids_by_label
+
+
 def _extract_vector(config, model_key, train, loaded, method, judge_fn, contrast,
                     backend, handle, log, n_layers, d_model, progress):
     """Generate the steering vector from the TRAIN split (the default source).
@@ -247,18 +274,9 @@ def _extract_vector(config, model_key, train, loaded, method, judge_fn, contrast
     and the per-bucket residuals into the run folder. Called by `_run_one` ONLY
     when no vector was supplied — it is the "make a new vector" half of a run.
     """
-    sys_prompt = config.system_prompt
-    resids_by_label: dict = {}
-    for batch in progress(list(_batches(train, config.batch_size)), desc=f"{model_key} train"):
-        prompts = [e.prompt for e in batch]
-        responses, caches = backend.generate_with_cache(
-            loaded, prompts, config.max_tokens, sys_prompt,
-            capture_names=method.names(n_layers),
-        )
-        verdicts = judge_fn(responses, batch, config.judge)
-        for ex, resp, cache, verdict in zip(batch, responses, caches, verdicts):
-            resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))
-            log.train(ex, resp, verdict)
+    resids_by_label = _capture_by_verdict(
+        config, train, loaded, method, judge_fn, backend, n_layers, progress, log,
+        desc=f"{model_key} train")
 
     log.event(f"building steering vector (buckets: "
               f"{ {k: len(v) for k, v in resids_by_label.items()} })")
@@ -338,3 +356,76 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
 
 
     return RunResult(handle.run_id, handle.dir, results_csv, summary_md, counts, quality)
+
+# --------------------------------------------------------------------------- #
+# Contrast-vector extraction (IMPL_PLAN_judge_steer_v2.1.md Phase 2-3).
+#
+# Sibling of run(): same TRAIN capture loop, but instead of one difference-of-means
+# it builds the THREE judge-v2.1 contrasts (collapse the fine verdicts + pool the
+# stance labels -> the buckets, then build_mean_difference per contrast). No eval
+# here — that is Phase 4, which reuses run()'s eval tail on the held-out split.
+# --------------------------------------------------------------------------- #
+
+def build_contrast_vectors(config: ExperimentConfig, *, backend: Backend | None = None,
+                           runs_dir="runs", progress=None, on_phase=None,
+                           n_floor: int | None = None,
+                           require_floor: bool = True) -> list[tuple]:
+    """Build the 3 judge-v2.1 contrast vectors for each model; return (run_dir, built).
+
+    Same front half as `run()` (dataset, seeded TRAIN/TEST split), the shared capture
+    loop, then `contrasts.{collapse_and_pool, build_three_vectors}`. Saves each
+    buildable vector as `<name>.safetensors` and writes the held-out `test_split.csv`
+    for Phase 4. `config.strip_reasoning` decides whether the judge sees the answer
+    or the full reasoning trace.
+    """
+    backend = backend or Backend()
+    progress = progress or (lambda it, **kw: it)
+    on_phase = on_phase or (lambda phase, run_id: None)
+    n_floor = contrasts.DEFAULT_N_FLOOR if n_floor is None else n_floor
+    config.validate()
+    validate(config)
+
+    examples = DATASETS[config.dataset.name](config.dataset)
+    examples = datasets.sample(examples, config.sample)
+    if config.dataset.shuffle:
+        random.Random(config.sample.seed).shuffle(examples)
+    n_train = int(len(examples) * config.dataset.train_split)
+    train, test = examples[:n_train], examples[n_train:]
+
+    method = METHODS[config.method]
+    judge_fn = JUDGES[config.judge.name]
+    answer_of = models.answer_text if config.strip_reasoning else None
+
+    out = []
+    for model_key in config.models:
+        when = get_current_time_str()
+        handle = open_run(config, model_key, runs_dir=runs_dir, when=when)
+        log = RunLogger(handle.dir)
+        spec = MODELS[model_key]
+        log.event(f"loading model {spec.hf_id}")
+        loaded = backend.load(spec)
+        n_layers, d_model = loaded.model.cfg.n_layers, loaded.model.cfg.d_model
+
+        resids = _capture_by_verdict(
+            config, train, loaded, method, judge_fn, backend, n_layers, progress, log,
+            desc=f"{model_key} train", answer_of=answer_of)
+
+        buckets = contrasts.collapse_and_pool(resids)
+        vectors = contrasts.build_three_vectors(
+            buckets, build=method.build, n_floor=n_floor, require_floor=require_floor)
+        for name, vector in vectors.items():
+            backend.save_vector(handle.dir / f"{name}.safetensors", vector,
+                                n_layers=n_layers, d_model=d_model)
+
+        # held-out split for Phase 4 (which reuses run()'s eval tail).
+        with open(handle.dir / "test_split.csv", "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=["item_id", "prompt"])
+            w.writeheader()
+            for e in test:
+                w.writerow({"item_id": e.id, "prompt": e.prompt})
+
+        log.event(f"buckets { {k: len(v) for k, v in buckets.items()} }; "
+                  f"built {list(vectors) or 'NONE (all under floor)'}")
+        on_phase("vectors", handle.run_id)
+        out.append((handle.dir, list(vectors)))
+    return out
