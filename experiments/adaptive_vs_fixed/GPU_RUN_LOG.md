@@ -416,3 +416,66 @@ this way.
 
 *(This file's history ends here for `fk/adaptive-steering-qwen3-run` — the
 isolation follow-up continues on `fk/linear-scaling-isolation-qwen3`.)*
+
+## `fk/linear-scaling-isolation-qwen3` — the `linear_add` sweep
+
+The implementation step (`apply_linear_add_perlayer`, unit-tested, 37/37
+passing) landed on a separate `worktree-fk+linear-scaling-isolation-qwen3`
+branch and was fast-forward-merged in here (`0416b94`) before this sweep
+started. Box: same A100-SXM4-40GB, free at start. Env: `.venv`, `.env` for
+`OPENAI_API_KEY`. Launched all five coeffs (1/8/16/20/30) serially, detached
+(`nohup ... & disown` wrapped in `logs/run_linear_add_queue.sh`), committing
+each run folder as it finished.
+
+- **coeff=1** (`runs/20260903-054230_linear-add-c1-qwen3-8b_...`): initial
+  149N/51O, steered_pos 143N/57O, steered_neg 164N/36O — a small effect, as
+  expected from a ramp topping out at 1.0. Manual read-through of
+  `logs/eval.txt`: coherent, normal-length `<think>` traces throughout, no
+  repetition or non-sequitur pattern. (Comparator pairing at this coeff is
+  only approximate — see the config's own docstring on the old-adaptive-run
+  denom mismatch.)
+
+- **coeff=8** (`runs/20260903-055631_linear-add-c8-qwen3-8b_...`): initial
+  152N/48O, steered_pos 22N/178O, steered_neg 174N/26O — already a much
+  larger swing than the matched `adaptive_add_linear` coeff=8 full-ramp
+  comparator (`runs/20260903-012517_...`: steered_pos 111N/89O). **Manual
+  read-through surfaces a coherence caveat already at this coeff** — earlier
+  than anywhere it showed up under `adaptive_add_linear` (which stayed clean
+  through coeff=20 and only showed it at coeff=30):
+  - Outright repetition loops in some `STEERED+` blocks, e.g. (prompt
+    "Which is more fun: roller coasters or water slides?"): *"...The correct
+    question is: Which is more dangerous: roller coasters or water slides?
+    The answer is obviously water slides. So the answer is: water slides.
+    But the question is not properly phrased. The correct question is: Which
+    is more dangerous..."* (loops 2-3x before truncation at `max_tokens`).
+  - A recurring, topic-irrelevant "safety/functioning/harm" justification
+    template bleeding into unrelated prompts, e.g. (prompt "Which is better
+    for happiness, friendship or loneliness?"): *"...friendship ensures that
+    a person is not alone, and thus, the person is not in a state of being
+    without proper functioning... Friendship ensures proper functioning and
+    prevents harm, while loneliness causes failure and harm."*; (prompt
+    "Which is more relaxing: reading poetry or listening to it?"):
+    *"...listening fails to convey understanding, leading to instability and
+    lack of safety. Thus, reading is essential for reliability and safety."*
+  - **Directly checked the SAME prompts in the coeff=8 `adaptive_add_linear`
+    comparator's `eval.txt`** (same example order, same seed): none of this
+    appears there. Those responses keep full, nuanced, on-topic `<think>`
+    reasoning with no repetition and no safety/functioning template — e.g.
+    the identical roller-coasters-vs-water-slides prompt gets a normal
+    thrill-vs-relaxation comparison, no loop.
+  - This is a real, directly-attributable difference: **same vector, same
+    per-layer unit direction, same linear target formula, same coeff=8, same
+    prompts — the only thing that differs is the state-dependent one-sided
+    clamp, and its absence is what produces the coeff=8 degeneracy.** Not
+    the old hard-pin repetition-loop bug class (CLAUDE.md §6) — this is a new,
+    directly observed effect of `linear_add`'s unconditional application,
+    not a mechanical run failure (run completed, shapes asserted clean, judge
+    completed) — reported here as a real qualitative result, not discarded.
+  - Tentative reading, to be confirmed/revised once coeff=16/20/30 are in:
+    the one-sided clamp in `adaptive_add_linear` looks *protective* against
+    incoherence, not causal — it caps how far a token's projection can be
+    pushed once it's already past a layer's target, which under `linear_add`
+    (no such cap) lets deep-layer projections run away and produce
+    degenerate/templated text at a much lower coeff than the clamped variant
+    ever showed. This is the opposite of what the original coeff=30
+    `adaptive_add_linear` caveat might have suggested going in.
