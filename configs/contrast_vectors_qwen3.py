@@ -35,6 +35,6 @@ config = ExperimentConfig(
     coeffs=Coeffs(opinion=0.0, neutral=0.0),     # unused for vector extraction (no steering eval)
     method="mean_diff",
     max_tokens=2048,                             # room for qwen3 <think> + a full answer
-    batch_size=8,
+    batch_size=64,
     strip_reasoning=True,                        # qwen3 emits <think>...</think>; judge the answer
 )

@@ -72,6 +72,15 @@ def load_model(spec: ModelSpec, device: str | None = None) -> LoadedModel:
     )
     model.eval()
     model.to(device)
+    if model.cfg.positional_embedding_type == "rotary" and model.cfg.n_ctx < 4096:
+        # TransformerLens leaves `n_ctx` at its library default (2048) for some
+        # models (observed on Qwen3-8B) rather than the model's real context
+        # window. `apply_rotary`'s dynamic cache-extension clamps to `n_ctx`
+        # instead of growing past it, so any prompt+generation over 2048 tokens
+        # hits an out-of-bounds CUDA assert. Rotary caches are cheap (a
+        # (n_ctx, rotary_dim) sin/cos table), so raise the ceiling well above
+        # this repo's `max_tokens` budgets rather than truncate generations.
+        model.cfg.n_ctx = 4096
     return LoadedModel(model=model, tokenizer=model.tokenizer, spec=spec, device=device)
 
 
@@ -166,15 +175,23 @@ def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_pro
     Defaults to the `resid_pre` names used by `capture_mean` / `capture_last`; a
     method reading other hook points passes its own (see `SteeringMethod.names`).
     """
+    import torch
+
     responses = generate(loaded, prompts, max_new_tokens, system_prompt)
     if capture_names is None:
         n_layers = loaded.model.cfg.n_layers
         capture_names = [f"blocks.{i}.hook_resid_pre" for i in range(n_layers)]
     wanted = set(capture_names)
-    caches = [
-        loaded.model.run_with_cache(r, names_filter=lambda n: n in wanted)[1]
-        for r in responses
-    ]
+    # `run_with_cache` (unlike `generate`, which is `@torch.inference_mode()`)
+    # builds a full autograd graph by default — every layer's activations kept
+    # alive for a `.backward()` we never call. For a long response over an 8B
+    # model that alone can burn tens of GB independent of batch size, which is
+    # what caused repeated OOMs here regardless of how small `batch_size` got.
+    with torch.no_grad():
+        caches = [
+            loaded.model.run_with_cache(r, names_filter=lambda n: n in wanted)[1]
+            for r in responses
+        ]
     return responses, caches
 
 
