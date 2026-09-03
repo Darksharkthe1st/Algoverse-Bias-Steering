@@ -1,0 +1,6 @@
+coeff,target_rate,guard_frac,n,chosen
+-8,0.0267,0.0,150,False
+-4,0.0733,0.0,150,False
+0,0.1267,0.0,150,False
+4,0.2733,0.0,150,False
+8,0.4333,0.0,150,True
