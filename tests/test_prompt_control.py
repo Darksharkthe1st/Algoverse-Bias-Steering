@@ -161,6 +161,9 @@ def test_both_mode_runs_all_five_arms_and_compares():
         summary = (r.dir / "summary.md").read_text(encoding="utf-8")
         assert "Steer vs prompt (per-item" in summary
         assert "Prompt-baseline quality" in summary and "Steering quality (vector)" in summary
+        # The complementarity split (which questions each method won) is rendered, so a
+        # near-zero Δ can be read as agreement vs cancellation, not just "no difference".
+        assert "per-item: both" in summary and "discordant" in summary
 
 
 def test_steer_mode_is_unchanged():

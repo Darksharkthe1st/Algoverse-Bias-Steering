@@ -232,6 +232,17 @@ def beat_rate(results, *, target_label, steer_cond, prompt_cond,
     is the honest boundary result the literature reports for single-direction additive
     steering vs prompting (needed-experiments §14, FK-5) — report it, don't soften it.
 
+    `point` is a NET margin and hides complementarity: a run where the two methods hit
+    the target equally often on aggregate (`point`≈0) can be one where they succeed on
+    the SAME items or on DISJOINT items, and those are different findings. So this also
+    returns the paired 2×2 (`both`, `steer_only`, `prompt_only`, `neither`): the two
+    discordant cells are the per-item disagreement, `point = (steer_only − prompt_only)/n`,
+    and `discordant = steer_only + prompt_only` is how much a near-zero `point` is
+    cancellation rather than agreement. This is the "which questions each method actually
+    worked for" split (the 2025 opinion-prompt finding: prompt ≈ vector on aggregate,
+    but each won a different subset). `both`/`neither` count items neither method
+    distinguishes.
+
     Returns None if neither arm is present (e.g. a steer-only or prompt-only run).
     """
     by_ex = _by_example(results)
@@ -249,6 +260,13 @@ def beat_rate(results, *, target_label, steer_cond, prompt_cond,
     diffs = [s - p for s, p in zip(steer_hits, prompt_hits)]
     point = sum(diffs) / n
 
+    # Paired 2×2 (McNemar cells): the discordant pairs ARE the complementarity that
+    # `point` (their signed difference over n) collapses.
+    both = sum(1 for s, p in zip(steer_hits, prompt_hits) if s and p)
+    steer_only = sum(1 for s, p in zip(steer_hits, prompt_hits) if s and not p)
+    prompt_only = sum(1 for s, p in zip(steer_hits, prompt_hits) if p and not s)
+    neither = n - both - steer_only - prompt_only
+
     rng = random.Random(seed)
     boots = []
     for _ in range(n_boot):
@@ -261,6 +279,8 @@ def beat_rate(results, *, target_label, steer_cond, prompt_cond,
         "n": n, "target": target_label, "ci": ci,
         "steer_rate": sum(steer_hits) / n, "prompt_rate": sum(prompt_hits) / n,
         "point": point, "ci_lo": lo, "ci_hi": hi,
+        "both": both, "steer_only": steer_only, "prompt_only": prompt_only,
+        "neither": neither, "discordant": steer_only + prompt_only,
     }
 
 
@@ -318,11 +338,20 @@ def render_summary(*, run_id, label, model, dataset, coeffs, git, n_train, n_tes
                 f"Δ={br['point']:+.3f}  [{int(br['ci']*100)}% CI "
                 f"{br['ci_lo']:+.3f}, {br['ci_hi']:+.3f}]  → {verdict}"
             )
+            lines.append(
+                f"  - per-item: both {br['both']} · steer-only {br['steer_only']} · "
+                f"prompt-only {br['prompt_only']} · neither {br['neither']}  "
+                f"(discordant {br['discordant']})"
+            )
         if lines:
             sections.append(
                 "## Steer vs prompt (per-item, item-bootstrap CI)\n"
                 + "\n".join(lines)
                 + "\n\n_Δ>0 with a CI clear of 0 = the direction beats prompting; "
-                "otherwise report the bound (needed-experiments §14, FK-5)._\n"
+                "otherwise report the bound (needed-experiments §14, FK-5). Read the "
+                "discordant cells before concluding 'no difference': a small Δ with a "
+                "large `discordant` count means the methods are COMPLEMENTARY — each wins "
+                "a different subset of items (steer-only vs prompt-only) — not "
+                "interchangeable._\n"
             )
     return "\n".join(sections)

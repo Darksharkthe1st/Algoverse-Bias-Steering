@@ -88,14 +88,56 @@ python -m src.bias_steer run configs/prompt_baseline_opinion.py \
 The supplied vector must be a `qwen3-8b (n_layers, d_model)` tensor — the shape
 guard rejects a mismatch (this is the Log-213 scalar-broadcast class of bug;
 AGENTS.md §6). `summary.md` gains a **"Steer vs prompt (per-item)"** section with
-Δ and a 90% item-bootstrap CI per direction.
+Δ and a 90% item-bootstrap CI per direction, plus the paired 2×2 cells (see §2.1).
+
+### 2.1 Read the complementarity, not just Δ — the expected result here
+
+**Prior (2025, unpushed) result on these opinion prompts: the prompt baseline was
+roughly as good as the steering vector *on aggregate*, but the two methods won on
+DIFFERENT items — vector steering flipped some prompts to the target that prompting
+did not, and prompting flipped others that steering did not.** That is
+complementarity, and it is the headline of this experiment, not a footnote.
+
+The net Δ (`beat_rate.point`, mean of steer-hit − prompt-hit) **cannot show this** —
+Δ≈0 is equally consistent with "both methods succeed on the same items" and "each
+succeeds on a disjoint subset." So the summary's per-item line reports the paired
+2×2 explicitly: `both · steer-only · prompt-only · neither`, with
+`discordant = steer-only + prompt-only`. Read it this way:
+
+- **large `discordant`, small Δ → complementary** (the expected 2025 finding): the
+  methods are NOT interchangeable; report the split, not "no difference."
+- **small `discordant` → concordant**: whichever wins Δ wins nearly item-for-item.
+
+Do **not** collapse a complementary result into "prompting is just as good." The
+claim the paper can make is per-item: *which* prompts each method moves, and how
+much they overlap — that is what `steer-only`/`prompt-only` quantify. (Judge drift
+is ±1–2/100 single-shot — §0.2 — so treat discordant counts near that band as noise.)
 
 ## What to log / definition of done
 
 A run is done when its evidence exists and validates (`WORK_LEDGER.md`):
 `results.csv` + `summary.md` + `manifest.json` on disk, both prompt arms
 non-trivially populated (per the §1 gate), and — for `both` — the beat-rate Δ with
-its CI recorded. Push the run folder under `runs/` following the `Log_N_*`
-convention. Report the outcome honestly either way: **if single-direction additive
-steering does not beat the prompt baseline, that IS the boundary result the
-literature reports (FK-5) — log it as an honest negative, do not soften it.**
+its CI **and the paired 2×2 cells (§2.1)** recorded. Report the outcome honestly
+either way: **if single-direction additive steering does not beat the prompt
+baseline on Δ, that IS the boundary result the literature reports (FK-5) — log it as
+an honest negative, do not soften it — and if the two are complementary (§2.1), that
+per-item split is the result, not a null.**
+
+### Commit and push — non-negotiable (this run was lost once already)
+
+**Every change and every artifact MUST be committed and pushed to GitHub, on a
+branch, before the box is released.** The 2025 run of this exact experiment was
+performed on the GPU box and **never pushed** — the results, and the finding above,
+were lost with the box. Do not repeat it. Concretely, before you stop:
+
+1. Push the run folder under `runs/` (the `Log_N_*` convention) — `results.csv`,
+   `summary.md`, `manifest.json`, `examples.csv`.
+2. Commit and push **any code, config, or doc change you made to get the run to
+   work** — a fix is not done until it is on GitHub (AGENTS.md §7: push runs to
+   branches; no hand-edited conclusions).
+3. Launch long jobs **detached** from the session (see `fk/qwen3-8b-opinion-vector`)
+   and push incrementally, so a dropped session cannot strand the outputs on the box.
+
+A run whose evidence exists only on the box does **not** satisfy the definition of
+done — it is indistinguishable from a run that never happened.
