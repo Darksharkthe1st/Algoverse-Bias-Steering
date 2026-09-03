@@ -64,7 +64,7 @@ def _batches(seq, n):
 
 
 def steer_and_judge(backend, loaded, examples, method, vector, coeff, judge_fn,
-                    judge_spec, *, max_tokens, sys_prompt):
+                    judge_spec, *, max_tokens, sys_prompt, answer_of=None):
     """Apply `vector` at `coeff` (via `method.apply` hooks), generate on `examples`,
     and judge. Returns `(responses, labels)`.
 
@@ -73,14 +73,21 @@ def steer_and_judge(backend, loaded, examples, method, vector, coeff, judge_fn,
     INITIAL condition and a coeff-sweep's baseline are the same code. Shared by
     `_evaluate_and_persist` (initial + both steered directions) and the Phase-4
     coeff sweep (one direction across a grid). The caller is responsible for moving
-    `vector` on-device ONCE before looping (a per-batch copy would be wasteful)."""
+    `vector` on-device ONCE before looping (a per-batch copy would be wasteful).
+
+    `answer_of`, if given, transforms each response BEFORE judging (e.g. strip a
+    reasoning trace) — mirrors `_capture_by_verdict`'s `answer_of`, so a reasoning
+    model judged consistently at build time (`config.strip_reasoning`) is judged
+    the same way here; `responses` returned to the caller are always the full,
+    untransformed text."""
     prompts = [e.prompt for e in examples]
     if vector is None or coeff == 0:
         responses = backend.generate(loaded, prompts, max_tokens, sys_prompt)
     else:
         hooks = method.apply(loaded.model, vector, coeff)
         responses = backend.generate_with_hooks(loaded, prompts, hooks, max_tokens, sys_prompt)
-    return responses, judge_fn(responses, examples, judge_spec)
+    judged = [answer_of(r) for r in responses] if answer_of else responses
+    return responses, judge_fn(judged, examples, judge_spec)
 
 
 def _contrast(config: ExperimentConfig):
@@ -187,6 +194,7 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
     `phase_desc` only affect the summary/index label and the progress bar.
     """
     sys_prompt = config.system_prompt
+    answer_of = models.answer_text if config.strip_reasoning else None
 
     # Move the vector on-device ONCE: it is applied at every layer on every forward
     # step of the TEST phase, so a per-hook-fire transfer would recopy it thousands
@@ -200,6 +208,7 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
                           desc=f"{model_key} {phase_desc}"):
         sj = lambda coeff: steer_and_judge(  # noqa: E731
             backend, loaded, batch, method, vector, coeff, judge_fn, config.judge,
+            answer_of=answer_of,
             max_tokens=config.max_tokens, sys_prompt=sys_prompt)
         initial, j_init = sj(0.0)
         steered_pos, j_pos = sj(config.coeffs.opinion)
