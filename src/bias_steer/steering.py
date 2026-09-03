@@ -299,16 +299,21 @@ def apply_adaptive_additive_perlayer(model, vector, coeff: float,
 
 
 def apply_adaptive_additive_linear_floor(model, vector, coeff: float = 1.0,
-                                         *, denom: float = 52.0,
+                                         *, denom: float | None = None,
                                          all_resid_points: bool = False):
     """Adaptive additive steering with a per-layer LINEAR target, applied as a
     one-sided floor/ceiling rather than `apply_adaptive_additive_perlayer`'s hard
     pin.
 
-    At layer L (1-indexed), `target_L = coeff * L / denom` -- with the default
-    `denom=52` and `coeff=1`: layer 1 -> 1/52, layer 2 -> 2/52, ..., so later
-    layers get a larger target than earlier ones, instead of one global scalar
-    repeated at every layer.
+    At layer L (1-indexed), `target_L = coeff * L / denom` -- later layers get a
+    larger target than earlier ones, instead of one global scalar repeated at
+    every layer. `denom` defaults to the model's own `n_layers`, so the ramp
+    reaches exactly `coeff` at the deepest layer (`target_{n_layers} == coeff`)
+    regardless of how many layers the model has; pass an explicit `denom` to
+    reproduce a fixed-denominator schedule instead (e.g. the first committed
+    `adaptive_add_linear` run on Qwen3-8b, n_layers=36, used a literal `denom=52`
+    predating this default, so its targets topped out at `coeff*36/52`, not
+    `coeff` -- see experiments/adaptive_vs_fixed/GPU_RUN_LOG.md).
 
     The pin-to-target sibling forces `(x·r̂_L) == target_L` exactly, even when that
     means SUBTRACTING a large existing projection back down to hit a small target
@@ -338,6 +343,7 @@ def apply_adaptive_additive_linear_floor(model, vector, coeff: float = 1.0,
 
     n_layers = model.cfg.n_layers
     assert_steering_shape(vector, n_layers, getattr(model.cfg, "d_model", None))
+    denom = denom if denom is not None else n_layers
     r_hat = unit_perlayer(vector)
 
     def _floor(value, hook, r, target):

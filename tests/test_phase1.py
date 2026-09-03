@@ -664,6 +664,32 @@ def test_adaptive_additive_linear_floor_never_subtracts_above_target():
     assert torch.allclose(out2, x_below, atol=1e-5), "ceiling: below-target projection was raised, expected no-op"
 
 
+def test_adaptive_additive_linear_floor_default_denom_reaches_coeff_at_last_layer():
+    """With no explicit `denom`, the ramp uses the model's own n_layers, so the
+    deepest layer's target is exactly `coeff` -- regardless of how many layers
+    the model has (not tied to a fixed constant like the earlier 52)."""
+    if not _HAS_TORCH:
+        print("      (skipped: torch not installed)")
+        return
+    import torch
+
+    torch.manual_seed(4)
+    n_layers, d_model = 5, 6
+    model = _FakeModel(n_layers, d_model)
+    vector = torch.randn(n_layers, d_model)
+    r_hat = steering.unit_perlayer(vector)
+    coeff = 8.0
+
+    hooks = steering.apply_adaptive_additive_linear_floor(model, vector, coeff=coeff)
+    last_layer = n_layers - 1
+    _, fn = hooks[last_layer]
+    x_below = (r_hat[last_layer] * (coeff - 1.0)).reshape(1, 1, d_model).clone()
+    out = fn(x_below.clone(), hook=None)
+    proj = (out @ r_hat[last_layer]).item()
+    assert abs(proj - coeff) < 1e-4, \
+        f"default denom should make the last layer's target == coeff, got {proj}"
+
+
 def test_adaptive_hook_asserts_shapes_at_the_arithmetic():
     """The in-hook guard fires if a direction/residual width mismatch reaches the
     projection step — the silent-broadcast bug class, caught at the arithmetic and

@@ -11,3 +11,4 @@ run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,
 20260902-095400_adaptive-add-target4-qwen3-8b_qwen3-8b,adaptive-add-target4 qwen3-8b,qwen3-8b,snapshot,adaptive_add,4.0,4.0,b7c53eed19c06b8342b12b11a3a26ce1a720b4c9,True,20260902-095400,done,0,200,0,47
 20260902-100757_adaptive-add-target8-qwen3-8b_qwen3-8b,adaptive-add-target8 qwen3-8b,qwen3-8b,snapshot,adaptive_add,8.0,8.0,b7c53eed19c06b8342b12b11a3a26ce1a720b4c9,True,20260902-100757,done,0,200,0,50
 20260903-004434_adaptive-add-linear-qwen3-8b_qwen3-8b,adaptive-add-linear qwen3-8b,qwen3-8b,snapshot,adaptive_add_linear,1.0,1.0,8800fe33a5503953930111204a48315843405d34,True,20260903-004434,done,0,200,31,36
+20260903-011119_adaptive-add-linear-c8-qwen3-8b_qwen3-8b,adaptive-add-linear-c8 qwen3-8b,qwen3-8b,snapshot,adaptive_add_linear,8.0,8.0,130bf259cd6c9fca1b327b98065a11692af34819,True,20260903-011119,done,0,200,35,30
