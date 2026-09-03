@@ -53,6 +53,44 @@ so "did the direction beat simply *asking*?" is a **per-item paired comparison**
 python -c "import transformer_lens, torch; print(transformer_lens.__version__, torch.__version__, torch.cuda.is_available())"
 ```
 
+### 0.3 `qwen3-8b` defaults to thinking mode — set `config.enable_thinking = False`
+
+**This is not optional for any config that judges qwen3-8b's raw response text.**
+The tokenizer's chat template emits `<think>...</think>answer`, and the reasoning
+trace runs genuinely long before it commits to an answer on this dataset (n=32
+sample: median 381 tok, p95 762 tok — not padding, real reasoning). At
+`max_tokens=128` (the repo's usual default), **~1 in 4 examples truncate mid-think
+with no verdict at all**, silently invalidating the judge's numbers — every metric
+still gets computed, nothing errors, and the run *looks* fine until you read the
+actual generated text (2026-09-03 incident: `configs/prompt_baseline_opinion.py`
+ran to completion at 128 tokens and passed no sanity check, because none of its
+INITIAL/PROMPT_POS/PROMPT_NEG responses ever closed `</think>`).
+
+Two fixes exist, in order of preference:
+
+1. **`config.enable_thinking = False`** (the fix this doc's §1/§2 configs use).
+   Qwen3-8B's chat template supports the toggle directly — it pre-fills an empty
+   `<think>\n\n</think>\n\n` so the model answers immediately, same `max_tokens`
+   budget as every non-reasoning model in this repo. Wired through
+   `config.py`/`models.py` (`render_prompts` → `apply_chat_template(...,
+   enable_thinking=...)`) → `experiment.py` (both the build and eval paths).
+2. **`config.strip_reasoning = True` + a much larger `max_tokens`** (≥1024, ideally
+   2048 — see `configs/contrast_vectors_qwen3.py`), if an experiment specifically
+   needs the reasoning trace left on (e.g. to study it, or because thinking-mode
+   behaviour is the thing being measured). This judges the post-`</think>` answer
+   (`models.answer_text`) but does **not** fix a response that never closes
+   `</think>` — it only helps once `max_tokens` is generous enough for that to
+   happen. Ported from `fk/init-better-rubric` (commits `0318e5d`, `6c73d5b`).
+
+**Every other `qwen3-8b` config in this repo is still exposed to this bug** —
+`apply_opinion_axbench.py`, `apply_opinion_issuebench.py`, `example_bbq.py`,
+`configs/exp/anchor_*.py`, `crows_*.py`, `sweep_qwen18_*.py`, `extract_axbench.py`,
+`extract_issuebench.py`, `g1_qwen3_8b.py`, `parity_log103.py`, `refusal_repro.py`
+all still run at `max_tokens=128` with thinking on and no `strip_reasoning`. Fixing
+all of them is out of scope here (see `WORK_LEDGER.md` WP-31) — but any of their
+existing results should be treated as suspect until re-validated the same way this
+doc's §1 was: read the actual generated text, not just the summary numbers.
+
 ## 1. Pure prompt baseline (no vector, nothing to fetch)
 
 The GPT opinion/comparison prompts are already in-repo

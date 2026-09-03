@@ -199,6 +199,10 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
         vector = vector.to(loaded.device)
 
     arms = _build_arms(config, method, vector, loaded)
+    answer_of = models.answer_text if config.strip_reasoning else None
+    # Only passed when explicitly set, so fakes/backends that don't accept this
+    # kwarg (existing tests) are unaffected by the default (None).
+    think_kw = {} if config.enable_thinking is None else {"enable_thinking": config.enable_thinking}
 
     # --- TEST: run every arm for this intervention, judge each ------------------
     results: list[Result] = []
@@ -210,10 +214,13 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
         per_arm: dict = {}
         for cond, arm_sys, hooks in arms:
             if hooks is None:
-                resp = backend.generate(loaded, prompts, config.max_tokens, arm_sys)
+                resp = backend.generate(loaded, prompts, config.max_tokens, arm_sys, **think_kw)
             else:
-                resp = backend.generate_with_hooks(loaded, prompts, hooks, config.max_tokens, arm_sys)
-            per_arm[cond] = (resp, judge_fn(resp, batch, config.judge))
+                resp = backend.generate_with_hooks(loaded, prompts, hooks, config.max_tokens, arm_sys, **think_kw)
+            # `judged` feeds the JUDGE (strips reasoning if config.strip_reasoning);
+            # `resp` (full, untransformed) is what gets stored/logged.
+            judged = [answer_of(r) for r in resp] if answer_of else resp
+            per_arm[cond] = (resp, judge_fn(judged, batch, config.judge))
 
         for i, ex in enumerate(batch):
             meta = {"category": ex.metadata.get("category")}
@@ -304,17 +311,20 @@ def _extract_vector(config, model_key, train, loaded, method, judge_fn, contrast
     when no vector was supplied — it is the "make a new vector" half of a run.
     """
     sys_prompt = config.system_prompt
+    answer_of = models.answer_text if config.strip_reasoning else None
+    think_kw = {} if config.enable_thinking is None else {"enable_thinking": config.enable_thinking}
     resids_by_label: dict = {}
     for batch in progress(list(_batches(train, config.batch_size)), desc=f"{model_key} train"):
         prompts = [e.prompt for e in batch]
         responses, caches = backend.generate_with_cache(
             loaded, prompts, config.max_tokens, sys_prompt,
-            capture_names=method.names(n_layers),
+            capture_names=method.names(n_layers), **think_kw,
         )
-        verdicts = judge_fn(responses, batch, config.judge)
-        for ex, resp, cache, verdict in zip(batch, responses, caches, verdicts):
+        judged = [answer_of(r) for r in responses] if answer_of else responses
+        verdicts = judge_fn(judged, batch, config.judge)
+        for ex, text, cache, verdict in zip(batch, judged, caches, verdicts):
             resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))
-            log.train(ex, resp, verdict)
+            log.train(ex, text, verdict)
 
     log.event(f"building steering vector (buckets: "
               f"{ {k: len(v) for k, v in resids_by_label.items()} })")

@@ -43,9 +43,23 @@ config = ExperimentConfig(
     judge=JudgeSpec(name="neutrality"),
     coeffs=Coeffs(opinion=8.0, neutral=8.0),          # only used by the steer arms (intervention="both")
     sample=SampleSpec(limit=200, seed=0),
-    max_tokens=128,
+    max_tokens=128,  # no reasoning trace to budget for (enable_thinking=False
+                      # below) -- same headroom as the other non-reasoning models
+                      # this control was designed for.
     batch_size=16,
 )
+# qwen3-8b defaults to thinking mode; the empty-<think> template pre-fill turns it
+# off so the model answers directly, like the other (non-reasoning) models in this
+# project's set. Measured before this: qwen3-8b's <think> traces run ~250-860
+# tokens on this dataset before ever reaching an answer (median 381, p95 762 over
+# n=32) -- genuine reasoning, not padding, but it means a naive max_tokens=128 run
+# truncates ~1 in 4 examples mid-thought with no verdict at all (see git history:
+# two prior fix attempts here -- raising max_tokens to 512 then 1024, then porting
+# fk/init-better-rubric's strip_reasoning -- before landing on turning thinking off
+# entirely, which is simpler and matches the non-reasoning baseline everywhere else
+# in this project). strip_reasoning is left False: with thinking off there's no
+# <think> block in the generated continuation to strip.
+config.enable_thinking = False
 # Default to the pure prompt baseline (no vector needed). Flip to "both" AND pass
 # --vector (or set config.vector_path) to run the steer-vs-prompt head-to-head.
 config.intervention = "prompt"

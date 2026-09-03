@@ -154,6 +154,20 @@ class ExperimentConfig:
     # module constants) and serialized into the manifest as part of the method.
     pos_system_prompt: str = DEFAULT_POS_SYS
     neg_system_prompt: str = DEFAULT_NEG_SYS
+    # Judge the model's ANSWER, not its reasoning trace. Reasoning models (qwen3)
+    # emit `<think>...</think>answer`; with this on, the judge sees the post-think
+    # answer (residuals/full text are still captured/stored in full). Off by default
+    # so non-reasoning models are unaffected. Ported from fk/init-better-rubric
+    # (commits 0318e5d, 6c73d5b) — ONLY strips a trace that already closed with
+    # `</think>`; it does NOT fix a response truncated mid-think with no closing
+    # tag (that needs enough max_tokens for the model to actually finish reasoning).
+    strip_reasoning: bool = False
+    # Chat-template `enable_thinking` override for hybrid-reasoning models (qwen3):
+    # None = tokenizer default (currently ON for Qwen3-8B); False forces the
+    # template to pre-fill an empty `<think>\n\n</think>\n\n` so the model answers
+    # directly, no reasoning trace at all. Ignored by models whose template doesn't
+    # define the toggle. Not set project-wide by default — a per-experiment choice.
+    enable_thinking: bool | None = None
 
     def validate(self) -> "ExperimentConfig":
         """Structural checks that need no registries. Returns self for chaining.
@@ -221,4 +235,6 @@ def from_dict(d: dict) -> ExperimentConfig:
         intervention=d.get("intervention", "steer"),
         pos_system_prompt=d.get("pos_system_prompt", DEFAULT_POS_SYS),
         neg_system_prompt=d.get("neg_system_prompt", DEFAULT_NEG_SYS),
+        strip_reasoning=d.get("strip_reasoning", False),
+        enable_thinking=d.get("enable_thinking", None),
     )

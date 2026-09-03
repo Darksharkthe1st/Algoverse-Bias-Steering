@@ -56,6 +56,7 @@ are deferred or folded. Ratified by this PR's review.
 | **WP-22** | Related work + positioning paragraph | not started | Farhan *(from Edward, 2026-08-20; Edward reviews remotely)* | Joad / Arditi / Wollschläger / non-identifiability placed | N |
 | **WP-23** | Trim public index rows exposing non-public research paths | deferred to post-deadline | Edward | `docs/SOURCES_OF_TRUTH.md` rows removed or pointed at a private index | N |
 | **WP-24** | Fix `pytest tests/` registry-teardown poisoning | not started | unowned | Suite green as a suite, not only per-file | N |
+| **WP-31** | System-prompt control baseline on `qwen3-8b` (`docs/HANDOFF_prompt_control.md`, steering-hygiene bar) | **§1 done, valid** (`runs/20260903-093536_prompt-baseline-opinion_qwen3-8b`) — **§2 blocked**: no `qwen3-8b` `steering_vector.safetensors` exists anywhere in `runs/` to run the `both` head-to-head against | Claude | §1: prompt-only baseline passes its sanity gate. §2: per-item steer-vs-prompt comparison (needed-experiments §14) | §1 evidence: `results.csv`/`summary.md`/`manifest.json`/`examples.csv` in the run dir above, sanity gate PROMPT_POS 200/200 opinionated, PROMPT_NEG 200/200 neutral. §2: not started — needs a qwen3-8b opinion vector extracted first (separate task, not attempted without sign-off) | N |
 
 ## Forensic — separate from the causal controls
 
