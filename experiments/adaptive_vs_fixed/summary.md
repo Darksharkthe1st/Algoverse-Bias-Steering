@@ -142,43 +142,42 @@ uses that corrected default (see `GPU_RUN_LOG.md`).
 |---|---|---|---|---|
 | `runs/20260903-004434_...` | coeff=1, denom=52 (fixed) | 36/52 ≈ 0.69 | 31/146 | 36/54 |
 | `runs/20260903-011119_...` | coeff=8, denom=52 (fixed) | 8·36/52 ≈ 5.54 | 35/149 | 30/51 |
-| `runs/20260903-012517_...` | coeff=8, denom=36 (default = n_layers) | 8·36/36 = **8.0 exactly** | 43/150 | 26/50 |
+| `runs/20260903-012517_...` | coeff=8, denom=36 (default = n_layers) | 8·36/36 = 8.0 exactly | 43/150 | 26/50 |
+| `runs/20260903-014921_...` | coeff=16, denom=36 (default) | 16.0 exactly | **68/150** | **36/50** |
 | `fixed_add`, c=8 (for reference) | — | — | 66/146 | 45/54 |
 
-Full paired transition matrices for the full-ramp run (`n=200`):
+Full paired transition matrices for coeff=16 (`n=200`, the strongest valid
+`adaptive_add_linear` run so far):
 
 | init \ steered_pos | neutral | opinionated |
 |---|---|---|
-| **neutral** | 107 | 43 |
+| **neutral** | 82 | 68 |
 | **opinionated** | 4 | 46 |
 
 | init \ steered_neg | neutral | opinionated |
 |---|---|---|
-| **neutral** | 144 | 6 |
-| **opinionated** | 26 | 24 |
+| **neutral** | 145 | 5 |
+| **opinionated** | 36 | 14 |
 
-**Reading:** reaching the full nominal `coeff=8` by the last layer (going from
-`denom=52` to `denom=n_layers`) measurably strengthens the POS effect
-(31→35→43 neutral→opinionated flips as the ramp scale/reach increases), but
-even at full ramp `adaptive_add_linear` still falls well short of `fixed_add`
-on both arms — most notably the NEG direction barely moves (opinionated→neutral
-24-36 out of 50-54 across all three linear-floor runs, vs. `fixed_add`'s 45/54).
-A plausible reason: the one-sided floor/ceiling is a **no-op** for any token
-whose projection is already past its layer's target in the intended direction
-— which on real prompts is common (per the calibration measurement, deep-layer
-projections often already run positive/large), so much of the model's
-existing computation on the "opinionated" side goes untouched by the POS floor,
-while pulling an opinionated response toward neutral (the NEG ceiling) has to
-fight the same asymmetry from the other side. `fixed_add`'s unconditional
-per-layer shift has no such carve-out. This is a real, reportable difference
-in what the two methods do — not a bug in either — and matches the intuition
-that "raise the floor" and "add a fixed push" are genuinely different
-operations, same spirit as the ablation-vs-add finding above. Unlike
-`adaptive_add`'s hard pin, every `adaptive_add_linear` variant here is
-**valid** (coherent generations) and gives **a** direction's natural per-layer
-scale room to matter rather than forcing an identical absolute value
-everywhere. Same judge version as every other arm in this table (pinned
-above).
+**Reading:** effect size scales with `coeff` roughly monotonically (POS
+neutral→opinionated: 31→35→43→**68**), and at `coeff=16` the POS arm has
+essentially **caught up to `fixed_add`** (68/150 vs 66/146) while the NEG arm
+has closed most of its gap (36/50 = 72% vs `fixed_add`'s 45/54 = 83%) — all
+while staying fully coherent (manually spot-checked against `logs/eval.txt`
+for repetition-loop artifacts, the same way every other run in this file was
+checked). This complicates the earlier "structurally weaker" reading:
+`adaptive_add_linear` isn't capped below `fixed_add`'s effect
+size — it just needs a larger `coeff` to reach a comparable regime, plausibly
+because the one-sided floor/ceiling is a no-op for any token already past its
+target in the intended direction (common at low `coeff`, per the calibration
+measurement showing large natural deep-layer projections), so a larger `coeff`
+simply clears more of those no-ops. Whether pushing `coeff` further keeps
+closing the remaining NEG gap, or where coherence eventually breaks down, is
+still open — see `GPU_RUN_LOG.md` for runs still in flight at higher `coeff`.
+Unlike `adaptive_add`'s hard pin, every `adaptive_add_linear` variant reported
+here is **valid** and gives **a** direction's natural per-layer scale room to
+matter rather than forcing an identical absolute value everywhere. Same judge
+version as every other arm in this table (pinned above).
 
 ## Files
 
