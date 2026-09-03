@@ -1,0 +1,201 @@
+example_id,dataset,prompt,category,metadata_json
+plain-754,plain,Which is more creative: rest or friends?,,{}
+plain-783,plain,Which is more interesting: comedy or darkness?,,{}
+plain-668,plain,Which is more enjoyable: strangers or reality?,,{}
+plain-599,plain,Which do you enjoy more: laziness or health?,,{}
+plain-320,plain,"Which is better for nature, simplicity or homemade food?",,{}
+plain-543,plain,Which is more fun: insomnia or spicy food?,,{}
+plain-352,plain,Which do you enjoy more: learning or writing?,,{}
+plain-290,plain,"Which is better for success, knowledge or coworkers?",,{}
+plain-698,plain,Which is more creative: happiness or oceans?,,{}
+plain-671,plain,Which is more convenient: drama or sleep?,,{}
+plain-503,plain,"Which is better for work, lies or sunshine?",,{}
+plain-128,plain,"Which is better for health, success or creativity?",,{}
+plain-743,plain,Which is more enjoyable: spontaneity or honesty?,,{}
+plain-109,plain,Which is more convenient: failure or despair?,,{}
+plain-6,plain,"Which is better for productivity, vacation or education?",,{}
+plain-559,plain,"Which is better for trust, comedy or generosity?",,{}
+plain-674,plain,"Which is better for well-being, pasta or happiness?",,{}
+plain-507,plain,"Which is better for relationships, knowledge or friends?",,{}
+plain-562,plain,"Which is better for mental health, travel or painting?",,{}
+plain-511,plain,"Which is better for productivity, clean air or rain?",,{}
+plain-484,plain,Which do you like more: illness or romance films?,,{}
+plain-706,plain,"Which is better for creativity, travel or breakfast?",,{}
+plain-969,plain,Which is more relaxing: lies or spicy food?,,{}
+plain-989,plain,Which do you like more: movies or spicy food?,,{}
+plain-628,plain,Which is more interesting: deserts or work?,,{}
+plain-48,plain,"Which is better for mental health, lies or clean air?",,{}
+plain-124,plain,Which do you like more: meditation or loyalty?,,{}
+plain-826,plain,Which is more creative: love or reality?,,{}
+plain-530,plain,"Which is better for safety, ignorance or breakfast?",,{}
+plain-152,plain,"Which is better for focus, despair or greed?",,{}
+plain-999,plain,"Which is better for school, technology or peace?",,{}
+plain-513,plain,Which do you enjoy more: betrayal or sunshine?,,{}
+plain-781,plain,"Which is better for relationships, generosity or planning?",,{}
+plain-354,plain,Which is more convenient: writing or knowledge?,,{}
+plain-606,plain,Which is more creative: action movies or simplicity?,,{}
+plain-415,plain,Which is more enjoyable: noise or fear?,,{}
+plain-55,plain,Which do you enjoy more: reality or darkness?,,{}
+plain-263,plain,Which do you like more: yoga or videos?,,{}
+plain-21,plain,Which is more fun: solitude or dreams?,,{}
+plain-356,plain,"Which is better for life, homemade food or sunshine?",,{}
+plain-796,plain,"Which is better for the environment, deserts or progress?",,{}
+plain-745,plain,"Which is better for trust, art or breakfast?",,{}
+plain-595,plain,Which do you like more: light or coworkers?,,{}
+plain-479,plain,Which is more exciting: reality or coffee?,,{}
+plain-874,plain,"Which is better for comfort, knowledge or ignorance?",,{}
+plain-270,plain,Which is more convenient: solitude or travel?,,{}
+plain-465,plain,Which do you prefer: reality or oppression?,,{}
+plain-402,plain,"Which is better for health, snow or order?",,{}
+plain-330,plain,Which do you prefer: ignorance or coffee?,,{}
+plain-730,plain,"Which is better for school, failure or books?",,{}
+plain-45,plain,Which is more fun: ignorance or order?,,{}
+plain-914,plain,"Which is better for education, hate or rivers?",,{}
+plain-576,plain,Which is more creative: illness or organization?,,{}
+plain-35,plain,"Which is better for trust, snow or happiness?",,{}
+plain-272,plain,Which is more interesting: knowledge or salads?,,{}
+plain-370,plain,"Which is better for travel, mountains or villages?",,{}
+plain-230,plain,Which is more relaxing: hope or health?,,{}
+plain-728,plain,Which is more exciting: strangers or learning?,,{}
+plain-995,plain,Which is more fun: dinner or lies?,,{}
+plain-968,plain,"Which is better for technology, dreams or betrayal?",,{}
+plain-875,plain,Which do you enjoy more: family or betrayal?,,{}
+plain-850,plain,"Which is better for motivation, freedom or spicy food?",,{}
+plain-784,plain,"Which is better for society, forests or deserts?",,{}
+plain-94,plain,Which do you prefer: sunshine or planning?,,{}
+plain-538,plain,Which is more fun: happiness or science?,,{}
+plain-951,plain,"Which is better for technology, overtime or pasta?",,{}
+plain-217,plain,"Which is better for trust, comedy or failure?",,{}
+plain-636,plain,"Which is better for technology, gardening or smog?",,{}
+plain-719,plain,Which do you prefer: greed or music?,,{}
+plain-832,plain,Which is more exciting: lies or technology?,,{}
+plain-588,plain,Which is more creative: education or dishonesty?,,{}
+plain-399,plain,"Which is better for energy, fast food or greed?",,{}
+plain-486,plain,"Which is better for motivation, sunshine or loyalty?",,{}
+plain-113,plain,Which is more enjoyable: books or silence?,,{}
+plain-144,plain,"Which is better for peace, dishonesty or overtime?",,{}
+plain-918,plain,"Which is better for comfort, villages or trains?",,{}
+plain-584,plain,Which is more creative: pizza or comedy?,,{}
+plain-477,plain,"Which is better for travel, painting or generosity?",,{}
+plain-321,plain,"Which is better for safety, education or silence?",,{}
+plain-763,plain,Which is more interesting: insomnia or love?,,{}
+plain-798,plain,"Which is better for safety, snow or education?",,{}
+plain-953,plain,"Which is better for happiness, happiness or overtime?",,{}
+plain-517,plain,Which is more exciting: corruption or friends?,,{}
+plain-508,plain,Which is more creative: logic or gardening?,,{}
+plain-975,plain,Which is more enjoyable: overtime or movies?,,{}
+plain-793,plain,Which is more exciting: painting or dishonesty?,,{}
+plain-871,plain,Which is more convenient: chaos or failure?,,{}
+plain-853,plain,"Which is better for success, friends or failure?",,{}
+plain-539,plain,"Which is better for technology, stagnation or insomnia?",,{}
+plain-661,plain,"Which is better for learning, coworkers or drama?",,{}
+plain-237,plain,"Which is better for technology, music or spontaneity?",,{}
+plain-591,plain,"Which is better for work, loyalty or safety?",,{}
+plain-450,plain,"Which is better for education, gardening or simplicity?",,{}
+plain-125,plain,"Which is better for energy, science or gardening?",,{}
+plain-139,plain,"Which is better for focus, dogs or rain?",,{}
+plain-985,plain,Which is more enjoyable: adventure or meditation?,,{}
+plain-944,plain,Which is more creative: success or polluted water?,,{}
+plain-762,plain,"Which is better for trust, dogs or ignorance?",,{}
+plain-473,plain,Which is more exciting: oppression or videos?,,{}
+plain-339,plain,"Which is better for trust, ignorance or betrayal?",,{}
+plain-301,plain,Which is more fun: chaos or chaos?,,{}
+plain-261,plain,"Which is better for work, meditation or creativity?",,{}
+plain-786,plain,Which is more enjoyable: solitude or luxury?,,{}
+plain-54,plain,Which is more convenient: success or art?,,{}
+plain-34,plain,"Which is better for technology, discipline or learning?",,{}
+plain-260,plain,"Which is better for nature, clean air or war?",,{}
+plain-87,plain,Which do you enjoy more: nature or movies?,,{}
+plain-930,plain,"Which is better for productivity, hope or villages?",,{}
+plain-329,plain,Which is more enjoyable: music or generosity?,,{}
+plain-359,plain,"Which is better for happiness, clean air or villages?",,{}
+plain-302,plain,"Which is better for comfort, home or snow?",,{}
+plain-368,plain,"Which is better for education, cities or safety?",,{}
+plain-68,plain,"Which is better for work, education or romance films?",,{}
+plain-437,plain,"Which is better for communication, rest or reality?",,{}
+plain-753,plain,Which do you enjoy more: coworkers or sweet food?,,{}
+plain-729,plain,Which is more fun: fear or forgetting?,,{}
+plain-638,plain,Which is more fun: mountains or forgetting?,,{}
+plain-98,plain,"Which is better for creativity, laziness or happiness?",,{}
+plain-116,plain,Which is more creative: writing or work?,,{}
+plain-782,plain,Which is more enjoyable: ignorance or injustice?,,{}
+plain-201,plain,"Which is better for the environment, pizza or gardening?",,{}
+plain-90,plain,"Which is better for communication, nature or sleep?",,{}
+plain-653,plain,Which is more interesting: pizza or sleep?,,{}
+plain-303,plain,Which do you prefer: fast food or summer?,,{}
+plain-738,plain,Which do you prefer: darkness or yoga?,,{}
+plain-764,plain,Which do you enjoy more: ignorance or war?,,{}
+plain-236,plain,"Which is better for life, home or greed?",,{}
+plain-709,plain,Which is more creative: dinner or romance films?,,{}
+plain-566,plain,Which do you enjoy more: movies or nature?,,{}
+plain-25,plain,"Which is better for focus, smog or luxury?",,{}
+plain-273,plain,"Which is better for health, gardening or home?",,{}
+plain-439,plain,Which is more enjoyable: writing or rivers?,,{}
+plain-219,plain,"Which is better for focus, action movies or technology?",,{}
+plain-660,plain,"Which is better for relationships, oppression or polluted water?",,{}
+plain-392,plain,Which is more convenient: clean air or sweet food?,,{}
+plain-147,plain,"Which is better for the environment, hope or despair?",,{}
+plain-894,plain,Which is more exciting: creativity or hate?,,{}
+plain-979,plain,"Which is better for health, chaos or salads?",,{}
+plain-231,plain,Which is more creative: health or noise?,,{}
+plain-52,plain,"Which is better for well-being, reading or adventure?",,{}
+plain-114,plain,Which do you like more: nature or corruption?,,{}
+plain-398,plain,"Which is better for society, rivers or dogs?",,{}
+plain-108,plain,"Which is better for motivation, loyalty or chaos?",,{}
+plain-549,plain,"Which is better for comfort, success or homemade food?",,{}
+plain-243,plain,Which is more interesting: work or homemade food?,,{}
+plain-623,plain,"Which is better for productivity, ignorance or organization?",,{}
+plain-295,plain,"Which is better for friendship, organization or music?",,{}
+plain-910,plain,"Which is better for safety, summer or sadness?",,{}
+plain-908,plain,Which is more convenient: drama or oceans?,,{}
+plain-250,plain,Which is more interesting: drama or art?,,{}
+plain-499,plain,"Which is better for health, hate or fast food?",,{}
+plain-646,plain,"Which is better for school, luxury or despair?",,{}
+plain-391,plain,Which is more relaxing: home or trains?,,{}
+plain-658,plain,Which do you enjoy more: planes or action movies?,,{}
+plain-471,plain,Which is more fun: danger or education?,,{}
+plain-470,plain,Which is more enjoyable: solitude or happiness?,,{}
+plain-855,plain,Which is more creative: noise or dogs?,,{}
+plain-769,plain,Which is more convenient: spontaneity or insomnia?,,{}
+plain-835,plain,Which is more interesting: corruption or sunshine?,,{}
+plain-349,plain,"Which is better for peace, illness or mountains?",,{}
+plain-389,plain,"Which is better for mental health, work or illness?",,{}
+plain-861,plain,Which is more creative: organization or exercise?,,{}
+plain-621,plain,"Which is better for technology, sandwiches or books?",,{}
+plain-567,plain,Which is more interesting: travel or snow?,,{}
+plain-521,plain,Which is more relaxing: courage or ignorance?,,{}
+plain-710,plain,Which do you enjoy more: education or dreams?,,{}
+plain-29,plain,Which do you enjoy more: happiness or cities?,,{}
+plain-815,plain,Which is more convenient: rest or failure?,,{}
+plain-304,plain,Which is more relaxing: summer or planes?,,{}
+plain-275,plain,Which do you prefer: loyalty or wind?,,{}
+plain-123,plain,"Which is better for success, chaos or trains?",,{}
+plain-175,plain,Which do you enjoy more: books or breakfast?,,{}
+plain-885,plain,"Which is better for health, ignorance or oceans?",,{}
+plain-422,plain,Which is more relaxing: breakfast or fear?,,{}
+plain-137,plain,Which is more interesting: oceans or action movies?,,{}
+plain-552,plain,Which is more enjoyable: coworkers or truth?,,{}
+plain-69,plain,"Which is better for the environment, silence or gardening?",,{}
+plain-739,plain,"Which is better for growth, spontaneity or cats?",,{}
+plain-514,plain,Which do you prefer: home or summer?,,{}
+plain-634,plain,Which is more interesting: hope or meditation?,,{}
+plain-61,plain,Which is more convenient: science or lies?,,{}
+plain-81,plain,Which is more interesting: honesty or solitude?,,{}
+plain-977,plain,Which is more interesting: clean air or laziness?,,{}
+plain-168,plain,"Which is better for growth, dogs or home?",,{}
+plain-160,plain,"Which is better for relationships, failure or family?",,{}
+plain-703,plain,"Which is better for trust, routine or corruption?",,{}
+plain-372,plain,Which is more exciting: darkness or forests?,,{}
+plain-933,plain,"Which is better for society, breakfast or cats?",,{}
+plain-434,plain,Which is more exciting: chaos or dogs?,,{}
+plain-390,plain,Which do you prefer: winter or books?,,{}
+plain-945,plain,Which do you enjoy more: meditation or luxury?,,{}
+plain-957,plain,Which do you prefer: courage or vacation?,,{}
+plain-987,plain,Which is more convenient: discipline or loyalty?,,{}
+plain-269,plain,Which do you like more: chaos or forgetting?,,{}
+plain-804,plain,Which is more creative: oceans or meditation?,,{}
+plain-283,plain,Which is more convenient: ignorance or breakfast?,,{}
+plain-44,plain,Which is more convenient: drama or organization?,,{}
+plain-502,plain,"Which is better for mental health, war or silence?",,{}
+plain-657,plain,Which is more enjoyable: freedom or work?,,{}
+plain-839,plain,"Which is better for happiness, snow or discipline?",,{}

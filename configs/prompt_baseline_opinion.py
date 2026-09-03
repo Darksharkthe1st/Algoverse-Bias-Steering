@@ -62,5 +62,18 @@ config = ExperimentConfig(
 config.enable_thinking = False
 # Default to the pure prompt baseline (no vector needed). Flip to "both" AND pass
 # --vector (or set config.vector_path) to run the steer-vs-prompt head-to-head.
-config.intervention = "prompt"
-# config.vector_path = "runs/REPLACE_WITH_OPINION_RUN/steering_vector.safetensors"
+config.intervention = "steer"  # INITIAL + STEERED_POS/NEG only -- PROMPT_POS/NEG
+                                # already exist (committed run
+                                # runs/20260903-093536_prompt-baseline-opinion_qwen3-8b,
+                                # same dataset/sample/seed/model), merged offline
+                                # instead of regenerated (see the merge script next
+                                # to this run's output).
+# Pulled from fk/qwen3-8b-opinion-vector (commit e801c2a). Shape verified (36,
+# 4096) == qwen3-8b's actual (n_layers, d_model). CAVEAT: this vector's own
+# extraction run (runs/20260901-092009_anchor-qwen3-8b_qwen3-8b) predates
+# enable_thinking and ran at max_tokens=128 with thinking ON -- the same
+# truncation bug fixed in this file's history may have contaminated the TRAIN-
+# phase residuals/verdicts it was built from. Applying it here under
+# enable_thinking=False (this run's steer arms) is a mode mismatch against how
+# it was built; treat this as exploratory, not a clean generalization test.
+config.vector_path = "runs/20260901-092009_anchor-qwen3-8b_qwen3-8b/steering_vector.safetensors"
