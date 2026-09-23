@@ -1,0 +1,67 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+restricted to reproducible directions; dropped ['Gender_identity', 'Nationality', 'Race_ethnicity', 'Race_x_SES', 'Race_x_gender', 'Sexual_orientation']
+directions: ['Age', 'Disability_status', 'Physical_appearance', 'Religion']
+dose normalisation: ON (unit per layer)
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:   6%|▋         | 31/483 [00:00<00:01, 302.70it/s]Loading weights:  13%|█▎        | 64/483 [00:00<00:01, 315.23it/s]Loading weights:  21%|██        | 100/483 [00:00<00:01, 319.36it/s]Loading weights:  27%|██▋       | 132/483 [00:00<00:01, 296.05it/s]Loading weights:  35%|███▌      | 170/483 [00:00<00:00, 323.36it/s]Loading weights:  42%|████▏     | 203/483 [00:00<00:00, 323.23it/s]Loading weights:  49%|████▉     | 236/483 [00:00<00:00, 315.74it/s]Loading weights:  55%|█████▌    | 268/483 [00:00<00:00, 305.44it/s]Loading weights:  62%|██████▏   | 299/483 [00:00<00:00, 304.47it/s]Loading weights:  68%|██████▊   | 330/483 [00:01<00:00, 303.80it/s]Loading weights:  75%|███████▍  | 362/483 [00:01<00:00, 303.92it/s]Loading weights:  81%|████████▏ | 393/483 [00:01<00:00, 299.47it/s]Loading weights:  88%|████████▊ | 426/483 [00:01<00:00, 302.70it/s]Loading weights:  95%|█████████▍| 457/483 [00:01<00:00, 295.80it/s]Loading weights: 100%|██████████| 483/483 [00:01<00:00, 313.05it/s]
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+Moving model to device:  cuda
+
+loading items per category ...
+  Age                    80 items
+  Disability_status      80 items
+  Physical_appearance    80 items
+  Religion               80 items
+
+baseline (unsteered) mean margins:
+  Age                     +0.8924
+  Disability_status       +0.7340
+  Physical_appearance     +1.0148
+  Religion                +0.5315
+
+transfer matrix: change in mean margin when steering with each direction (coeff=+4.0)
+rows = direction used, columns = category steered
+
+direction                     Age  Disabilit  Physical_   Religion
+------------------------------------------------------------------
+Age                       -0.0033    -0.0203    +0.0200    +0.0052
+Disability_status         -0.0018    +0.0007    +0.0026    -0.0076
+Physical_appearance       +0.0468    +0.0226    +0.0071    +0.0071
+Religion                  +0.0027    +0.0166    +0.0180    +0.0037
+
+control - norm-matched random direction (should be ~0 everywhere):
+random(for)                   Age  Disabilit  Physical_   Religion
+------------------------------------------------------------------
+rand~Age                  -0.0171    -0.0107    -0.0080    -0.0046
+rand~Disability_statu     -0.0084    +0.0013    +0.0008    -0.0078
+rand~Physical_appeara     -0.0144    -0.0047    -0.0028    -0.0005
+rand~Religion             +0.0069    -0.0031    +0.0102    +0.0035
+
+control - sign flip on own category (coeff=-4.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       -0.0033    +0.0011   sign flips (good)
+Disability_status         +0.0007    +0.0035   SAME SIGN - generic damage?
+Physical_appearance       +0.0071    -0.0028   sign flips (good)
+Religion                  +0.0037    -0.0045   sign flips (good)
+
+summary
+  mean effect, own direction        : +0.0021
+  mean effect, cross direction      : +0.0093
+  mean |effect|, random control     : +0.0066
+  specificity (own - cross)         : -0.0073
+  sign-flip control passed          : 3/4
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_qwen14b/transfer_test_norm_c4.json

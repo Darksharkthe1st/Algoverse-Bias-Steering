@@ -1,0 +1,66 @@
+[
+  {
+    "category": "Age",
+    "frobenius_norm": 25.87016599056945,
+    "max_layer_norm": 13.782663527055618,
+    "mean_layer_norm": 3.2094158956904693,
+    "floor": 0.42251118701092266,
+    "quintile_separation": 4.826620905101299
+  },
+  {
+    "category": "Race_x_gender",
+    "frobenius_norm": 15.377176366319038,
+    "max_layer_norm": 8.757347185155862,
+    "mean_layer_norm": 1.8896903061973365,
+    "floor": 0.13772090467212195,
+    "quintile_separation": 4.665026190876961
+  },
+  {
+    "category": "Nationality",
+    "frobenius_norm": 18.35000373427315,
+    "max_layer_norm": 10.143711874592215,
+    "mean_layer_norm": 2.2897343057764155,
+    "floor": 0.05705569267786967,
+    "quintile_separation": 4.801920372247697
+  },
+  {
+    "category": "Race_x_SES",
+    "frobenius_norm": 15.6283562452526,
+    "max_layer_norm": 8.932615438118301,
+    "mean_layer_norm": 1.9215219010642077,
+    "floor": 0.01729752765993184,
+    "quintile_separation": 2.3842459592968224
+  },
+  {
+    "category": "Religion",
+    "frobenius_norm": 13.93078308862835,
+    "max_layer_norm": 7.722885730075752,
+    "mean_layer_norm": 1.7416763934242783,
+    "floor": -0.007699579853926622,
+    "quintile_separation": 3.573108214139938
+  },
+  {
+    "category": "Gender_identity",
+    "frobenius_norm": 14.412133643565046,
+    "max_layer_norm": 7.964388374785476,
+    "mean_layer_norm": 1.7887545963823186,
+    "floor": -0.07247313350017828,
+    "quintile_separation": 8.392891351531887
+  },
+  {
+    "category": "Race_ethnicity",
+    "frobenius_norm": 13.224142511186345,
+    "max_layer_norm": 7.547401309735302,
+    "mean_layer_norm": 1.6190801564183424,
+    "floor": -0.11491869610462346,
+    "quintile_separation": 5.314664901793003
+  },
+  {
+    "category": "Sexual_orientation",
+    "frobenius_norm": 16.719007119913925,
+    "max_layer_norm": 8.961209901438275,
+    "mean_layer_norm": 2.0935902488650417,
+    "floor": -0.20157648652292628,
+    "quintile_separation": 4.068573006363803
+  }
+]

@@ -1,0 +1,25 @@
+run: full_yi6b   model: yi-6b
+
+category                   floor       ‖d‖_F   max layer  separation
+----------------------------------------------------------------------
+Physical_appearance       +0.614      125.49       56.26        7.29
+Disability_status         +0.605      148.59       64.66       11.34
+Nationality               +0.296       68.22       30.56        4.84
+Race_x_gender             +0.204       62.92       28.79        5.48
+Age                       +0.177       82.65       36.59        5.67
+Race_x_SES                +0.089       55.10       25.28        2.88
+Race_ethnicity            -0.230       68.82       31.95        5.85
+Sexual_orientation        -0.304       67.15       30.02        4.67
+Religion                  -0.454       55.90       25.12        3.90
+
+floor vs direction norm : pearson +0.765   spearman +0.650
+norm vs separation      : pearson +0.931   spearman +0.933
+
+largest / smallest direction norm: 2.7x
+
+If that ratio is well above 1, a FIXED steering coefficient applied
+a different dose to each category, and the transfer test compared
+interventions of different strengths. Unit-normalise the direction and
+carry the dose in the coefficient before reading specificity.
+
+written to runs/full_yi6b/direction_norms.json

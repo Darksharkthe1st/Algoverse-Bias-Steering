@@ -1,0 +1,20 @@
+loading Qwen/Qwen1.5-1.8B-Chat on cuda ...
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  58%|█████▊    | 168/291 [00:00<00:00, 1666.09it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 1728.15it/s]
+Loaded pretrained model Qwen/Qwen1.5-1.8B-Chat into HookedTransformer
+  n_layers=24 d_model=2048
+
+  CAPTURE SITE -- look at this before trusting anything downstream:
+    index  -6  '?'
+    index  -5  '<|im_end|>'
+    index  -4  '\n'
+    index  -3  '<|im_start|>'
+    index  -2  'assistant'
+    index  -1  '\n'
+    capturing at index -1
+
+  Disability_status/a: (40, 24, 2048) in 1s
+  Disability_status/b: (40, 24, 2048) in 0s
+
+capture finished in 0.2 min; all_ok=True
+
+SYNC TO THE LAPTOP AND RUN THE VERIFIER BEFORE TERMINATING THE BOX.

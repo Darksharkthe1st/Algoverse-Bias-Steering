@@ -1,0 +1,9 @@
+# Files whose exact BYTES are part of the record must never be line-ending
+# translated. Git's autocrlf would rewrite LF as CRLF in a Windows working tree,
+# which changes the sha256 and silently breaks a hash that exists precisely so a
+# reader can verify the pre-registered split was not altered after the fact.
+runs/_p3_manifest.json -text
+
+# Committed run artifacts are evidence; keep them byte-stable too.
+runs/**/*.json -text
+runs/**/*.npy binary

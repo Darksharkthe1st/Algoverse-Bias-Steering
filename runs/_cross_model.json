@@ -1,0 +1,222 @@
+{
+  "runs": [
+    {
+      "name": "full_qwen18",
+      "model": "qwen-1.8b",
+      "method": "extremes",
+      "d_model": 2048,
+      "floors": {
+        "Religion": -0.007699579853926622,
+        "Race_ethnicity": -0.11491869610462346,
+        "Gender_identity": -0.07247313350017828,
+        "Age": 0.42251118701092266,
+        "Nationality": 0.05705569267786967,
+        "Sexual_orientation": -0.20157648652292628,
+        "Race_x_gender": 0.13772090467212195,
+        "Race_x_SES": 0.01729752765993184
+      },
+      "mean_margin": {
+        "Religion": 0.05014204581578573,
+        "Race_ethnicity": -0.06606822982430458,
+        "Gender_identity": 0.048181653770628656,
+        "Age": 0.09492512121796608,
+        "Nationality": 0.01086993932723999,
+        "Sexual_orientation": -0.032052723345933135,
+        "Race_x_gender": 0.1095505902916193,
+        "Race_x_SES": -0.04796285927295685
+      },
+      "p_value": 0.22885572139303484,
+      "verdict": "NO STRUCTURE: clustering is within the permutation null (p=0.229). Bias topics are not separable by this method at this n."
+    },
+    {
+      "name": "full_qwen14b",
+      "model": "qwen-14b",
+      "method": "extremes",
+      "d_model": 5120,
+      "floors": {
+        "Religion": 0.685739689961425,
+        "Race_ethnicity": -0.20364539188063993,
+        "Gender_identity": 0.0811691537048238,
+        "Age": 0.7535759719639885,
+        "Nationality": 0.2786220833490235,
+        "Physical_appearance": 0.6478480436423656,
+        "Disability_status": 0.8196444568613926,
+        "Sexual_orientation": 0.16055824201721214,
+        "Race_x_gender": 0.07213649375432714,
+        "Race_x_SES": -0.10478348159114145
+      },
+      "mean_margin": {
+        "Religion": 0.5726127437750499,
+        "Race_ethnicity": -0.07466736137866974,
+        "Gender_identity": 1.076026055725123,
+        "Age": 1.1393074283997218,
+        "Nationality": 0.3256395717461904,
+        "Physical_appearance": 0.8966115121046702,
+        "Disability_status": 0.8559613744417827,
+        "Sexual_orientation": 0.055424705147743225,
+        "Race_x_gender": 0.15522029121716818,
+        "Race_x_SES": 0.015796146194140118
+      },
+      "p_value": 0.1791044776119403,
+      "verdict": "NO STRUCTURE: 4/10 categories produce reproducible directions, and their clustering is within the permutation null (p=0.179). This IS a finding \u2014 the measurement had the precision to detect separable subtypes and did not."
+    },
+    {
+      "name": "full_gemma2b",
+      "model": "gemma-2b",
+      "method": "extremes",
+      "d_model": 2048,
+      "floors": {
+        "Religion": -0.16337488504495842,
+        "Race_ethnicity": -0.012556987008579407,
+        "Age": 0.16100012584269188,
+        "Nationality": -0.03810122396611401,
+        "Physical_appearance": 0.5113272749066434,
+        "Disability_status": 0.8184430646488138,
+        "Sexual_orientation": 0.05570694589488341,
+        "Race_x_gender": -0.04412681262609486,
+        "Race_x_SES": -0.16538871101759617
+      },
+      "mean_margin": {
+        "Religion": -0.05219237168629964,
+        "Race_ethnicity": -0.27189762036005655,
+        "Age": 0.12186092694600423,
+        "Nationality": 0.20398169875144959,
+        "Physical_appearance": 0.3207577427228292,
+        "Disability_status": 0.45667867640654247,
+        "Sexual_orientation": -0.03912053064063743,
+        "Race_x_gender": 0.38592697501182555,
+        "Race_x_SES": -0.10928962667783101
+      },
+      "p_value": null,
+      "verdict": "NO STRUCTURE: 2/9 categories produce reproducible directions, and their clustering is within the permutation null (p=1.000). This IS a finding \u2014 the measurement had the precision to detect separable subtypes and did not."
+    },
+    {
+      "name": "full_yi6b",
+      "model": "yi-6b",
+      "method": "extremes",
+      "d_model": 4096,
+      "floors": {
+        "Religion": -0.4544207171635423,
+        "Race_ethnicity": -0.2295083787449837,
+        "Age": 0.17693673497883994,
+        "Nationality": 0.296347965510635,
+        "Physical_appearance": 0.6141175951303681,
+        "Disability_status": 0.6052217974896923,
+        "Sexual_orientation": -0.30430850463937076,
+        "Race_x_gender": 0.203500197745412,
+        "Race_x_SES": 0.08894132250280251
+      },
+      "mean_margin": {
+        "Religion": 0.031742132504781084,
+        "Race_ethnicity": -0.012238095998764038,
+        "Age": 0.11982842981815338,
+        "Nationality": 0.08658895711104075,
+        "Physical_appearance": 0.09900883118311564,
+        "Disability_status": 0.18234889129797618,
+        "Sexual_orientation": -0.0546173017334055,
+        "Race_x_gender": 0.12903157502412796,
+        "Race_x_SES": -0.0776192981004715
+      },
+      "p_value": null,
+      "verdict": "NOT CLUSTERABLE: only 2 of 9 categories produce a direction that reproduces against itself (floor q05 >= 0.5) \u2014 ['Physical_appearance', 'Disability_status']. Three are needed to cluster, so no similarity structure was computed and no permutation null was run. This is neither evidence for nor against separable subtypes."
+    }
+  ],
+  "reproducible_sets": {
+    "full_qwen18": [],
+    "full_qwen14b": [
+      "Age",
+      "Disability_status",
+      "Physical_appearance",
+      "Religion"
+    ],
+    "full_gemma2b": [
+      "Disability_status",
+      "Physical_appearance"
+    ],
+    "full_yi6b": [
+      "Disability_status",
+      "Physical_appearance"
+    ]
+  },
+  "h2": {
+    "full_qwen18": {
+      "pearson": 0.688873953011272,
+      "spearman": 0.6666666666666666,
+      "n": 8
+    },
+    "full_qwen14b": {
+      "pearson": 0.7261072103658339,
+      "spearman": 0.7212121212121212,
+      "n": 10
+    },
+    "full_gemma2b": {
+      "pearson": 0.6596787980048303,
+      "spearman": 0.5333333333333333,
+      "n": 9
+    },
+    "full_yi6b": {
+      "pearson": 0.6894229690208891,
+      "spearman": 0.6666666666666666,
+      "n": 9
+    }
+  },
+  "structure_replication": [
+    {
+      "a": "full_qwen18",
+      "b": "full_qwen14b",
+      "jointly_reproducible": [],
+      "pearson": null,
+      "spearman": null,
+      "note": "fewer than 3 jointly reproducible categories"
+    },
+    {
+      "a": "full_qwen18",
+      "b": "full_gemma2b",
+      "jointly_reproducible": [],
+      "pearson": null,
+      "spearman": null,
+      "note": "fewer than 3 jointly reproducible categories"
+    },
+    {
+      "a": "full_qwen18",
+      "b": "full_yi6b",
+      "jointly_reproducible": [],
+      "pearson": null,
+      "spearman": null,
+      "note": "fewer than 3 jointly reproducible categories"
+    },
+    {
+      "a": "full_qwen14b",
+      "b": "full_gemma2b",
+      "jointly_reproducible": [
+        "Disability_status",
+        "Physical_appearance"
+      ],
+      "pearson": null,
+      "spearman": null,
+      "note": "fewer than 3 jointly reproducible categories"
+    },
+    {
+      "a": "full_qwen14b",
+      "b": "full_yi6b",
+      "jointly_reproducible": [
+        "Disability_status",
+        "Physical_appearance"
+      ],
+      "pearson": null,
+      "spearman": null,
+      "note": "fewer than 3 jointly reproducible categories"
+    },
+    {
+      "a": "full_gemma2b",
+      "b": "full_yi6b",
+      "jointly_reproducible": [
+        "Disability_status",
+        "Physical_appearance"
+      ],
+      "pearson": null,
+      "spearman": null,
+      "note": "fewer than 3 jointly reproducible categories"
+    }
+  ]
+}

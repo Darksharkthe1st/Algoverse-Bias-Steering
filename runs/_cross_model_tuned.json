@@ -1,0 +1,104 @@
+{
+  "runs": [
+    {
+      "name": "probe_tuned_qwen14b",
+      "model": "qwen-14b",
+      "method": "probe",
+      "d_model": 5120,
+      "floors": {
+        "Religion": 0.6909545299140601,
+        "Race_ethnicity": -0.05811672691591337,
+        "Gender_identity": 0.041663315837242816,
+        "Age": 0.8263502036934459,
+        "Nationality": 0.5103012166082558,
+        "Physical_appearance": 0.7448085091914521,
+        "Disability_status": 0.8799354620027562,
+        "Sexual_orientation": 0.17336863192829943,
+        "Race_x_gender": 0.2395923081055416,
+        "Race_x_SES": -0.10149640847590738
+      },
+      "mean_margin": {
+        "Religion": 0.5726127437750499,
+        "Race_ethnicity": -0.07466736137866974,
+        "Gender_identity": 1.076026055725123,
+        "Age": 1.1393074283997218,
+        "Nationality": 0.3256395717461904,
+        "Physical_appearance": 0.8966115121046702,
+        "Disability_status": 0.8559613744417827,
+        "Sexual_orientation": 0.055424705147743225,
+        "Race_x_gender": 0.15522029121716818,
+        "Race_x_SES": 0.015796146194140118
+      },
+      "p_value": 0.029850746268656716,
+      "verdict": "STRUCTURE (p=0.030); worst usable extraction floor q05=0.510 (Nationality, n=600). Pairs below their own categories' floors are distinguishable. 5/10 categories reproduce well enough to compare."
+    },
+    {
+      "name": "probe_tuned_qwen7b_a1e6",
+      "model": "qwen-7b",
+      "method": "probe",
+      "d_model": 4096,
+      "floors": {
+        "Religion": 0.525307566463881,
+        "Race_ethnicity": -0.1306402327844785,
+        "Gender_identity": 0.07389713787507521,
+        "Age": 0.4413124728599564,
+        "Nationality": 0.3030556936707411,
+        "Physical_appearance": 0.6629245566373141,
+        "Disability_status": 0.8762227811034067,
+        "Sexual_orientation": -0.059774300359715336,
+        "Race_x_gender": 0.320069162407233,
+        "Race_x_SES": -0.20952340926161267
+      },
+      "mean_margin": {
+        "Religion": 0.18244884252548219,
+        "Race_ethnicity": -0.0979796269039313,
+        "Gender_identity": 0.3639496237936626,
+        "Age": 0.4507568472623825,
+        "Nationality": 0.14399435639381408,
+        "Physical_appearance": 0.6577234061559042,
+        "Disability_status": 0.4721059979995092,
+        "Sexual_orientation": 0.11071630429338526,
+        "Race_x_gender": 0.121105322043101,
+        "Race_x_SES": -0.037575552463531496
+      },
+      "p_value": 0.004975124378109453,
+      "verdict": "STRUCTURE (p=0.005); worst usable extraction floor q05=0.525 (Religion, n=600). Pairs below their own categories' floors are distinguishable. 3/10 categories reproduce well enough to compare."
+    }
+  ],
+  "reproducible_sets": {
+    "probe_tuned_qwen14b": [
+      "Age",
+      "Disability_status",
+      "Nationality",
+      "Physical_appearance",
+      "Religion"
+    ],
+    "probe_tuned_qwen7b_a1e6": [
+      "Disability_status",
+      "Physical_appearance",
+      "Religion"
+    ]
+  },
+  "h2": {
+    "probe_tuned_qwen14b": {
+      "pearson": 0.654724928728703,
+      "spearman": 0.6848484848484848,
+      "n": 10
+    },
+    "probe_tuned_qwen7b_a1e6": {
+      "pearson": 0.7771994917263144,
+      "spearman": 0.8666666666666667,
+      "n": 10
+    }
+  },
+  "structure_replication": [
+    {
+      "a": "probe_tuned_qwen14b",
+      "b": "probe_tuned_qwen7b_a1e6",
+      "n_categories": 3,
+      "n_pairs": 3,
+      "pearson": -0.0952040828831322,
+      "spearman": 0.5
+    }
+  ]
+}

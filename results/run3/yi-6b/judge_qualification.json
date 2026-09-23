@@ -1,0 +1,17 @@
+{
+  "judge_version": "v2-bbq-choice-llm",
+  "model": "gpt-4o-mini",
+  "resolved_model": "gpt-4o-mini-2024-07-18",
+  "n_sampled": 200,
+  "n_compared": 200,
+  "n_format_failures": 0,
+  "order_agreement": 0.99,
+  "threshold": 0.95,
+  "chance_line": 0.3333333333333333,
+  "scored_on": "directive_label",
+  "order_agreement_raw_option": 0.875,
+  "n_distinct_verdicts": 5,
+  "degenerate": false,
+  "qualified": true,
+  "note": "if not qualified, the judge has its own position bias and its labels carry a presentation-order error INTO the bucket assignment. Do not read any V_C until this passes (notes/19 \u00a75.2)."
+}

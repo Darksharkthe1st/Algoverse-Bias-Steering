@@ -1,0 +1,17 @@
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  65%|██████▍   | 189/291 [00:00<00:00, 1889.74it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 1880.55it/s]
+Loaded pretrained model Qwen/Qwen1.5-1.8B-Chat into HookedTransformer
+Moving model to device:  cuda
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:   8%|▊         | 38/483 [00:00<00:01, 373.00it/s]Loading weights:  16%|█▌        | 76/483 [00:00<00:01, 332.25it/s]Loading weights:  23%|██▎       | 113/483 [00:00<00:01, 338.66it/s]Loading weights:  31%|███       | 148/483 [00:00<00:01, 333.17it/s]Loading weights:  38%|███▊      | 182/483 [00:00<00:00, 327.54it/s]Loading weights:  45%|████▍     | 215/483 [00:00<00:00, 320.46it/s]Loading weights:  51%|█████▏    | 248/483 [00:00<00:00, 300.58it/s]Loading weights:  60%|█████▉    | 288/483 [00:00<00:00, 325.29it/s]Loading weights:  66%|██████▋   | 321/483 [00:01<00:00, 307.88it/s]Loading weights:  75%|███████▍  | 360/483 [00:01<00:00, 324.70it/s]Loading weights:  82%|████████▏ | 395/483 [00:01<00:00, 322.72it/s]Loading weights:  89%|████████▉ | 429/483 [00:01<00:00, 311.83it/s]Loading weights:  97%|█████████▋| 468/483 [00:01<00:00, 314.03it/s]Loading weights: 100%|██████████| 483/483 [00:01<00:00, 327.36it/s]
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/ubuntu/Algoverse-Bias-Steering/scripts/run3_behavioural_contrast.py", line 1795, in <module>
+    sys.exit(main())
+  File "/home/ubuntu/Algoverse-Bias-Steering/scripts/run3_behavioural_contrast.py", line 1791, in main
+    return args.func(args)
+  File "/home/ubuntu/Algoverse-Bias-Steering/scripts/run3_behavioural_contrast.py", line 1331, in cmd_steer
+    for fn in sorted(os.listdir(ddir)):
+FileNotFoundError: [Errno 2] No such file or directory: 'runs/r3_behavioural_qwen-14b/directions'
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer

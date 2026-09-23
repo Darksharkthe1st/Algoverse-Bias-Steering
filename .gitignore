@@ -223,6 +223,12 @@ runs/**/residuals.safetensors
 # part of a run's committed record. Observed: run.log was the ONLY file missing
 # from committed runs, so bucket sizes were unrecoverable after a branch switch.
 !runs/**/*.log
+# Same rule, same reason, for collected result folders. `results/run3/_logs/`
+# holds the 63 run logs for run 3 -- the generation, judge, extraction and
+# steering stages, plus the preflight gates and the failures. Line 62 was
+# silently swallowing every one of them, which is the identical defect
+# described just above, one directory over.
+!results/**/*.log
 # Throwaway runs (opt-out pile):
 runs/_discard/
 # Ephemeral batch STATE (route/queue/control/status); coordinator CODE lives in
@@ -249,3 +255,12 @@ experiments/community_methods/HARVEST_SUMMARY.json
 
 # Annotation pools contain model text + sealed arm keys — local only
 experiments/annotation_pools/
+
+# GPU-captured residual tensors (~250MB/category) - checkpoint off-box, never commit
+runs/_residuals/
+runs/**/residuals_*.npz
+
+# Residual tensors from R1/R3: several GB per model, and the larger files are
+# over GitHub's 100 MiB hard limit. Checkpoint them off-box (scp/rsync via
+# sync_from_box.ps1), never commit them.
+runs/**/residuals/*.npy

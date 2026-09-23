@@ -1,0 +1,29 @@
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  18%|█▊        | 51/291 [00:00<00:00, 474.05it/s]Loading weights:  34%|███▍      | 99/291 [00:00<00:00, 430.56it/s]Loading weights:  49%|████▉     | 144/291 [00:00<00:00, 424.18it/s]Loading weights:  64%|██████▍   | 187/291 [00:00<00:00, 425.60it/s]Loading weights:  79%|███████▉  | 230/291 [00:00<00:00, 413.37it/s]Loading weights:  93%|█████████▎| 272/291 [00:00<00:00, 404.43it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 427.27it/s]
+Loaded pretrained model 01-ai/Yi-6B-Chat into HookedTransformer
+  n_layers=32 d_model=4096
+
+  CAPTURE SITE -- look at this before trusting anything downstream:
+    index  -6  '<|im_end|>'
+    index  -5  ''
+    index  -4  '\n'
+    index  -3  '<|im_start|>'
+    index  -2  'assistant'
+    index  -1  '\n'
+    capturing at index -1
+
+/home/ubuntu/.local/lib/python3.10/site-packages/transformer_lens/HookedTransformer.py:2081: UserWarning: HookedTransformer.generate received unsupported generation kwargs; ignoring: ['attention_mask']
+  warnings.warn(
+  Age: 400 x2 completions
+  Disability_status: 400 x2 completions
+  Gender_identity: 400 x2 completions
+  Nationality: 400 x2 completions
+  Physical_appearance: 400 x2 completions
+  Race_ethnicity: 400 x2 completions
+  Race_x_SES: 400 x2 completions
+  Race_x_gender: 400 x2 completions
+  Religion: 400 x2 completions
+  Sexual_orientation: 232 x2 completions
+
+generate finished in 82.8 min; all_ok=True
+
+SYNC OFF THE BOX BEFORE TERMINATING IT.

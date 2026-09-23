@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/Algoverse-Bias-Steering/scripts/probe_alpha_sweep.py", line 128, in <module>
+    raise SystemExit(main())
+  File "/home/ubuntu/Algoverse-Bias-Steering/scripts/probe_alpha_sweep.py", line 56, in main
+    loaded = models.load_model(MODELS[args.model])
+KeyError: ' '

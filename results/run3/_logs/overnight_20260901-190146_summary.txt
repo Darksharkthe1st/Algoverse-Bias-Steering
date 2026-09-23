@@ -1,0 +1,19 @@
+overnight queue started 2026-09-01T19:01:46+00:00
+preflight: OK
+push probe: OK — commits will reach the remote
+*** RESID_BACKUP unset: residual tensors will exist ONLY on this box.
+*** They are gitignored (GB), so no commit carries them. Either export
+*** RESID_BACKUP=user@host:/path before starting, or run
+*** sync_from_box.ps1 from the laptop BEFORE terminating. That is
+*** defect S5 and it has already cost this project a week.
+gate 1 (smoke): OK
+gate 2 (positive control): OK — bias nulls below this line are interpretable
+gate R3-1 (smoke: generate + judge + extract): OK
+gate R3-2 (positive control): OK — run-3 nulls are interpretable
+[ok]   R3a_generate_qwen-14b  (193 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local
+[ok]   R3b_judge_qwen-14b  (1 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local
+[ok]   R3c_extract_qwen-14b  (0 min)
+       *** COMMITTED BUT PUSH FAILED — this work is box-local
+[FAIL] R3d_toggle_qwen-14b  (1 min, exit 1) — see runs/_logs/R3d_toggle_qwen-14b_20260901-190146.log

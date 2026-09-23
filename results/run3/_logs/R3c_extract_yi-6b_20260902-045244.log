@@ -1,0 +1,21 @@
+verifier: 280 checks, 0 failures
+using judge labels from runs/r3_behavioural_yi-6b/judge_labels.jsonl (4832 items, judge v2-bbq-choice-llm / gpt-4o-mini)
+  + 3832 judged SWAPPED labels -- the N6 model-side control gets a judge-scored version too
+  Age                    TESTABLE   n_b=  93 n_r=  44 pos-bias 0.98 floor +0.758
+  Disability_status      TESTABLE   n_b=  45 n_r=  40 pos-bias 0.94 floor +0.773
+  Gender_identity        UNTESTABLE n_b=  14 n_r=  99 pos-bias 0.96 
+  Nationality            TESTABLE   n_b=  40 n_r=  59 pos-bias 1.00 floor +0.823
+  Physical_appearance    TESTABLE   n_b=  53 n_r=  52 pos-bias 0.94 floor +0.768
+  Race_ethnicity         UNTESTABLE n_b=  18 n_r=  92 pos-bias 0.88 
+  Race_x_SES             UNTESTABLE n_b=  21 n_r=  89 pos-bias 0.91 
+  Race_x_gender          UNTESTABLE n_b=  29 n_r=  75 pos-bias 0.91 
+  Religion               TESTABLE   n_b=  52 n_r=  60 pos-bias 0.87 floor +0.727
+  Sexual_orientation     UNTESTABLE n_b=  18 n_r=  38 pos-bias 0.94 
+  refusal proxy: |cos(answerable, ambiguous)| = 0.830 vs ceiling 0.869 (ratio 0.954) -- descriptive, not a gate; near 1.0 supports the proxy, low is ambiguous
+
+  refusal de-coupling: 0/5 categories REFUSAL-DOMINATED (control usable=True)
+  mean refusal variance share per category: 0.489
+  cross-category median |cos|  raw +0.650  ->  orthogonalised +0.320  (retained 0.493; under matched random 0.952)
+  -> SHARED STRUCTURE IS REFUSAL
+
+wrote runs/r3_behavioural_yi-6b/report_behavioural.json

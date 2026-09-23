@@ -1,0 +1,133 @@
+% =====================================================================
+% RUN 3 --- one-page drop-in section.
+%
+% BUDGET: ~440 words + 1 table = 1.00 page by paper/pagecount.py.
+% Adding a paragraph costs roughly 0.09 page. Adding a table costs 0.22.
+%
+% The 3.65-page version (four results subsections, three tables, full
+% method) is in git at commit 2499063, paper/run3.tex. Recover it with
+%   git show 2499063:paper/run3.tex
+% if the venue gives more room or this moves to an appendix. Nothing was
+% deleted, only compressed.
+%
+% TERMINOLOGY. This section does NOT use "soft refusal".
+% RESEARCH_CONTRACT.md section 2 retires it as a coinage -- it collides with
+% the safety literature's use for partial compliance -- and section 11 lists it
+% under Abandoned. The grounded replacements are "hedging" (arXiv:2502.19463)
+% and "over-abstention on answerable items" (AbstentionBench, arXiv:2506.09038).
+% The current intro draft uses the retired term throughout; that conflict needs
+% resolving in one direction before submission.
+%
+% Every number is traceable: results/run3/{model}/report_behavioural.json and
+% report_steering_likelihood.json, results/run3/_control_qwen-1.8b/, and
+% paper-v2/numbers.json for the shuffled controls. All values in this file were
+% checked programmatically against those artifacts.
+%
+% Requires: booktabs, amsmath. Both already in main.tex's preamble.
+% =====================================================================
+
+\section{Abstention dominates both the benchmark and the representation}
+\label{sec:run3}
+
+Section~\ref{sec:intro} argued that bias benchmarks cannot separate a model that
+answers fairly from one that evades. On BBQ~\citep{parrish2022bbq} this holds
+twice: evasion is the majority behaviour, and the dominant component of any
+direction extracted from a BBQ bias contrast.
+
+\paragraph{Method.}
+For each of ten BBQ categories we generate one completion per ambiguous item
+($n{=}400$; $232$ for Sexual\_orientation) from \texttt{Yi-6B-Chat} and
+\texttt{Qwen1.5-14B-Chat}, $9{,}664$ generations in total, with answer options
+withheld from the prompt. A judge (\texttt{gpt-4o-mini-2024-07-18}) sorts each
+completion into stance, refusal, distractor or unparsable; it passes an
+order-swap qualification at $0.990$/$1.000$ against a $0.95$ bar. We form $V_C = \mathbb{E}[h \mid \text{stance}] - \mathbb{E}[h \mid
+\text{refusal}]$ from the residual stream at all layers at the final prompt
+token, and measure reproducibility as the norm-weighted split-half cosine over
+$400$ stratified splits. A direction reproduces iff its floor's lower bound
+exceeds a label-shuffled control's upper bound. Categories with fewer than $32$
+items in either arm are \textsc{untestable}: no contrast exists to split, which
+is not evidence of no direction.
+
+\begin{table}[h]
+\centering
+\caption{Run 3, both models. Ranges span categories. A topic-identity positive
+control through the identical estimator reproduces at $0.876$--$0.934$, so
+failures are not pipeline failures.}
+\label{tab:run3}
+\small
+\begin{tabular}{lrr}
+\toprule
+& \texttt{Yi-6B-Chat} & \texttt{Qwen1.5-14B-Chat} \\
+\midrule
+Refusal rate, ambiguous arm            & 10.0--24.8\% & \textbf{84.3--100\%} \\
+Categories testable ($\geq 32$ both arms) & 5 / 10 & 2 / 10 \\
+\quad of which race-related            & \textbf{0 / 3} & \textbf{0 / 3} \\
+\midrule
+Extraction floor, testable categories  & 0.727--0.823 & 0.926--0.977 \\
+\quad label-shuffled control (max $\mathrm{CI_{hi}}$) & 0.070 & 0.096 \\
+\midrule
+Refusal share of each $V_C$'s variance & 44.5--54.7\% & 31.7--56.4\% \\
+Cross-category cosine, raw $\to$ orthogonalised & 0.650 $\to$ 0.320 & 0.620 $\to$ 0.359 \\
+\quad retained                         & \textbf{0.493} & \textbf{0.580} \\
+\quad retained, matched-random removal & 0.952 & 0.937 \\
+\midrule
+$+V_C$ shifts excluding zero, $\alpha \leq 0.10$ & \textbf{0 / 15} & \textbf{0 / 6} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Evasion is the majority behaviour.}
+Qwen1.5-14B declines on $84.3$--$100\%$ of ambiguous items, producing
+\emph{zero} stance responses in 400 generations on Race\_x\_gender; Yi-6B
+declines less but leaves $54$--$68\%$ of completions unparsable, and its
+judge-versus-heuristic agreement of $0.618$--$0.802$ indicates systematically
+ambiguous output a four-way scheme discards, not noise. Only 5 and 2
+of 10 categories are testable, and no race-related category is testable in either
+model. Where a contrast exists, extraction succeeds: all seven cells reproduce,
+the tightest at $0.721$ against a shuffled bound of $0.096$.
+
+\paragraph{The shared structure is largely refusal.}
+Directions across categories are similar (median off-diagonal $0.650$ and
+$0.620$; permutation nulls $-0.005$ and $0.009$, $p=0.001$), which invites a
+common-mechanism reading. But $V_C$ subtracts a refusal arm, and cosine measures
+angle from the origin, so a shared additive term drives pairwise angles together
+while leaving differences untouched. Orthogonalising a refusal reference taken
+from the \emph{disambiguated} arm --- where declining is over-abstention, not
+epistemic caution, and which avoids the circularity of pooling the ambiguous arm
+--- removes $50.7\%$ of Yi-6B's shared structure, against $4.8\%$ for a
+norm- and covariance-matched random direction. The removal is targeted.
+The two models straddle a pre-declared $0.500$ retention bar by under $0.09$; we
+report both, noting that Qwen1.5-14B's two testable categories yield a single
+pair, and that orthogonalisation is a lower bound since the reference is itself
+measured only to $0.821$.
+
+\paragraph{Uniform steering has no operating window.}
+At every dose preserving task accuracy ($\alpha \leq 0.10$), no injected
+direction shifted the stereotype margin distinguishably from zero. The two
+shifts that clear zero occur where disambiguated accuracy falls from $0.617$ to
+$0.317$ and a matched random direction produces larger shifts still; at
+$\alpha \in \{0.5, 1.0\}$, $100\%$ of $3{,}200$ generations were unparsable
+across all four arms including both controls. Applying a direction at uniform
+strength leaves no dose at which the model is both intact and moved --- the
+failure Section~\ref{sec:adaptive} addresses. This null is the control against
+which adaptive gains should be read.
+
+% =====================================================================
+% IF YOU MUST GO SMALLER (each is ~0.09 page):
+%   1. The judge-versus-heuristic clause in "Evasion" -- but only if the
+%      taxonomy section already argues this with its own numbers. It is the
+%      strongest bridge between this section and yours.
+%   2. The cosine/geometry explanation in "shared structure" -> "because the
+%      contrast subtracts a refusal arm". Loses the reason a reviewer needs.
+%   3. The Method paragraph -> appendix, leaving two sentences.
+%
+% DO NOT CUT:
+%   - UNTESTABLE. Every negative claim here rests on it, and reading those
+%     cells as negative findings repeats the confound the paper is about.
+%   - "retained, matched-random removal" (0.952 / 0.937). Without it, 0.493
+%     is uninterpretable and this section's main claim collapses.
+%   - The task-accuracy clause in the steering paragraph. Without it the
+%     alpha >= 0.5 shifts read as successful steering.
+%   - "the two models straddle". Removing it converts a reported weakness
+%     into a concealed one.
+% =====================================================================

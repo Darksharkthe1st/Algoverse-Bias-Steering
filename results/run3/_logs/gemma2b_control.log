@@ -1,0 +1,22 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loading weights:   0%|          | 0/164 [00:00<?, ?it/s]Loading weights:  27%|██▋       | 45/164 [00:00<00:00, 428.33it/s]Loading weights:  66%|██████▌   | 108/164 [00:00<00:00, 528.48it/s]Loading weights: 100%|██████████| 164/164 [00:00<00:00, 554.65it/s]
+Loaded pretrained model google/gemma-2b-it into HookedTransformer
+Moving model to device:  cuda
+model gemma-2b  n_layers=18 d_model=2048
+random-direction floor (1/sqrt d) = 0.0221
+
+topic contrast                                 n  floor q05   median   verdict
+----------------------------------------------------------------------------------
+Race_ethnicity vs Gender_identity            320      0.915    0.925   REPRODUCIBLE
+Religion vs Age                              320      0.912    0.926   REPRODUCIBLE
+Nationality vs Sexual_orientation            320      0.860    0.888   REPRODUCIBLE
+
+Compare against the bias-margin floors from the full run:
+  Age 0.423 | Race_x_gender 0.138 | Nationality 0.057 | Race_x_SES 0.017
+  Religion -0.008 | Gender_identity -0.072 | Race_ethnicity -0.115 | Sexual_orientation -0.202   (q05)
+
+If the topic floors are high and those are ~0, extraction works and
+the stereotype-margin contrast is what has no stable correlate.
+
+written to runs/_extraction_control_gemma2b.json

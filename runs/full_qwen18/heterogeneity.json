@@ -1,0 +1,88 @@
+{
+  "rows": [
+    {
+      "category": "Age",
+      "floor": 0.42251118701092266,
+      "n_distinct_stereotype_sets": 2,
+      "entropy_bits": 0.9974015885677396,
+      "largest_share": 0.53,
+      "mean_margin": 0.09492512121796608,
+      "sd_margin": 1.8319754503306607,
+      "margin_effect_size": 0.051815716854083746
+    },
+    {
+      "category": "Race_x_gender",
+      "floor": 0.13772090467212195,
+      "n_distinct_stereotype_sets": 7,
+      "entropy_bits": 2.1383921844571883,
+      "largest_share": 0.4216666666666667,
+      "mean_margin": 0.1095505902916193,
+      "sd_margin": 1.6628539127931228,
+      "margin_effect_size": 0.0658810671513563
+    },
+    {
+      "category": "Nationality",
+      "floor": 0.05705569267786967,
+      "n_distinct_stereotype_sets": 10,
+      "entropy_bits": 2.691470450592947,
+      "largest_share": 0.31166666666666665,
+      "mean_margin": 0.01086993932723999,
+      "sd_margin": 1.7183327208386616,
+      "margin_effect_size": 0.0063258641329571675
+    },
+    {
+      "category": "Race_x_SES",
+      "floor": 0.01729752765993184,
+      "n_distinct_stereotype_sets": 4,
+      "entropy_bits": 1.916903363426389,
+      "largest_share": 0.36833333333333335,
+      "mean_margin": -0.04796285927295685,
+      "sd_margin": 0.8477584060459,
+      "margin_effect_size": -0.05657609400379099
+    },
+    {
+      "category": "Religion",
+      "floor": -0.007699579853926622,
+      "n_distinct_stereotype_sets": 9,
+      "entropy_bits": 3.0729055953200564,
+      "largest_share": 0.2,
+      "mean_margin": 0.05014204581578573,
+      "sd_margin": 1.3120063627347287,
+      "margin_effect_size": 0.03821783738248823
+    },
+    {
+      "category": "Gender_identity",
+      "floor": -0.07247313350017828,
+      "n_distinct_stereotype_sets": 5,
+      "entropy_bits": 1.6009560603136797,
+      "largest_share": 0.5616666666666666,
+      "mean_margin": 0.048181653770628656,
+      "sd_margin": 2.993899362215655,
+      "margin_effect_size": 0.016093277676164607
+    },
+    {
+      "category": "Race_ethnicity",
+      "floor": -0.11491869610462346,
+      "n_distinct_stereotype_sets": 9,
+      "entropy_bits": 2.3290660623390367,
+      "largest_share": 0.43333333333333335,
+      "mean_margin": -0.06606822982430458,
+      "sd_margin": 1.9145489721702176,
+      "margin_effect_size": -0.034508508679939175
+    },
+    {
+      "category": "Sexual_orientation",
+      "floor": -0.20157648652292628,
+      "n_distinct_stereotype_sets": 5,
+      "entropy_bits": 2.1790032421029246,
+      "largest_share": 0.3333333333333333,
+      "mean_margin": -0.032052723345933135,
+      "sd_margin": 1.4482367192815377,
+      "margin_effect_size": -0.022132240481952642
+    }
+  ],
+  "pearson_floor_vs_ngroups": -0.40995844238337037,
+  "spearman_floor_vs_ngroups": -0.23809523809523808,
+  "pearson_floor_vs_entropy": -0.526400407319967,
+  "spearman_floor_vs_entropy": -0.3333333333333333
+}

@@ -1,0 +1,81 @@
+
+########## alpha sweep: gemma-2b  [12:32:33] ##########
+[gemma-2b] exit=0
+* clears the usability threshold (0.5)
+
+best alpha per category:
+  Disability_status        alpha=    1e+04  q05=+0.889  USABLE
+  Physical_appearance      alpha=    1e+02  q05=+0.768  USABLE
+  Religion                 alpha=    1e+02  q05=+0.390  
+  Age                      alpha=    1e+00  q05=+0.353  
+  Sexual_orientation       alpha=    1e+02  q05=+0.343  
+  Race_x_gender            alpha=    1e+02  q05=+0.289  
+  Nationality              alpha=    1e+02  q05=+0.266  
+  Race_ethnicity           alpha=    1e+02  q05=+0.146  
+  Race_x_SES               alpha=    1e+00  q05=+0.115  
+
+categories reproducible under SOME alpha: 2 -> ['Physical_appearance', 'Disability_status']
+Compare against the extremes contrast, which reproduced 4/10 on
+qwen-14b (Disability_status, Age, Religion, Physical_appearance).
+
+If a tuned probe lifts categories the extremes contrast missed, then
+'no recoverable direction' was an estimator limit for those categories,
+not a fact about the model.
+
+written to runs/_probe_alpha_sweep_gemma-2b.json
+
+########## alpha sweep: yi-6b  [12:35:37] ##########
+[yi-6b] exit=0
+* clears the usability threshold (0.5)
+
+best alpha per category:
+  Disability_status        alpha=    1e+04  q05=+0.876  USABLE
+  Physical_appearance      alpha=    1e+03  q05=+0.606  USABLE
+  Nationality              alpha=    1e+04  q05=+0.327  
+  Race_x_gender            alpha=    1e+05  q05=+0.312  
+  Age                      alpha=    1e+02  q05=+0.214  
+  Race_x_SES               alpha=    1e+05  q05=+0.098  
+  Sexual_orientation       alpha=    1e+00  q05=+0.089  
+  Religion                 alpha=    1e+00  q05=+0.070  
+  Race_ethnicity           alpha=    1e+00  q05=+0.052  
+
+categories reproducible under SOME alpha: 2 -> ['Physical_appearance', 'Disability_status']
+Compare against the extremes contrast, which reproduced 4/10 on
+qwen-14b (Disability_status, Age, Religion, Physical_appearance).
+
+If a tuned probe lifts categories the extremes contrast missed, then
+'no recoverable direction' was an estimator limit for those categories,
+not a fact about the model.
+
+written to runs/_probe_alpha_sweep_yi-6b.json
+
+########## alpha sweep: qwen-7b  [12:44:33] ##########
+[qwen-7b] exit=0
+
+best alpha per category:
+  Disability_status        alpha=    1e+05  q05=+0.882  USABLE
+  Physical_appearance      alpha=    1e+03  q05=+0.680  USABLE
+  Religion                 alpha=    1e+06  q05=+0.525  USABLE
+  Age                      alpha=    1e+04  q05=+0.483  
+  Nationality              alpha=    1e+04  q05=+0.390  
+  Race_x_gender            alpha=    1e+06  q05=+0.336  
+  Sexual_orientation       alpha=    1e+02  q05=+0.234  
+  Gender_identity          alpha=    1e+04  q05=+0.100  
+  Race_x_SES               alpha=    1e+02  q05=+0.054  
+  Race_ethnicity           alpha=    1e+02  q05=+0.043  
+
+categories reproducible under SOME alpha: 3 -> ['Religion', 'Physical_appearance', 'Disability_status']
+Compare against the extremes contrast, which reproduced 4/10 on
+qwen-14b (Disability_status, Age, Religion, Physical_appearance).
+
+If a tuned probe lifts categories the extremes contrast missed, then
+'no recoverable direction' was an estimator limit for those categories,
+not a fact about the model.
+
+written to runs/_probe_alpha_sweep_qwen-7b.json
+
+########## SWEEPS COMPLETE [12:54:45] ##########
+-rw-rw-r-- 1 ubuntu ubuntu 28039 Aug 21 12:35 runs/_probe_alpha_sweep_gemma-2b.json
+-rw-rw-r-- 1 ubuntu ubuntu 31117 Aug 21 11:34 runs/_probe_alpha_sweep_qwen-14b.json
+-rw-rw-r-- 1 ubuntu ubuntu 31162 Aug 21 12:54 runs/_probe_alpha_sweep_qwen-7b.json
+-rw-rw-r-- 1 ubuntu ubuntu 28149 Aug 21 12:44 runs/_probe_alpha_sweep_yi-6b.json

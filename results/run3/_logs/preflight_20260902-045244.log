@@ -1,0 +1,37 @@
+======================================================================
+PREFLIGHT — prove the environment before spending the window
+======================================================================
+[  ok  ] python >= 3.10 — 3.10.12
+[  ok  ] import numpy — 1.26.4
+[  ok  ] import scipy — 1.13.1
+[  ok  ] import sklearn — 1.5.2
+[  ok  ] import torch — 2.7.0
+[  ok  ] import transformers — 5.16.1
+[  ok  ] import transformer_lens — ?
+[  ok  ] import PIL — 12.3.0
+[  ok  ] import jinja2 — 3.1.6
+[  ok  ] numpy < 2 (Lambda/A100 torch is built against 1.x) — 1.26.4
+[  ok  ] pillow has Image.Resampling
+[  ok  ] jinja2 >= 3.1 (apply_chat_template needs it) — 3.1.6
+[  ok  ] GPU present — NVIDIA A100-SXM4-40GB, 42 GB
+[  ok  ] BBQ category files — 10 files in /home/ubuntu/Algoverse-Bias-Steering/datasets/BBQ_Prompt_Sets
+[  ok  ] BBQ answer key (additional_metadata.csv)
+[  ok  ] margins cache — 38 files, models: gemma-2b, qwen-14b, qwen-7b, yi-6b
+[  ok  ] P3 manifest hash reproduces — sha256[:16]=98074bac4bdb7200, 11 subsets
+[  ok  ] free disk >= 120 GB — 424 GB free
+[  ok  ] HF_TOKEN set — 37 chars
+
+running the test suite (torch-free, ~5 s)...
+[  ok  ] test suite — 291 passed, 1 skipped, 4 xfailed in 9.18s
+
+loading qwen-1.8b (this is the expensive check)...
+Loading weights:   0%|          | 0/291 [00:00<?, ?it/s]Loading weights:  63%|██████▎   | 184/291 [00:00<00:00, 1818.79it/s]Loading weights: 100%|██████████| 291/291 [00:00<00:00, 1810.23it/s]
+Loaded pretrained model Qwen/Qwen1.5-1.8B-Chat into HookedTransformer
+Moving model to device:  cuda
+[  ok  ] model loads — qwen-1.8b: 24 layers, d_model 2048
+[  ok  ] one real forward pass — logprob -3.6375
+
+======================================================================
+22 checks · 0 FAIL · 0 warn
+
+Green. Safe to start P0.

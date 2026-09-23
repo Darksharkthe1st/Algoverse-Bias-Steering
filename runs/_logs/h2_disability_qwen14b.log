@@ -1,0 +1,25 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:   8%|▊         | 38/483 [00:00<00:01, 332.99it/s]Loading weights:  15%|█▍        | 72/483 [00:00<00:01, 305.06it/s]Loading weights:  22%|██▏       | 108/483 [00:00<00:01, 310.15it/s]Loading weights:  29%|██▉       | 140/483 [00:00<00:01, 310.43it/s]Loading weights:  36%|███▌      | 172/483 [00:00<00:01, 299.37it/s]Loading weights:  42%|████▏     | 202/483 [00:00<00:00, 296.56it/s]Loading weights:  48%|████▊     | 233/483 [00:00<00:00, 291.84it/s]Loading weights:  55%|█████▌    | 266/483 [00:00<00:00, 294.13it/s]Loading weights:  62%|██████▏   | 298/483 [00:00<00:00, 295.52it/s]Loading weights:  68%|██████▊   | 330/483 [00:01<00:00, 302.19it/s]Loading weights:  75%|███████▍  | 362/483 [00:01<00:00, 302.17it/s]Loading weights:  82%|████████▏ | 395/483 [00:01<00:00, 307.82it/s]Loading weights:  88%|████████▊ | 426/483 [00:01<00:00, 305.33it/s]Loading weights:  95%|█████████▌| 459/483 [00:01<00:00, 310.26it/s]Loading weights: 100%|██████████| 483/483 [00:01<00:00, 308.84it/s]
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+Moving model to device:  cuda
+qwen-14b  n_layers=40 d_model=5120
+category: Disability_status
+
+margins: loaded from cache (600 items)
+
+subset        n/pole   mean neg   mean pos  separation  floor q05   median   reproduces?
+----------------------------------------------------------------------------------------
+extremes          90     -6.293     +8.371      14.664      0.809    0.895   YES
+moderate          90     -3.149     +5.438       8.587      0.759    0.857   YES
+null-tilt         90     -0.398     +1.361       1.758      0.079    0.279   no
+
+prediction was floor(extremes) > floor(moderate) > floor(null-tilt)
+observed: 0.809 > 0.759 > 0.079   -> SUPPORTED
+null-tilt subset reproduces: False (H2 predicts False, at identical n)
+
+written to runs/_h2_dose_qwen-14b_Disability_status.json
+
+n is identical across the three subsets, so a monotone result cannot
+be explained by sample size — which is the mechanical worry about the
+between-category correlation.
