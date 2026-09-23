@@ -64,7 +64,8 @@ def _batches(seq, n):
 
 
 def steer_and_judge(backend, loaded, examples, method, vector, coeff, judge_fn,
-                    judge_spec, *, max_tokens, sys_prompt, answer_of=None):
+                    judge_spec, *, max_tokens, sys_prompt, answer_of=None,
+                    enable_thinking=None):
     """Apply `vector` at `coeff` (via `method.apply` hooks), generate on `examples`,
     and judge. Returns `(responses, labels)`.
 
@@ -82,10 +83,12 @@ def steer_and_judge(backend, loaded, examples, method, vector, coeff, judge_fn,
     untransformed text."""
     prompts = [e.prompt for e in examples]
     if vector is None or coeff == 0:
-        responses = backend.generate(loaded, prompts, max_tokens, sys_prompt)
+        responses = backend.generate(loaded, prompts, max_tokens, sys_prompt,
+                                     enable_thinking=enable_thinking)
     else:
         hooks = method.apply(loaded.model, vector, coeff)
-        responses = backend.generate_with_hooks(loaded, prompts, hooks, max_tokens, sys_prompt)
+        responses = backend.generate_with_hooks(loaded, prompts, hooks, max_tokens, sys_prompt,
+                                                enable_thinking=enable_thinking)
     judged = [answer_of(r) for r in responses] if answer_of else responses
     return responses, judge_fn(judged, examples, judge_spec)
 
@@ -208,7 +211,7 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
                           desc=f"{model_key} {phase_desc}"):
         sj = lambda coeff: steer_and_judge(  # noqa: E731
             backend, loaded, batch, method, vector, coeff, judge_fn, config.judge,
-            answer_of=answer_of,
+            answer_of=answer_of, enable_thinking=config.enable_thinking,
             max_tokens=config.max_tokens, sys_prompt=sys_prompt)
         initial, j_init = sj(0.0)
         steered_pos, j_pos = sj(config.coeffs.opinion)
@@ -281,6 +284,7 @@ def _capture_by_verdict(config, examples, loaded, method, judge_fn, backend,
         responses, caches = backend.generate_with_cache(
             loaded, prompts, config.max_tokens, sys_prompt,
             capture_names=method.names(n_layers),
+            enable_thinking=config.enable_thinking,
         )
         judged = [answer_of(r) for r in responses] if answer_of else responses
         verdicts = judge_fn(judged, batch, config.judge)
@@ -394,15 +398,23 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
 def build_contrast_vectors(config: ExperimentConfig, *, backend: Backend | None = None,
                            runs_dir="runs", progress=None, on_phase=None,
                            n_floor: int | None = None,
-                           require_floor: bool = True) -> list[tuple]:
-    """Build the 3 judge-v2.1 contrast vectors for each model; return (run_dir, built).
+                           require_floor: bool = True,
+                           contrast_set: dict | None = None) -> list[tuple]:
+    """Build the judge-v2.1 contrast vectors for each model; return (run_dir, built).
 
     Same front half as `run()` (dataset, seeded TRAIN/TEST split), the shared capture
     loop, then `contrasts.{collapse_and_pool, build_three_vectors}`. Saves each
     buildable vector as `<name>.safetensors` and writes the held-out `test_split.csv`
     for Phase 4. `config.strip_reasoning` decides whether the judge sees the answer
     or the full reasoning trace.
+
+    `contrast_set` restricts which contrasts are built: a `{name: (pos, neg)}` subset
+    of `contrasts.CONTRASTS` (default: all three). Passing `{"V2": (STANCE,
+    "soft-refusal")}` builds ONLY the stance<-soft direction — the minimized pass
+    that needs no hard-refusal / non-engagement poles (so far fewer generations),
+    while the FULL 9-way judge still labels every response for the later grow-out.
     """
+    cset = contrasts.CONTRASTS if contrast_set is None else contrast_set
     backend = backend or Backend()
     progress = progress or (lambda it, **kw: it)
     on_phase = on_phase or (lambda phase, run_id: None)
@@ -437,7 +449,8 @@ def build_contrast_vectors(config: ExperimentConfig, *, backend: Backend | None 
 
         buckets = contrasts.collapse_and_pool(resids)
         vectors = contrasts.build_three_vectors(
-            buckets, build=method.build, n_floor=n_floor, require_floor=require_floor)
+            buckets, contrasts=cset, build=method.build, n_floor=n_floor,
+            require_floor=require_floor)
         for name, vector in vectors.items():
             backend.save_vector(handle.dir / f"{name}.safetensors", vector,
                                 n_layers=n_layers, d_model=d_model)
@@ -448,6 +461,11 @@ def build_contrast_vectors(config: ExperimentConfig, *, backend: Backend | None 
             w.writeheader()
             for e in test:
                 w.writerow({"item_id": e.id, "prompt": e.prompt})
+        # Same held-out prompts as a plain list[str], so the `snapshot` dataset
+        # loader can feed them straight into an apply/eval run (--vector <V*>)
+        # without a bespoke CSV loader.
+        (handle.dir / "test_split.json").write_text(
+            json.dumps([e.prompt for e in test], indent=2), encoding="utf-8")
 
         log.event(f"buckets { {k: len(v) for k, v in buckets.items()} }; "
                   f"built {list(vectors) or 'NONE (all under floor)'}")

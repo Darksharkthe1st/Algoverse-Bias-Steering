@@ -364,9 +364,16 @@ def load_issuebench(spec: DatasetSpec) -> list[Example]:
     examples: list[Example] = []
     for i, row in enumerate(df.itertuples(index=False)):
         r = row._asdict()
+        prompt = r["prompt_text"]
+        # Data hygiene: the `sample` split carries scraping artifacts — template
+        # tails like "1 / 1 ... Share Prompt" that are not part of the writing
+        # request and skew both extraction buckets and eval. Drop them before any
+        # reported run (algoverse_iclr_readiness.md findings log, 2026-09-23).
+        if "share prompt" in prompt.lower():
+            continue
         examples.append(Example(
             id=f"issuebench-{split}-{i}",
-            prompt=r["prompt_text"],
+            prompt=prompt,
             metadata={
                 "category": r.get("topic_polarity"),  # neutral/pro/con — stratify key
                 "topic_id": r.get("topic_id"),

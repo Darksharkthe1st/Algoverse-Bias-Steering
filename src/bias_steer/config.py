@@ -126,6 +126,15 @@ class ExperimentConfig:
     # answer (residuals are still captured over the full response). Off by default
     # so non-reasoning models are unaffected.
     strip_reasoning: bool = False
+    # Chat-template `enable_thinking` override for hybrid-reasoning models (qwen3):
+    # None = tokenizer default (currently ON for Qwen3-8B); False forces the
+    # template to pre-fill an empty `<think>\n\n</think>` so the model answers
+    # directly, with no reasoning trace. Ported from fk/init-prompt-control. This
+    # is the fix for the thinking-mode truncation bug (docs/HANDOFF_prompt_control.md
+    # §0.3): at a small max_tokens the model otherwise truncates mid-`<think>` and
+    # every metric silently computes on an empty answer. Ignored by models whose
+    # template doesn't define the toggle.
+    enable_thinking: bool | None = None
 
     def validate(self) -> "ExperimentConfig":
         """Structural checks that need no registries. Returns self for chaining.
@@ -178,4 +187,5 @@ def from_dict(d: dict) -> ExperimentConfig:
         max_tokens=d.get("max_tokens", 128),
         batch_size=d.get("batch_size", 32),
         strip_reasoning=d.get("strip_reasoning", False),
+        enable_thinking=d.get("enable_thinking", None),
     )

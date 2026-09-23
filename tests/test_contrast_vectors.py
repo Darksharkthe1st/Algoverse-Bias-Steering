@@ -62,7 +62,8 @@ def _fake_backend():
         model = types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4))
         return types.SimpleNamespace(model=model, tokenizer=None, spec=spec, device="cpu")
 
-    def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt, capture_names=None):
+    def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt, capture_names=None,
+                            enable_thinking=None):
         return list(prompts), [None] * len(prompts)   # echo the prompt (= the fine label)
 
     def save_vector(path, vector, *, n_layers, d_model):
@@ -116,6 +117,34 @@ def test_build_under_floor_builds_all_three():
         _d, built = experiment.build_contrast_vectors(_cfg(), backend=_fake_backend(),
                                                       runs_dir=tmp, n_floor=5, require_floor=False)[0]
     assert built == ["V1", "V2", "V3"]
+
+
+def test_contrast_set_restricts_to_v2_only():
+    """The minimized pass: contrast_set={V2} builds ONLY V2 even though V3's poles
+    also clear the floor — so no V1/V3 vector is fit or saved."""
+    from src.bias_steer.contrasts import CONTRASTS
+    _register_fakes()
+    with tempfile.TemporaryDirectory() as tmp:
+        d, built = experiment.build_contrast_vectors(
+            _cfg(), backend=_fake_backend(), runs_dir=tmp, n_floor=5,
+            contrast_set={"V2": CONTRASTS["V2"]})[0]
+        assert built == ["V2"], built
+        assert (d / "V2.safetensors").is_file()
+        assert not (d / "V1.safetensors").exists()
+        assert not (d / "V3.safetensors").exists()
+
+
+def test_writes_test_split_json_for_heldout_eval():
+    """The held-out apply/eval loads the snapshot as list[str]; the vectors run must
+    emit test_split.json alongside the CSV, disjoint from train."""
+    import json
+    _register_fakes()
+    with tempfile.TemporaryDirectory() as tmp:
+        d, _built = experiment.build_contrast_vectors(_cfg(), backend=_fake_backend(),
+                                                      runs_dir=tmp, n_floor=5)[0]
+        prompts = json.loads((d / "test_split.json").read_text(encoding="utf-8"))
+    assert isinstance(prompts, list) and all(isinstance(p, str) for p in prompts)
+    assert len(prompts) == _N_TEST
 
 
 if __name__ == "__main__":

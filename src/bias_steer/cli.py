@@ -40,6 +40,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="vectors: min examples per contrast pole to build its vector")
     p.add_argument("--build-under-floor", action="store_true",
                    help="vectors: build contrasts even below the floor (default: skip them)")
+    p.add_argument("--contrasts", default=None,
+                   help="vectors: comma-separated subset of contrast names to build "
+                        "(e.g. 'V2' for the minimized stance<-soft pass); default = all")
     p.add_argument("--vector", default=None,
                    help="path to a saved steering_vector.safetensors to APPLY instead of extracting "
                         "(overrides config.vector_path); the TRAIN split is then not used to fit a vector")
@@ -136,14 +139,25 @@ def main(argv=None) -> int:
             print("error: OPENAI_API_KEY is not set, and the judge is needed to bucket "
                   "residuals.\n       Put it in .env at the repo root or export it.")
             return 2
+        from . import contrasts as _contrasts_mod, experiment
+        contrast_set = None
+        if args.contrasts:
+            names = [n.strip() for n in args.contrasts.split(",") if n.strip()]
+            unknown = [n for n in names if n not in _contrasts_mod.CONTRASTS]
+            if unknown:
+                print(f"error: unknown contrast name(s) {unknown}; "
+                      f"choose from {list(_contrasts_mod.CONTRASTS)}")
+                return 2
+            contrast_set = {n: _contrasts_mod.CONTRASTS[n] for n in names}
         print(f"contrast vectors: {cfg.label}")
         print(f"  models:  {', '.join(cfg.models)}")
         print(f"  dataset: {cfg.dataset.name}  judge: {cfg.judge.name}  "
-              f"strip_reasoning: {cfg.strip_reasoning}\n")
-        from . import experiment
+              f"strip_reasoning: {cfg.strip_reasoning}  "
+              f"contrasts: {list(contrast_set) if contrast_set else 'ALL'}\n")
         results = experiment.build_contrast_vectors(
             cfg, runs_dir=args.runs_dir, progress=prog, on_phase=_emit_phase,
-            n_floor=args.n_floor, require_floor=not args.build_under_floor)
+            n_floor=args.n_floor, require_floor=not args.build_under_floor,
+            contrast_set=contrast_set)
         for run_dir, built in results:
             print(f"\ndone: {run_dir}\n  vectors built: {built or 'NONE (all under floor)'}")
         return 0
