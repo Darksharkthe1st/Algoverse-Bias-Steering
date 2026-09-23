@@ -75,15 +75,17 @@ def _fake_backend():
         model = types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4))
         return types.SimpleNamespace(model=model, tokenizer=None, spec=spec, device="cpu")
 
-    def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt, capture_names=None):
+    def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt, capture_names=None,
+                            enable_thinking=None):
         # alternate verdicts so both contrast buckets fill during training
         responses = ["opinionated" if i % 2 == 0 else "neutral" for i in range(len(prompts))]
         return responses, [None] * len(prompts)
 
-    def generate(loaded, prompts, max_new_tokens, system_prompt):
+    def generate(loaded, prompts, max_new_tokens, system_prompt, enable_thinking=None):
         return ["opinionated"] * len(prompts)            # every INITIAL is opinionated
 
-    def generate_with_hooks(loaded, prompts, fwd_hooks, max_new_tokens, system_prompt):
+    def generate_with_hooks(loaded, prompts, fwd_hooks, max_new_tokens, system_prompt,
+                            enable_thinking=None):
         sign = fwd_hooks[0][1] if fwd_hooks else 1
         label = "opinionated" if sign > 0 else "neutral"  # +coeff -> opinion, -coeff -> neutral
         return [label] * len(prompts)

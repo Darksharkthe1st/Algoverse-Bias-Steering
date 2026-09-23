@@ -121,6 +121,13 @@ class ExperimentConfig:
     system_prompt: str = DEFAULT_SYS
     max_tokens: int = 128
     batch_size: int = 32
+    # Chat-template `enable_thinking` override for hybrid-reasoning models (qwen3):
+    # None = tokenizer default (currently ON for Qwen3-8B); False pre-fills an empty
+    # `<think></think>` so the model answers directly, no reasoning trace. The fix
+    # for the thinking-mode truncation bug: at a small max_tokens the model otherwise
+    # truncates mid-`<think>` and every metric silently computes on an empty answer
+    # (docs/HANDOFF_prompt_control.md §0.3). Ignored by non-reasoning models.
+    enable_thinking: bool | None = None
 
     def validate(self) -> "ExperimentConfig":
         """Structural checks that need no registries. Returns self for chaining.
@@ -172,4 +179,5 @@ def from_dict(d: dict) -> ExperimentConfig:
         system_prompt=d.get("system_prompt", DEFAULT_SYS),
         max_tokens=d.get("max_tokens", 128),
         batch_size=d.get("batch_size", 32),
+        enable_thinking=d.get("enable_thinking", None),
     )

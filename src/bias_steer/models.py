@@ -67,13 +67,19 @@ def build_chat_messages(system: str, user: str) -> list[dict]:
     ]
 
 
-def render_prompts(loaded: LoadedModel, prompts, system_prompt, *, template=None):
+def render_prompts(loaded: LoadedModel, prompts, system_prompt, *, template=None,
+                   enable_thinking=None):
     """Return (token_lists, prompt_strs). Chat models get the system+user chat
     template; base models (`chat_template=False`) get the raw prompt.
 
     NOTE: this mirrors the notebook, where gemma/llama-3 ran with
     `apply_chat_template=False` (no system instruction). Revisit per-model if that
     turns out to matter — it's one `ModelSpec.chat_template` flag.
+
+    `enable_thinking`, if not None, is passed to `apply_chat_template` — hybrid-
+    reasoning models (qwen3) pre-fill an empty `<think>\\n\\n</think>` when it is
+    False, skipping the reasoning trace entirely. None = tokenizer default. Models
+    whose template doesn't define the toggle ignore the unused Jinja variable.
 
     `template` overrides both branches with a literal format string containing
     `{instruction}`, rendered verbatim with NO system turn. The refusal repro
@@ -94,8 +100,9 @@ def render_prompts(loaded: LoadedModel, prompts, system_prompt, *, template=None
             strs.append(s)
         elif loaded.spec.chat_template:
             msg = build_chat_messages(system_prompt, p)
-            token_lists.append(tok.apply_chat_template(msg, tokenize=True, add_generation_prompt=True))
-            strs.append(tok.apply_chat_template(msg, tokenize=False, add_generation_prompt=True))
+            ct_kwargs = {} if enable_thinking is None else {"enable_thinking": enable_thinking}
+            token_lists.append(tok.apply_chat_template(msg, tokenize=True, add_generation_prompt=True, **ct_kwargs))
+            strs.append(tok.apply_chat_template(msg, tokenize=False, add_generation_prompt=True, **ct_kwargs))
         else:
             token_lists.append(tok(p).input_ids)
             strs.append(p)
@@ -125,9 +132,11 @@ def _strip(loaded: LoadedModel, out_tokens, n_input: int) -> list[str]:
     ]
 
 
-def generate(loaded: LoadedModel, prompts, max_new_tokens, system_prompt, *, template=None) -> list[str]:
+def generate(loaded: LoadedModel, prompts, max_new_tokens, system_prompt, *, template=None,
+             enable_thinking=None) -> list[str]:
     """Greedy generation. Ports notebook `normal_generation`."""
-    _, strs = render_prompts(loaded, prompts, system_prompt, template=template)
+    _, strs = render_prompts(loaded, prompts, system_prompt, template=template,
+                             enable_thinking=enable_thinking)
     tokens = loaded.model.to_tokens(strs)  # left-padded to a uniform width
     out = loaded.model.generate(tokens, max_new_tokens=max_new_tokens,
                                 do_sample=False, return_type="tokens")
@@ -135,7 +144,7 @@ def generate(loaded: LoadedModel, prompts, max_new_tokens, system_prompt, *, tem
 
 
 def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_prompt,
-                        capture_names=None):
+                        capture_names=None, enable_thinking=None):
     """Return (responses, caches). The cache is taken over the *response* text —
     faithful to the notebook, where `batch_resids` calls `run_with_cache` on the
     stripped output. Feed each cache to `steering.capture_*`.
@@ -150,7 +159,8 @@ def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_pro
     Defaults to the `resid_pre` names used by `capture_mean` / `capture_last`; a
     method reading other hook points passes its own (see `SteeringMethod.names`).
     """
-    responses = generate(loaded, prompts, max_new_tokens, system_prompt)
+    responses = generate(loaded, prompts, max_new_tokens, system_prompt,
+                         enable_thinking=enable_thinking)
     if capture_names is None:
         n_layers = loaded.model.cfg.n_layers
         capture_names = [f"blocks.{i}.hook_resid_pre" for i in range(n_layers)]
@@ -163,10 +173,11 @@ def generate_with_cache(loaded: LoadedModel, prompts, max_new_tokens, system_pro
 
 
 def generate_with_hooks(loaded: LoadedModel, prompts, fwd_hooks, max_new_tokens, system_prompt,
-                        *, template=None) -> list[str]:
+                        *, template=None, enable_thinking=None) -> list[str]:
     """Steered generation under `fwd_hooks` (build them with `steering.apply_*`).
     Ports notebook `batched_generation`."""
-    _, strs = render_prompts(loaded, prompts, system_prompt, template=template)
+    _, strs = render_prompts(loaded, prompts, system_prompt, template=template,
+                             enable_thinking=enable_thinking)
     tokens = loaded.model.to_tokens(strs)
     with loaded.model.hooks(fwd_hooks):
         # temperature=0 is greedy: sample_logits early-returns argmax on 0.0, so

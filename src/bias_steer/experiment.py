@@ -178,11 +178,12 @@ def _evaluate_and_persist(config, model_key, handle, log, loaded, vector, *,
     for batch in progress(list(_batches(eval_examples, config.batch_size)),
                           desc=f"{model_key} {phase_desc}"):
         prompts = [e.prompt for e in batch]
-        initial = backend.generate(loaded, prompts, config.max_tokens, sys_prompt)
+        et = config.enable_thinking
+        initial = backend.generate(loaded, prompts, config.max_tokens, sys_prompt, enable_thinking=et)
         pos_hooks = method.apply(loaded.model, vector, config.coeffs.opinion)
-        steered_pos = backend.generate_with_hooks(loaded, prompts, pos_hooks, config.max_tokens, sys_prompt)
+        steered_pos = backend.generate_with_hooks(loaded, prompts, pos_hooks, config.max_tokens, sys_prompt, enable_thinking=et)
         neg_hooks = method.apply(loaded.model, vector, -config.coeffs.neutral)
-        steered_neg = backend.generate_with_hooks(loaded, prompts, neg_hooks, config.max_tokens, sys_prompt)
+        steered_neg = backend.generate_with_hooks(loaded, prompts, neg_hooks, config.max_tokens, sys_prompt, enable_thinking=et)
 
         j_init = judge_fn(initial, batch, config.judge)
         j_pos = judge_fn(steered_pos, batch, config.judge)
@@ -254,6 +255,7 @@ def _extract_vector(config, model_key, train, loaded, method, judge_fn, contrast
         responses, caches = backend.generate_with_cache(
             loaded, prompts, config.max_tokens, sys_prompt,
             capture_names=method.names(n_layers),
+            enable_thinking=config.enable_thinking,
         )
         verdicts = judge_fn(responses, batch, config.judge)
         for ex, resp, cache, verdict in zip(batch, responses, caches, verdicts):

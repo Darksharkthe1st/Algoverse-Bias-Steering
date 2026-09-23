@@ -124,14 +124,14 @@ def _fake_backend():
             tokenizer=None, spec=spec, device="cpu",
         )
 
-    def generate_with_cache(loaded, prompts, mnt, sysp, capture_names=None):
+    def generate_with_cache(loaded, prompts, mnt, sysp, capture_names=None, enable_thinking=None):
         return (["opinionated" if i % 2 == 0 else "neutral" for i in range(len(prompts))],
                 [None] * len(prompts))
 
-    def generate(loaded, prompts, mnt, sysp):
+    def generate(loaded, prompts, mnt, sysp, enable_thinking=None):
         return ["opinionated"] * len(prompts)
 
-    def generate_with_hooks(loaded, prompts, hooks, mnt, sysp):
+    def generate_with_hooks(loaded, prompts, hooks, mnt, sysp, enable_thinking=None):
         sign = hooks[0][1] if hooks else 1
         return [("opinionated" if sign > 0 else "neutral")] * len(prompts)
 
