@@ -126,8 +126,12 @@ def test_run_end_to_end_produces_all_artifacts():
         for fname in ("manifest.json", "examples.csv", "results.csv", "summary.md",
                       "steering_vector.safetensors", "residuals.safetensors"):
             assert (r.dir / fname).is_file(), f"missing artifact: {fname}"
-        for log in ("run.log", "train.txt", "eval.txt"):
+        for log in ("run.log", "train.txt"):
             assert (r.dir / "logs" / log).is_file(), f"missing log: {log}"
+        # eval output is now split one file per condition under by_condition/
+        for cond in (INITIAL, STEERED_POS, STEERED_NEG):
+            cond_log = r.dir / "logs" / "by_condition" / f"{cond}.txt"
+            assert cond_log.is_file(), f"missing by_condition log: {cond}"
 
         # manifest round-trips the config
         manifest = json.loads((r.dir / "manifest.json").read_text())
