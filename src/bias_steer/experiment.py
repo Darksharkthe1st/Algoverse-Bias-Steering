@@ -305,26 +305,50 @@ def _extract_vector(config, model_key, train, loaded, method, judge_fn, contrast
                     backend, handle, log, n_layers, d_model, progress):
     """Generate the steering vector from the TRAIN split (the default source).
 
-    TRAIN phase: generate on `train`, judge each response, bucket residuals by the
-    verdict, then `method.build` the mean-difference direction. Persists the vector
-    and the per-bucket residuals into the run folder. Called by `_run_one` ONLY
-    when no vector was supplied — it is the "make a new vector" half of a run.
+    Two contrast modes (`config.contrast_mode`):
+
+    - "natural" (default): one generation per prompt under the DEFAULT system
+      prompt; the JUDGE labels each response and residuals are bucketed by that
+      verdict. Which bucket a prompt lands in is decided by the prompt itself, so
+      on a dataset whose prompts embed a stance ("X being a bad thing") the
+      direction confounds prompt framing with the behaviour.
+    - "forced": each prompt is generated TWICE — under `pos_system_prompt` then
+      `neg_system_prompt` — and residuals are bucketed BY CONSTRUCTION (pos pole /
+      neg pole), no judge in this phase. Paired on the identical prompt, so prompt
+      content cancels in the mean difference and the buckets are balanced by
+      design (CAA / RepE / Arditi-style contrastive extraction).
+
+    Persists the vector and per-bucket residuals into the run folder. Called by
+    `_run_one` ONLY when no vector was supplied.
     """
-    sys_prompt = config.system_prompt
     answer_of = models.answer_text if config.strip_reasoning else None
     think_kw = {} if config.enable_thinking is None else {"enable_thinking": config.enable_thinking}
+    pos_label, neg_label = contrast
     resids_by_label: dict = {}
     for batch in progress(list(_batches(train, config.batch_size)), desc=f"{model_key} train"):
         prompts = [e.prompt for e in batch]
-        responses, caches = backend.generate_with_cache(
-            loaded, prompts, config.max_tokens, sys_prompt,
-            capture_names=method.names(n_layers), **think_kw,
-        )
-        judged = [answer_of(r) for r in responses] if answer_of else responses
-        verdicts = judge_fn(judged, batch, config.judge)
-        for ex, text, cache, verdict in zip(batch, judged, caches, verdicts):
-            resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))
-            log.train(ex, text, verdict)
+        if config.contrast_mode == "forced":
+            # Two passes over the SAME prompts; the inducing system prompt IS the
+            # label, so no judge is consulted for bucketing.
+            for sys_prompt, label in ((config.pos_system_prompt, pos_label),
+                                      (config.neg_system_prompt, neg_label)):
+                responses, caches = backend.generate_with_cache(
+                    loaded, prompts, config.max_tokens, sys_prompt,
+                    capture_names=method.names(n_layers), **think_kw,
+                )
+                for ex, text, cache in zip(batch, responses, caches):
+                    resids_by_label.setdefault(label, []).append(method.capture(cache, n_layers))
+                    log.train(ex, text, label)
+        else:
+            responses, caches = backend.generate_with_cache(
+                loaded, prompts, config.max_tokens, config.system_prompt,
+                capture_names=method.names(n_layers), **think_kw,
+            )
+            judged = [answer_of(r) for r in responses] if answer_of else responses
+            verdicts = judge_fn(judged, batch, config.judge)
+            for ex, text, cache, verdict in zip(batch, judged, caches, verdicts):
+                resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))
+                log.train(ex, text, verdict)
 
     log.event(f"building steering vector (buckets: "
               f"{ {k: len(v) for k, v in resids_by_label.items()} })")

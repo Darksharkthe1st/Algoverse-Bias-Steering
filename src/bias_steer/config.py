@@ -168,6 +168,18 @@ class ExperimentConfig:
     # directly, no reasoning trace at all. Ignored by models whose template doesn't
     # define the toggle. Not set project-wide by default — a per-experiment choice.
     enable_thinking: bool | None = None
+    # How the extraction TRAIN phase forms the opinionated/neutral contrast:
+    #   "natural" — one default-prompt generation per item, bucketed by the JUDGE's
+    #               verdict (historical default). Confounds prompt framing with the
+    #               behaviour when the dataset's prompts embed a stance (IssueBench
+    #               "X being a bad thing" lands in the opinionated bucket for what
+    #               the prompt says, not what the model chose).
+    #   "forced"  — each item generated TWICE, under pos_system_prompt vs
+    #               neg_system_prompt, bucketed BY CONSTRUCTION (CAA/RepE/Arditi-
+    #               style). Paired on the same prompt so content cancels in the mean
+    #               difference; balanced by design. No judge in the TRAIN phase.
+    # Only affects extraction; ignored when a vector is supplied.
+    contrast_mode: str = "natural"
 
     def validate(self) -> "ExperimentConfig":
         """Structural checks that need no registries. Returns self for chaining.
@@ -203,6 +215,18 @@ class ExperimentConfig:
                 f"intervention={self.intervention!r} needs non-empty pos_system_prompt "
                 "and neg_system_prompt"
             )
+        if self.contrast_mode not in ("natural", "forced"):
+            raise ValueError(
+                f"contrast_mode must be 'natural' or 'forced', got {self.contrast_mode!r}"
+            )
+        # Forced-contrast extraction induces the two poles with the system prompts,
+        # so it needs them non-empty for the same reason the prompt arms do.
+        if self.contrast_mode == "forced" and not (
+            self.pos_system_prompt and self.neg_system_prompt
+        ):
+            raise ValueError(
+                "contrast_mode='forced' needs non-empty pos_system_prompt and neg_system_prompt"
+            )
         return self
 
     def to_dict(self) -> dict:
@@ -237,4 +261,5 @@ def from_dict(d: dict) -> ExperimentConfig:
         neg_system_prompt=d.get("neg_system_prompt", DEFAULT_NEG_SYS),
         strip_reasoning=d.get("strip_reasoning", False),
         enable_thinking=d.get("enable_thinking", None),
+        contrast_mode=d.get("contrast_mode", "natural"),
     )
