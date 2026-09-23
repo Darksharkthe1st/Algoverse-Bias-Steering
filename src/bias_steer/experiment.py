@@ -277,20 +277,34 @@ def _capture_by_verdict(config, examples, loaded, method, judge_fn, backend,
     full response. Shared by `_extract_vector` (one vector) and
     `build_contrast_vectors` (the three v2.1 contrasts).
     """
-    sys_prompt = config.system_prompt
+    # Option #4: assign each example a system prompt (seeded) from the capture mix,
+    # or the single system_prompt when no mix is set. Paired with each example so
+    # the assignment survives batching; residuals are still captured over the
+    # RESPONSE, so the mix only diversifies elicitation, never the vector.
+    import random as _random
+    pool = config.capture_system_prompts or [config.system_prompt]
+    rng = _random.Random(config.sample.seed)
+    paired = [(e, pool[rng.randrange(len(pool))]) for e in examples]
+
     resids_by_label: dict = {}
-    for batch in progress(list(_batches(examples, config.batch_size)), desc=desc):
-        prompts = [e.prompt for e in batch]
-        responses, caches = backend.generate_with_cache(
-            loaded, prompts, config.max_tokens, sys_prompt,
-            capture_names=method.names(n_layers),
-            enable_thinking=config.enable_thinking,
-        )
-        judged = [answer_of(r) for r in responses] if answer_of else responses
-        verdicts = judge_fn(judged, batch, config.judge)
-        for ex, text, cache, verdict in zip(batch, judged, caches, verdicts):
-            resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))
-            log.train(ex, text, verdict)
+    for batch in progress(list(_batches(paired, config.batch_size)), desc=desc):
+        # Group by assigned system prompt so each generate call is uniform (one call
+        # per distinct prompt in the batch; a single-entry pool = one call, as before).
+        by_sys: dict = {}
+        for ex, sp in batch:
+            by_sys.setdefault(sp, []).append(ex)
+        for sp, sub in by_sys.items():
+            prompts = [e.prompt for e in sub]
+            responses, caches = backend.generate_with_cache(
+                loaded, prompts, config.max_tokens, sp,
+                capture_names=method.names(n_layers),
+                enable_thinking=config.enable_thinking,
+            )
+            judged = [answer_of(r) for r in responses] if answer_of else responses
+            verdicts = judge_fn(judged, sub, config.judge)
+            for ex, text, cache, verdict in zip(sub, judged, caches, verdicts):
+                resids_by_label.setdefault(verdict, []).append(method.capture(cache, n_layers))
+                log.train(ex, text, verdict)
     return resids_by_label
 
 

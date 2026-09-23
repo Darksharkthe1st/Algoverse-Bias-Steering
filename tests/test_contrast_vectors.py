@@ -134,6 +134,36 @@ def test_contrast_set_restricts_to_v2_only():
         assert not (d / "V3.safetensors").exists()
 
 
+def test_capture_system_prompt_mix_uses_both_and_covers_all(monkeypatch):
+    """Option #4: with a 2-entry capture_system_prompts, both prompts reach
+    generation, and every training example is still captured exactly once."""
+    _register_fakes()
+    seen_sys, seen_ex = [], []
+
+    def load(spec):
+        import types
+        model = types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4))
+        return types.SimpleNamespace(model=model, tokenizer=None, spec=spec, device="cpu")
+
+    def generate_with_cache(loaded, prompts, mnt, sysp, capture_names=None, enable_thinking=None):
+        seen_sys.append(sysp)
+        seen_ex.extend(prompts)
+        return list(prompts), [None] * len(prompts)
+
+    def save_vector(path, vector, *, n_layers, d_model):
+        from pathlib import Path
+        Path(path).write_text("fake-vector")
+
+    backend = experiment.Backend(load=load, generate_with_cache=generate_with_cache,
+                                 save_vector=save_vector)
+    cfg = _cfg()
+    cfg.capture_system_prompts = ["SYS_STANCE", "SYS_HEDGE"]
+    with tempfile.TemporaryDirectory() as tmp:
+        experiment.build_contrast_vectors(cfg, backend=backend, runs_dir=tmp, n_floor=5)
+    assert set(seen_sys) == {"SYS_STANCE", "SYS_HEDGE"}, seen_sys   # both prompts used
+    assert len(seen_ex) == _N_TRAIN                                 # each train item once, no dup/drop
+
+
 def test_writes_test_split_json_for_heldout_eval():
     """The held-out apply/eval loads the snapshot as list[str]; the vectors run must
     emit test_split.json alongside the CSV, disjoint from train."""

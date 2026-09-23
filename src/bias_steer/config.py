@@ -135,6 +135,16 @@ class ExperimentConfig:
     # every metric silently computes on an empty answer. Ignored by models whose
     # template doesn't define the toggle.
     enable_thinking: bool | None = None
+    # TRAIN-capture system-prompt mix (option #4). When set, each TRAIN example is
+    # assigned one system prompt drawn (seeded by sample.seed) uniformly from this
+    # list, instead of the single `system_prompt`. This DIVERSIFIES elicitation so
+    # both behaviour poles get populated (e.g. a hedge-inducing prompt on IssueBench,
+    # where the default prompt yields almost only stances) — the JUDGE still buckets
+    # by its own verdict, and residuals are captured over the RESPONSE (never the
+    # system prompt), so the mix is an elicitation lever, not a vector confound.
+    # Weight the mix by repeating an entry. None = use `system_prompt` for all (the
+    # default). EVAL always uses the single `system_prompt`, never this.
+    capture_system_prompts: list | None = None
 
     def validate(self) -> "ExperimentConfig":
         """Structural checks that need no registries. Returns self for chaining.
@@ -188,4 +198,5 @@ def from_dict(d: dict) -> ExperimentConfig:
         batch_size=d.get("batch_size", 32),
         strip_reasoning=d.get("strip_reasoning", False),
         enable_thinking=d.get("enable_thinking", None),
+        capture_system_prompts=d.get("capture_system_prompts", None),
     )
