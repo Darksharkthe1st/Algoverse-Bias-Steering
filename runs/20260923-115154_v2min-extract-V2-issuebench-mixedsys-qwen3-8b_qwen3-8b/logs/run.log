@@ -1,0 +1,2 @@
+[20260923-115155] loading model Qwen/Qwen3-8B
+[20260923-122612] buckets {'stance-evaluative': 48, 'soft-refusal': 41, 'stance-factual': 91, 'non-engagement': 11, 'hard-refusal': 8, 'ignored': 1, 'stance': 139}; built ['V2']

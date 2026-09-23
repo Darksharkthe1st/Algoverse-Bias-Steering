@@ -1,0 +1,2 @@
+[20260923-110433] loading model Qwen/Qwen3-8B
+[20260923-112719] buckets {'stance-factual': 148, 'soft-refusal': 1, 'stance-evaluative': 39, 'hard-refusal': 10, 'non-engagement': 2, 'stance': 187}; built NONE (all under floor)
