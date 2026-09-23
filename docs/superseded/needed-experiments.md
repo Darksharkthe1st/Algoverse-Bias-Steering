@@ -354,6 +354,39 @@ result is a real null, not a silent load bug. **Priority: HIGH** (unlocks the re
 
 ---
 
+## 13. Determinism check: same config + same code, run twice  — never verified
+
+**Status:** the pipeline threads seeds through sampling and the train/test shuffle and
+records them in each manifest *for* reproducibility, but no run has ever verified that two
+identical runs actually produce identical results. Accidental nondeterminism (an unseeded
+`random`/`torch` call, dict-ordering leakage) would go unnoticed.
+
+**Goal:** confirm the reproducibility guarantee the seeds are meant to provide — identical
+config + identical code ⇒ identical results — so any future accidental randomness is caught.
+
+**Setup:** run the *exact same config* on the *exact same commit* twice, back to back.
+Two layers:
+- **Hermetic (do first, cheap):** with the stub model + stub judge already used in the phase
+  tests, run `experiment.run` twice and diff outputs — belongs in the test suite / CI.
+- **Full-stack:** run a small real config (e.g. 1 model, small n) twice on one GPU box.
+
+**Log:** for both runs — the sampled example ids, the train/test split, the steering vector
+(bytes / hash), `results.csv`, and the per-condition verdict counts.
+
+**Data needed to conclude:** a diff of the two runs. **Deterministic parts must match
+exactly:** sampled subset, train/test partition, response ordering, and — given identical
+residuals — the built steering vector. **Known non-deterministic confounds to exclude from
+the equality check:** the GPT judge (nondeterministic, §0.2 — pin/mock it or compare only
+pre-judge artifacts) and CUDA float nondeterminism (can perturb generations/residuals). So
+the hermetic stubbed run is the real determinism gate; the full-stack run compares only the
+stable artifacts. Success = deterministic artifacts are bit-identical across the two runs.
+
+**Effort:** low (hermetic) / low–medium (full-stack). **Priority: HIGH (validation)** — it
+underpins every reproducibility claim the manifests make. (Engineering note mirrored in
+`rewrite_notes.md` §8.)
+
+---
+
 ## Priority summary
 
 | # | experiment | effort | priority | blocked by |
@@ -371,6 +404,7 @@ result is a real null, not a silent load bug. **Priority: HIGH** (unlocks the re
 | 10 | synthetic steering v2 | med | LOW | 0.1 |
 | 11 | refusal (coherence-gated) | med | LOW | 0.3 |
 | 12 | reproduce refusal in our convention (extract → compare → validate) | low–med | **HIGH** | — (ready) |
+| 13 | determinism double-run check | low | HIGH (validation) | — |
 
 ---
 

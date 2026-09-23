@@ -15,7 +15,6 @@ whole wiring runs without torch/OpenAI; the numeric correctness of capture/build
 lives in the (torch-gated) steering tests.
 """
 
-import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -147,6 +146,7 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     log.event(f"loading model {spec.hf_id}")
     loaded = backend.load(spec)
     n_layers = loaded.model.cfg.n_layers
+    d_model = loaded.model.cfg.d_model
 
     # --- TRAIN: capture residuals, judge, bucket by verdict --------------------
     resids_by_label: dict = {}
@@ -164,9 +164,18 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     log.event(f"building steering vector (buckets: "
               f"{ {k: len(v) for k, v in resids_by_label.items()} })")
     vector = method.build(resids_by_label, contrast)
-    backend.save_vector(handle.dir / "steering_vector.safetensors", vector)
-    backend.save_residuals(handle.dir / "residuals.safetensors", resids_by_label)
+    backend.save_vector(handle.dir / "steering_vector.safetensors", vector,
+                        n_layers=n_layers, d_model=d_model)
+    backend.save_residuals(handle.dir / "residuals.safetensors", resids_by_label,
+                           n_layers=n_layers, d_model=d_model)
     on_phase("vector", handle.run_id)  # steering vector persisted -> coordinator commits/pushes
+
+    # Residuals were captured off-GPU (#9), so `build` produced a CPU vector (which
+    # also let save_vector serialize cleanly). Move it onto the model's device ONCE
+    # here — it's applied at every layer on every forward step of the test phase, so
+    # it must live on-device; a per-hook-fire transfer would recopy it thousands of
+    # times. One ~256 KB host->device copy covers the whole phase.
+    vector = vector.to(loaded.device)
 
     # --- TEST: initial + steered (both directions), judge each -----------------
     results: list[Result] = []
@@ -199,6 +208,9 @@ def _run_one(config, model_key, train, test, method, judge_fn, contrast,
     )
     results_csv = handle.dir / "results.csv"
     metrics.write_csv(results_csv, rows)
+    # Snapshot the frozen subset this run used, so the folder holds its own inputs.
+    metrics.write_examples_csv(handle.dir / "examples.csv", train + test,
+                               dataset=config.dataset.name)
 
     counts = metrics.condition_verdict_counts(results)
     quality = metrics.steering_quality(results, pos_label=contrast[0], neg_label=contrast[1])

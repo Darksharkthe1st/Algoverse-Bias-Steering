@@ -47,6 +47,13 @@ def _register_fakes():
         registry.register(registry.JUDGES, "faketest", lambda responses, examples, spec: list(responses))
 
 
+class _FakeVector:
+    """Opaque steering vector for the fake method. Only needs `.to()`: `run()` moves
+    the built vector onto the model device once before the test phase (#9)."""
+    def to(self, device):
+        return self
+
+
 class _FakeMethod:
     name = "faketest"
 
@@ -54,7 +61,7 @@ class _FakeMethod:
         return ("resid", n_layers)                       # opaque; never serialized for real
 
     def build(self, resids_by_label, contrast):
-        return "VECTOR"                                  # opaque steering vector
+        return _FakeVector()                             # opaque steering vector
 
     def apply(self, model, vector, coeff):
         return [("sign", 1 if coeff >= 0 else -1)]       # encode direction for the fake generator
@@ -65,7 +72,7 @@ class _FakeMethod:
 
 def _fake_backend():
     def load(spec):
-        model = types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2))
+        model = types.SimpleNamespace(cfg=types.SimpleNamespace(n_layers=2, d_model=4))
         return types.SimpleNamespace(model=model, tokenizer=None, spec=spec, device="cpu")
 
     def generate_with_cache(loaded, prompts, max_new_tokens, system_prompt, capture_names=None):
@@ -81,10 +88,10 @@ def _fake_backend():
         label = "opinionated" if sign > 0 else "neutral"  # +coeff -> opinion, -coeff -> neutral
         return [label] * len(prompts)
 
-    def save_vector(path, vector):
+    def save_vector(path, vector, *, n_layers, d_model):
         Path(path).write_text("fake-vector")
 
-    def save_residuals(path, resids_by_label):
+    def save_residuals(path, resids_by_label, *, n_layers, d_model):
         Path(path).write_text("fake-residuals")
 
     return experiment.Backend(
@@ -116,7 +123,7 @@ def test_run_end_to_end_produces_all_artifacts():
         r = results[0]
 
         # artifacts on disk
-        for fname in ("manifest.json", "results.csv", "summary.md",
+        for fname in ("manifest.json", "examples.csv", "results.csv", "summary.md",
                       "steering_vector.safetensors", "residuals.safetensors"):
             assert (r.dir / fname).is_file(), f"missing artifact: {fname}"
         for log in ("run.log", "train.txt", "eval.txt"):
@@ -133,6 +140,17 @@ def test_run_end_to_end_produces_all_artifacts():
         assert len(rows) == 15
         conds = {row["condition"] for row in rows}
         assert conds == {INITIAL, STEERED_POS, STEERED_NEG}
+
+        # examples.csv: the frozen sampled subset (5 train + 5 test), parent table
+        with (r.dir / "examples.csv").open() as f:
+            ex_rows = list(csv.DictReader(f))
+        assert len(ex_rows) == 10
+        assert set(ex_rows[0]) == {"example_id", "dataset", "prompt", "category", "metadata_json"}
+        # every results.csv example_id joins back to an examples.csv row
+        ex_ids = {row["example_id"] for row in ex_rows}
+        assert {row["example_id"] for row in rows} <= ex_ids
+        # metadata round-trips losslessly through the JSON column
+        assert json.loads(ex_rows[0]["metadata_json"]) == {"category": "X"}
 
         # index.csv row with headline metrics
         with (Path(tmp) / "index.csv").open() as f:
@@ -200,6 +218,69 @@ def test_cli_loads_config_file():
         p.write_text(src_cfg)
         cfg = cli.load_config_file(p)
         assert cfg.label == "c" and cfg.models == ["qwen-7b"]
+
+
+def _rows_without_run_id(path):
+    with open(path) as f:
+        rows = list(csv.DictReader(f))
+    for r in rows:
+        r.pop("run_id", None)          # timestamp-derived, legitimately differs per run
+    return rows
+
+
+def test_run_is_deterministic_under_same_config_and_code():
+    """Same config + same code + stub model/judge -> identical deterministic outputs.
+    Guards against accidental randomness (an unseeded random/torch call, dict-ordering
+    leakage) creeping in. Compares the stable artifacts only — not run_id / timestamps
+    / git SHA (arch: assert on sampled ids, split, ordering, verdicts)."""
+    _register_fakes()
+    with tempfile.TemporaryDirectory() as t1, tempfile.TemporaryDirectory() as t2:
+        r1 = experiment.run(_fake_config(), backend=_fake_backend(), runs_dir=t1)[0]
+        r2 = experiment.run(_fake_config(), backend=_fake_backend(), runs_dir=t2)[0]
+
+        # frozen sampled subset + train/test split (row order encodes the split):
+        # byte-identical proves sample -> seeded shuffle -> positional split is stable.
+        assert (r1.dir / "examples.csv").read_text() == (r2.dir / "examples.csv").read_text()
+
+        # eval ordering + verdicts: identical once the run_id column is dropped.
+        assert _rows_without_run_id(r1.dir / "results.csv") == \
+               _rows_without_run_id(r2.dir / "results.csv")
+
+        # derived aggregates match too
+        assert r1.counts == r2.counts
+        assert r1.quality == r2.quality
+
+
+class _StubTensor:
+    """A shape-only stand-in so the save-boundary asserts can be exercised without
+    torch (both fire before any torch/safetensors import)."""
+    def __init__(self, shape):
+        self.shape = shape
+
+
+def test_save_boundary_asserts_reject_wrong_shape():
+    from src.bias_steer import artifacts
+
+    # save_vector: wrong-shaped vector is refused before it's persisted
+    raised = False
+    try:
+        artifacts.save_vector("unused", _StubTensor((3, 4)), n_layers=2, d_model=4)
+    except AssertionError as e:
+        raised = True
+        assert "steering vector" in str(e)
+    assert raised, "save_vector accepted a (3,4) vector for (2,4)"
+
+    # save_residuals: a single mis-shaped residual is caught before torch.stack
+    raised = False
+    try:
+        artifacts.save_residuals(
+            "unused", {"opinionated": [_StubTensor((2, 4)), _StubTensor((2, 5))]},
+            n_layers=2, d_model=4,
+        )
+    except AssertionError as e:
+        raised = True
+        assert "residual opinionated[1]" in str(e)
+    assert raised, "save_residuals accepted a (2,5) residual for (2,4)"
 
 
 def test_cli_queue_requires_a_route_file():

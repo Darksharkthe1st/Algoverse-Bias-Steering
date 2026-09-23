@@ -10,6 +10,7 @@ Loaders are registered in `DATASETS`. This module is stdlib-only (no torch), so
 it imports and runs anywhere.
 """
 
+import csv
 import json
 import random
 from pathlib import Path
@@ -22,9 +23,25 @@ from .schema import Example
 
 def _resolve(path: str) -> Path:
     """Resolve a config path: absolute as-is, else relative to the repo root
-    (so configs are portable across machines and cwds)."""
+    (so configs are portable across machines and cwds).
+
+    Fails loud and early if the resolved path doesn't exist. The ambiguity is
+    fundamental — a bare relative string can't distinguish "relative to root" from
+    "relative to root's parent" — so the natural mistake (a path that starts with the
+    repo dir name, e.g. copied from a file browser) silently doubles the repo name
+    (`<root>/Algoverse-Bias-Steering/...`) and would otherwise surface as an opaque
+    FileNotFoundError deep in a loader's open(), with no hint that resolution was the
+    culprit. We name the input, the resolved path, and the root instead of guessing."""
     p = Path(path)
-    return p if p.is_absolute() else get_repo_root() / p
+    resolved = p if p.is_absolute() else get_repo_root() / p
+    if not resolved.exists():
+        raise FileNotFoundError(
+            f"dataset path does not exist: {resolved}\n"
+            f"  (from config path {path!r}, resolved under repo root {get_repo_root()})\n"
+            f"  a bare parent-relative path like 'Algoverse-Bias-Steering/...' doubles "
+            f"the repo name — use a path relative to the repo root, or an absolute path."
+        )
+    return resolved
 
 
 @register(DATASETS, "bbq")
@@ -59,17 +76,28 @@ def load_bbq(spec: DatasetSpec) -> list[Example]:
 
 @register(DATASETS, "plain")
 def load_plain(spec: DatasetSpec) -> list[Example]:
-    """One prompt per line (wraps `src.data.load_plain_dataset`)."""
-    from src.data import load_plain_dataset
-    rows = load_plain_dataset(str(_resolve(spec.path)))
+    """One prompt per line.
+
+    Inlined from legacy `src.data.load_plain_dataset` (arch §3.3: legacy loaders
+    *become the bodies*, not imports). Byte-for-byte: strip every line, blanks kept.
+    """
+    with open(_resolve(spec.path)) as f:
+        rows = [line.strip() for line in f]
     return [Example(id=f"plain-{i}", prompt=s) for i, s in enumerate(rows)]
 
 
 @register(DATASETS, "crows")
 def load_crows(spec: DatasetSpec) -> list[Example]:
-    """CrowS-Pairs CSV cells (wraps `src.data.load_crows_pairs`)."""
-    from src.data import load_crows_pairs
-    cells = load_crows_pairs(str(_resolve(spec.path)))
+    """CrowS-Pairs CSV cells.
+
+    Inlined from legacy `src.data.load_crows_pairs` (flatten every cell of every
+    row into one list, `newline=''` for the csv reader). The non-empty filter drops
+    the blank cells that flattening produces.
+    """
+    cells: list = []
+    with open(_resolve(spec.path), newline="") as f:
+        for row in csv.reader(f):
+            cells += row
     return [
         Example(id=f"crows-{i}", prompt=s)
         for i, s in enumerate(cells)
@@ -117,10 +145,19 @@ def load_crows_questions(spec: DatasetSpec) -> list[Example]:
 
 @register(DATASETS, "hidden_bias")
 def load_hidden_bias(spec: DatasetSpec) -> list[Example]:
-    """Hidden-bias CSV -> two-option questions (wraps
-    `src.data.load_hidden_bias_dataset`)."""
-    from src.data import load_hidden_bias_dataset
-    rows = load_hidden_bias_dataset(str(_resolve(spec.path)))
+    """Hidden-bias CSV -> two-option questions.
+
+    Inlined from legacy `src.data.load_hidden_bias_dataset`; the prompt string is
+    byte-identical to that loader's `get_question`. Note the csv reader here has NO
+    `newline=''` (legacy differs from crows on this) — preserved deliberately.
+    """
+    rows: list[str] = []
+    with open(_resolve(spec.path)) as f:
+        for r in csv.reader(f, delimiter=",", quotechar='"'):
+            rows.append(
+                f"{r[0]} What happened? Pick one of two options: "
+                f"(1) {r[1]}, (2) {r[2]}"
+            )
     return [Example(id=f"hidden-{i}", prompt=s) for i, s in enumerate(rows)]
 
 
@@ -265,7 +302,14 @@ def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     Order: (1) keep Examples whose `metadata[k]` is in `spec.filter[k]` for every
     key; (2) if `per_group=(key, n)`, keep up to `n` random Examples per distinct
     `metadata[key]` (balanced/representative); (3) if `limit` is set, randomly cap
-    the total. All randomness is seeded, so the same spec yields the same subset.
+    the total; (4) shuffle so the result is de-blocked (interleaved), not grouped by
+    category. All randomness is seeded, so the same spec yields the same subset.
+
+    The final shuffle is part of the contract: `sample()` returns a *randomly-ordered*
+    representative subset, so a positional train/test slice over it is balanced without
+    the caller having to know to shuffle first. It uses a fresh `Random(spec.seed)` (not
+    the stream already advanced by steps 2-3) so the order is bit-identical to the
+    historical caller-side shuffle it replaces — a pure refactor, reproducible splits.
     """
     rng = random.Random(spec.seed)
     out = examples
@@ -293,6 +337,11 @@ def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
         keep_idx = set(idx[: spec.limit])
         out = [e for i, e in enumerate(out) if i in keep_idx]
 
+    # De-block: a fresh Random(seed) so the permutation matches the caller-side
+    # shuffle this replaces (see docstring), keeping historical splits reproducible.
+    if out is examples:
+        out = list(out)  # never shuffle the caller's list in place
+    random.Random(spec.seed).shuffle(out)
     return out
 
 

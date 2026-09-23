@@ -19,6 +19,7 @@ from .registry import register, METHODS
 def resid_pre_hook_names(n_layers: int) -> list[str]:
     """The `resid_pre` hook point at every layer — where residuals are read and
     steering is injected (torch-free; used by both capture and apply)."""
+    assert n_layers >= 1, f"n_layers must be >= 1, got {n_layers}"
     return [f"blocks.{layer}.hook_resid_pre" for layer in range(n_layers)]
 
 
@@ -81,9 +82,21 @@ def capture_mean(cache, n_layers: int):
     per_layer = []
     for layer in range(n_layers):
         resid = cache[f"blocks.{layer}.hook_resid_pre"]  # (1, seq, d_model)
+        assert resid.ndim == 3 and resid.shape[0] == 1, (
+            f"resid_pre at layer {layer}: expected (1, seq, d_model), got "
+            f"{tuple(resid.shape)} — capture assumes a single, unbatched response"
+        )
         resid = resid.mean(dim=1).squeeze(0)             # (d_model,)
         per_layer.append(resid.detach().clone())
-    return torch.stack(per_layer)
+    # .cpu() once on the stacked tensor: residuals accumulate across the whole train
+    # phase, so keeping them on the model's device would grow VRAM (competing with
+    # weights + generation activations). ~256-400 KB fp16 per example in system RAM is
+    # a non-issue; the device->host copy is dwarfed by the generation pass (#9).
+    out = torch.stack(per_layer).cpu()
+    assert out.ndim == 2 and out.shape[0] == n_layers, (
+        f"captured residual: expected (n_layers, d_model), got {tuple(out.shape)}"
+    )
+    return out
 
 
 def build_mean_difference(resids_by_label: dict, contrast: tuple):
@@ -95,8 +108,17 @@ def build_mean_difference(resids_by_label: dict, contrast: tuple):
     import torch
 
     pos_label, neg_label = contrast
+    for lbl in (pos_label, neg_label):
+        assert resids_by_label.get(lbl), (
+            f"contrast label {lbl!r} has no captured residuals; available with "
+            f"data: {[k for k, v in resids_by_label.items() if v]}"
+        )
     pos = torch.stack(resids_by_label[pos_label]).mean(dim=0)
     neg = torch.stack(resids_by_label[neg_label]).mean(dim=0)
+    assert pos.ndim == 2 and pos.shape == neg.shape, (
+        f"pos/neg residual means must both be (n_layers, d_model) and match; "
+        f"got pos {tuple(pos.shape)}, neg {tuple(neg.shape)}"
+    )
     return pos - neg
 
 
@@ -136,9 +158,17 @@ def capture_last(cache, n_layers: int):
     per_layer = []
     for layer in range(n_layers):
         resid = cache[f"blocks.{layer}.hook_resid_pre"]  # (1, seq, d_model)
+        assert resid.ndim == 3 and resid.shape[0] == 1, (
+            f"resid_pre at layer {layer}: expected (1, seq, d_model), got "
+            f"{tuple(resid.shape)} — capture assumes a single, unbatched response"
+        )
         resid = resid[:, -1, :].squeeze(0)               # last token -> (d_model,)
         per_layer.append(resid.detach().clone())
-    return torch.stack(per_layer)
+    out = torch.stack(per_layer).cpu()                   # off-GPU, see capture_mean (#9)
+    assert out.ndim == 2 and out.shape[0] == n_layers, (
+        f"captured residual: expected (n_layers, d_model), got {tuple(out.shape)}"
+    )
+    return out
 
 
 # --------------------------------------------------------------------------- #
