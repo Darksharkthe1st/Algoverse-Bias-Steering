@@ -1,0 +1,85 @@
+{
+ "model": "yi-6b",
+ "prereg": "results/writeups/24 \u00a7B @ 1d6694b",
+ "rho_bar": 0.3,
+ "per_category": {
+  "Age": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.13848496212405312,
+   "rho_residproj_stereomargin": 0.09072526813170331
+  },
+  "Disability_status": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.11821892713387454,
+   "rho_residproj_stereomargin": -0.13610221916894735
+  },
+  "Gender_identity": {
+   "n": 200,
+   "rho_sharedproj_abstention": -0.05053026325658143,
+   "rho_residproj_stereomargin": 0.09823989019722175
+  },
+  "Nationality": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.022119552988824724,
+   "rho_residproj_stereomargin": 0.051398784969624245
+  },
+  "Physical_appearance": {
+   "n": 200,
+   "rho_sharedproj_abstention": -0.0383867384585261,
+   "rho_residproj_stereomargin": -0.3292977263897493
+  },
+  "Race_ethnicity": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.214742368559214,
+   "rho_residproj_stereomargin": -0.0004050101252531314
+  },
+  "Race_x_SES": {
+   "n": 200,
+   "rho_sharedproj_abstention": -0.06954023850596266,
+   "rho_residproj_stereomargin": -0.05326633165829146
+  },
+  "Race_x_gender": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.15965199129978253,
+   "rho_residproj_stereomargin": 0.012997824945623642
+  },
+  "Religion": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.049402235055876396,
+   "rho_residproj_stereomargin": -0.0068521713042826084
+  },
+  "Sexual_orientation": {
+   "n": 200,
+   "rho_sharedproj_abstention": -0.20656266406660168,
+   "rho_residproj_stereomargin": 0.04096152403810096
+  }
+ },
+ "shared_axis_vs_abstention": {
+  "median_abs_rho": 0.0938795828199186,
+  "ci_lo": 0.05757110937889569,
+  "ci_hi": 0.16469471856027626,
+  "aligned_per_prereg": false
+ },
+ "residual_vs_stereotype_margin": {
+  "median_abs_rho": 0.052332558313957854,
+  "ci_lo": 0.03605326317677705,
+  "ci_hi": 0.12930120760159483,
+  "aligned_per_prereg": false
+ },
+ "null_calibration": {
+  "shared_axis_vs_abstention": {
+   "observed": 0.0938795828199186,
+   "null_median": 0.048123484252427025,
+   "null_q95": 0.07722759318982976,
+   "p_perm_onesided": 0.009995002498750625,
+   "n_perm": 2000
+  },
+  "residual_vs_stereotype_margin": {
+   "observed": 0.052332558313957854,
+   "null_median": 0.04761533865262912,
+   "null_q95": 0.07818879403264777,
+   "p_perm_onesided": 0.4002998500749625,
+   "n_perm": 2000
+  }
+ }
+}

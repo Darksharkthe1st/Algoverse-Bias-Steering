@@ -1,0 +1,139 @@
+{
+  "started_at": 1788150055.901802,
+  "elapsed_s": 109.06732487678528,
+  "n_steps": 11,
+  "steps": [
+    {
+      "name": "capture_Age",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 12.4325692653656,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Age__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Age__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Disability_status",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 10.23770785331726,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Disability_status__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Disability_status__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Gender_identity",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 9.957977056503296,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Gender_identity__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Gender_identity__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Nationality",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 11.948009967803955,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Nationality__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Nationality__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Physical_appearance",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 10.950470209121704,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Physical_appearance__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Physical_appearance__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Race_ethnicity",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 11.109057188034058,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Race_ethnicity__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Race_ethnicity__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Race_x_SES",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 10.856858968734741,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Race_x_SES__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Race_x_SES__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Race_x_gender",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 10.057940006256104,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Race_x_gender__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Race_x_gender__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Religion",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 10.815056085586548,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Religion__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Religion__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "capture_Sexual_orientation",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 10.644120931625366,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/residuals/Sexual_orientation__a.npy",
+        "runs/r1_annotation_qwen-1.8b/residuals/Sexual_orientation__b.npy"
+      ],
+      "missing_outputs": []
+    },
+    {
+      "name": "write_prompts",
+      "status": "OK",
+      "exit_code": 0,
+      "duration_s": 0.05550813674926758,
+      "error": null,
+      "produces": [
+        "runs/r1_annotation_qwen-1.8b/prompts.jsonl"
+      ],
+      "missing_outputs": []
+    }
+  ],
+  "all_ok": true
+}

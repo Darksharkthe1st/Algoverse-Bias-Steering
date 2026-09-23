@@ -1,0 +1,44 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loading weights:   0%|          | 0/387 [00:00<?, ?it/s]Loading weights:  14%|█▎        | 53/387 [00:00<00:00, 472.06it/s]Loading weights:  26%|██▌       | 101/387 [00:00<00:00, 458.96it/s]Loading weights:  38%|███▊      | 147/387 [00:00<00:00, 459.34it/s]Loading weights:  50%|████▉     | 193/387 [00:00<00:00, 457.51it/s]Loading weights:  62%|██████▏   | 239/387 [00:00<00:00, 448.64it/s]Loading weights:  73%|███████▎  | 284/387 [00:00<00:00, 440.21it/s]Loading weights:  85%|████████▌ | 329/387 [00:00<00:00, 421.95it/s]Loading weights:  97%|█████████▋| 374/387 [00:00<00:00, 428.09it/s]Loading weights: 100%|██████████| 387/387 [00:00<00:00, 446.10it/s]
+Loaded pretrained model Qwen/Qwen1.5-7B-Chat into HookedTransformer
+Moving model to device:  cuda
+qwen-7b  n_layers=32 d_model=4096
+alphas: [1.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0]
+
+category                      1e+00      1e+02      1e+03      1e+04      1e+05      1e+06
+------------------------------------------------------------------------------------------
+Religion                     0.184      0.323      0.374      0.415      0.490      0.525*
+Race_ethnicity               0.001      0.043      0.039     -0.033     -0.106     -0.134 
+Gender_identity              0.033      0.054      0.080      0.100      0.080      0.069 
+Age                          0.216      0.314      0.353      0.483      0.465      0.439 
+Nationality                  0.154      0.235      0.323      0.390      0.366      0.354 
+Physical_appearance          0.387      0.575*     0.680*     0.662*     0.659*     0.659*
+Disability_status            0.475      0.578*     0.763*     0.853*     0.882*     0.876*
+Sexual_orientation           0.190      0.234      0.105     -0.026     -0.058     -0.061 
+Race_x_gender                0.058      0.171      0.182      0.235      0.287      0.336 
+Race_x_SES                   0.033      0.054      0.015     -0.034     -0.129     -0.227 
+
+* clears the usability threshold (0.5)
+
+best alpha per category:
+  Disability_status        alpha=    1e+05  q05=+0.882  USABLE
+  Physical_appearance      alpha=    1e+03  q05=+0.680  USABLE
+  Religion                 alpha=    1e+06  q05=+0.525  USABLE
+  Age                      alpha=    1e+04  q05=+0.483  
+  Nationality              alpha=    1e+04  q05=+0.390  
+  Race_x_gender            alpha=    1e+06  q05=+0.336  
+  Sexual_orientation       alpha=    1e+02  q05=+0.234  
+  Gender_identity          alpha=    1e+04  q05=+0.100  
+  Race_x_SES               alpha=    1e+02  q05=+0.054  
+  Race_ethnicity           alpha=    1e+02  q05=+0.043  
+
+categories reproducible under SOME alpha: 3 -> ['Religion', 'Physical_appearance', 'Disability_status']
+Compare against the extremes contrast, which reproduced 4/10 on
+qwen-14b (Disability_status, Age, Religion, Physical_appearance).
+
+If a tuned probe lifts categories the extremes contrast missed, then
+'no recoverable direction' was an estimator limit for those categories,
+not a fact about the model.
+
+written to runs/_probe_alpha_sweep_qwen-7b.json

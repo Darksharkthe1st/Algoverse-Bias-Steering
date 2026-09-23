@@ -27,11 +27,64 @@ def _resolve(path: str) -> Path:
     return p if p.is_absolute() else get_repo_root() / p
 
 
+#: BBQ's supplemental answer key, staged by scripts/fetch_bbq_metadata.py.
+#: Maps (category, example_id) -> target_loc, the index of the biased answer.
+_BBQ_METADATA_PATH = (
+    Path(__file__).resolve().parents[2] / "third_party" / "bbq" / "additional_metadata.csv"
+)
+
+_bbq_target_loc_cache: dict | None = None
+
+
+def bbq_target_loc(path: Path | None = None) -> dict:
+    """`(category, example_id) -> target_loc` from BBQ's supplemental metadata.
+
+    Returns an empty dict if the file has not been fetched, so `load_bbq` keeps
+    working (falling back to reconstruction from `stereotyped_groups`) rather
+    than failing. Cached, because it is read once per category file.
+
+    `target_loc` is the index of the answer that counts as **biased**, and BBQ
+    has already folded question polarity into it — on a non-negative question it
+    points at the non-stereotyped group. Do not apply a polarity flip on top.
+    """
+    global _bbq_target_loc_cache
+    if path is None and _bbq_target_loc_cache is not None:
+        return _bbq_target_loc_cache
+
+    import csv
+
+    p = path or _BBQ_METADATA_PATH
+    table: dict = {}
+    if p.exists():
+        with open(p, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                raw = str(row.get("target_loc", "")).strip()
+                # "NA" appears on 16 rows (all Gender_identity). Left out, so
+                # those rows fall through to reconstruction or are reported
+                # unresolved — never silently assigned an index.
+                if raw.isdigit():
+                    table[(row.get("category"), str(row.get("example_id")))] = int(raw)
+    if path is None:
+        _bbq_target_loc_cache = table
+    return table
+
+
 @register(DATASETS, "bbq")
 def load_bbq(spec: DatasetSpec) -> list[Example]:
     """BBQ jsonl -> Examples. Prompt format matches the legacy
     `src.data.load_bbq_dataset`; `metadata` preserves category/label/answers so
-    the data supports per-category sampling."""
+    the data supports per-category sampling.
+
+    `answer_groups` and `stereotyped_groups` are additive fields carried through
+    for the bias-taxonomy workstream (JZ-1/JZ-2). BBQ's `answer_info` maps each
+    answer to the demographic group it names ("Muslim", "unknown", ...), and
+    `stereotyped_groups` says which group the row's stereotype targets. Together
+    they let `bias_taxonomy.resolve_answer_roles` decide, deterministically,
+    which option counts as the biased choice — which is what lets this dataset
+    be scored WITHOUT an LLM judge, so no number derived from it carries a judge
+    version. Nothing downstream reads these keys unless it asks for them.
+    """
+    targets = bbq_target_loc()
     examples: list[Example] = []
     with open(_resolve(spec.path)) as f:
         for i, line in enumerate(f):
@@ -43,6 +96,11 @@ def load_bbq(spec: DatasetSpec) -> list[Example]:
                 f"{o['context']} {o['question']} Pick one of three options: "
                 f"{o['ans0']}, {o['ans1']}, {o['ans2']}"
             )
+            info = o.get("answer_info") or {}
+            # answer_info["ansN"] is [answer_text, group_label]; keep the group.
+            answer_groups = [
+                (info.get(f"ans{n}") or [None, None])[-1] for n in range(3)
+            ]
             examples.append(Example(
                 id=f"bbq-{o.get('category', 'NA')}-{o.get('example_id', i)}",
                 prompt=prompt,
@@ -52,6 +110,15 @@ def load_bbq(spec: DatasetSpec) -> list[Example]:
                     "question_polarity": o.get("question_polarity"),
                     "context_condition": o.get("context_condition"),
                     "answers": [o["ans0"], o["ans1"], o["ans2"]],
+                    "answer_groups": answer_groups,
+                    "stereotyped_groups": (
+                        (o.get("additional_metadata") or {}).get("stereotyped_groups") or []
+                    ),
+                    # BBQ's own answer key. None when the metadata has not been
+                    # fetched or the row is one of the 16 marked "NA".
+                    "target_loc": targets.get(
+                        (o.get("category"), str(o.get("example_id", i)))
+                    ),
                 },
             ))
     return examples

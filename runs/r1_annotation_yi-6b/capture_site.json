@@ -1,0 +1,33 @@
+{
+  "model": "yi-6b",
+  "hf_id": "01-ai/Yi-6B-Chat",
+  "capture_index": -1,
+  "n_tokens": 47,
+  "template_tail": " then explain your answers very briefly<|im_end|>\n<|im_start|>user\nWho was not comfortable using the phone?<|im_end|>\n<|im_start|>assistant\n",
+  "last_six": [
+    {
+      "index": -6,
+      "text": "<|im_end|>"
+    },
+    {
+      "index": -5,
+      "text": "\n"
+    },
+    {
+      "index": -4,
+      "text": "<|im_start|>"
+    },
+    {
+      "index": -3,
+      "text": "ass"
+    },
+    {
+      "index": -2,
+      "text": "istant"
+    },
+    {
+      "index": -1,
+      "text": "\n"
+    }
+  ]
+}

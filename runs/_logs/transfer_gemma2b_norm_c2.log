@@ -1,0 +1,57 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+restricted to reproducible directions; dropped ['Age', 'Nationality', 'Race_ethnicity', 'Race_x_SES', 'Race_x_gender', 'Religion', 'Sexual_orientation']
+directions: ['Disability_status', 'Physical_appearance']
+dose normalisation: ON (unit per layer)
+Loading weights:   0%|          | 0/164 [00:00<?, ?it/s]Loading weights:  30%|███       | 50/164 [00:00<00:00, 497.06it/s]Loading weights:  71%|███████▏  | 117/164 [00:00<00:00, 589.27it/s]Loading weights: 100%|██████████| 164/164 [00:00<00:00, 609.56it/s]
+Loaded pretrained model google/gemma-2b-it into HookedTransformer
+Moving model to device:  cuda
+
+loading items per category ...
+  Disability_status      80 items
+  Physical_appearance    80 items
+
+baseline (unsteered) mean margins:
+  Disability_status       +0.2526
+  Physical_appearance     +1.6681
+
+transfer matrix: change in mean margin when steering with each direction (coeff=+2.0)
+rows = direction used, columns = category steered
+
+direction               Disabilit  Physical_
+--------------------------------------------
+Disability_status         -0.1302    -0.0227
+Physical_appearance       -0.1028    -0.0308
+
+control - norm-matched random direction (should be ~0 everywhere):
+random(for)             Disabilit  Physical_
+--------------------------------------------
+rand~Disability_statu     +0.0225    +0.0039
+rand~Physical_appeara     +0.0145    -0.0051
+
+control - sign flip on own category (coeff=-2.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Disability_status         -0.1302    +0.0922   sign flips (good)
+Physical_appearance       -0.0308    +0.0091   sign flips (good)
+
+summary
+  mean effect, own direction        : -0.0805
+  mean effect, cross direction      : -0.0627
+  mean |effect|, random control     : +0.0115
+  specificity (own - cross)         : -0.0178
+  sign-flip control passed          : 2/2
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_gemma2b/transfer_test_norm_c2.json

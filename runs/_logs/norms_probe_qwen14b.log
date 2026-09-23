@@ -1,0 +1,26 @@
+run: probe_qwen14b   model: qwen-14b
+
+category                   floor       ‖d‖_F   max layer  separation
+----------------------------------------------------------------------
+Disability_status         +0.457      130.16       47.89       13.63
+Physical_appearance       +0.328       97.21       31.01        8.73
+Age                       +0.264       84.15       20.86        7.45
+Sexual_orientation        +0.203       63.76       15.51        6.86
+Religion                  +0.176       62.65       16.03        5.69
+Nationality               +0.113       96.29       22.59        7.79
+Race_x_gender             +0.090      108.22       26.69        8.13
+Gender_identity           +0.087      194.13       50.06       15.45
+Race_x_SES                +0.036       56.87       14.15        4.20
+Race_ethnicity            +0.000      127.79       31.02        9.55
+
+floor vs direction norm : pearson -0.039   spearman -0.006
+norm vs separation      : pearson +0.938   spearman +0.988
+
+largest / smallest direction norm: 3.4x
+
+If that ratio is well above 1, a FIXED steering coefficient applied
+a different dose to each category, and the transfer test compared
+interventions of different strengths. Unit-normalise the direction and
+carry the dose in the coefficient before reading specificity.
+
+written to runs/probe_qwen14b/direction_norms.json

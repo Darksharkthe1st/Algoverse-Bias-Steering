@@ -1,0 +1,379 @@
+{
+  "model": "yi-6b",
+  "hf_id": "01-ai/Yi-6B-Chat",
+  "n_layers": 32,
+  "d_model": 4096,
+  "random_floor": 0.015625,
+  "thresholds": {
+    "pc_min_accuracy": 0.5,
+    "pc_min_z": 3.0,
+    "quintile": 0.2,
+    "distinguishable_margin": 0.05
+  },
+  "categories": {
+    "Religion": {
+      "positive_control": {
+        "n": 150,
+        "correct": 102,
+        "accuracy": 0.68,
+        "z_vs_chance": 9.006664199358164,
+        "passes": true
+      },
+      "margins": {
+        "n": 600,
+        "mean": 0.031742132504781084,
+        "sd": 1.394999482410066,
+        "top_quintile_mean": 1.987911150852839,
+        "bottom_quintile_mean": -1.9110145429770151,
+        "quintile_n": 120,
+        "sign_separation": true,
+        "median_abstention_margin": -4.547567129135132
+      },
+      "extraction_floor": {
+        "cosines": [
+          -0.20366028471113592,
+          -0.0748283380732543,
+          0.01091411971113712,
+          -0.5045834225059906,
+          0.1556684614168108,
+          0.1862863176821933,
+          0.2221451092746239,
+          -0.39311074396721657,
+          -0.10976293541416994,
+          -0.002803484540906613
+        ],
+        "n_splits": 10,
+        "n_items": 240,
+        "median": -0.03881591130708045,
+        "q05": -0.4544207171635423,
+        "q95": 0.2060086530580301,
+        "min": -0.5045834225059906
+      }
+    },
+    "Race_ethnicity": {
+      "positive_control": {
+        "n": 150,
+        "correct": 110,
+        "accuracy": 0.7333333333333333,
+        "z_vs_chance": 10.392304845413264,
+        "passes": true
+      },
+      "margins": {
+        "n": 600,
+        "mean": -0.012238095998764038,
+        "sd": 2.1190800180649982,
+        "top_quintile_mean": 2.9669799536466597,
+        "bottom_quintile_mean": -2.887510124842326,
+        "quintile_n": 120,
+        "sign_separation": true,
+        "median_abstention_margin": -7.444623827934265
+      },
+      "extraction_floor": {
+        "cosines": [
+          0.09223620631658666,
+          -0.014262730945210484,
+          0.1955577905452323,
+          -0.32008799862582243,
+          0.238237288876583,
+          0.237953098133652,
+          -0.028021894337955072,
+          -0.0017820073936818694,
+          0.04865751318843187,
+          -0.11879995444618083
+        ],
+        "n_splits": 10,
+        "n_items": 240,
+        "median": 0.023437752897375,
+        "q05": -0.2295083787449837,
+        "q95": 0.23810940304226405,
+        "min": -0.32008799862582243
+      }
+    },
+    "Gender_identity": {
+      "positive_control": {
+        "n": 150,
+        "correct": 67,
+        "accuracy": 0.44666666666666666,
+        "z_vs_chance": 2.944486372867092,
+        "passes": false
+      }
+    },
+    "Age": {
+      "positive_control": {
+        "n": 150,
+        "correct": 94,
+        "accuracy": 0.6266666666666667,
+        "z_vs_chance": 7.621023553303062,
+        "passes": true
+      },
+      "margins": {
+        "n": 600,
+        "mean": 0.11982842981815338,
+        "sd": 2.126829229680509,
+        "top_quintile_mean": 2.9053326497475305,
+        "bottom_quintile_mean": -2.7628800233205157,
+        "quintile_n": 120,
+        "sign_separation": true,
+        "median_abstention_margin": -7.72443151473999
+      },
+      "extraction_floor": {
+        "cosines": [
+          0.34208700412513915,
+          0.6275531508840347,
+          0.42712562562089446,
+          0.23421164411205062,
+          0.274026885721188,
+          0.3716567193651738,
+          0.39759528158454427,
+          0.5552265570077255,
+          0.13007544568803117,
+          0.3505445137322038
+        ],
+        "n_splits": 10,
+        "n_items": 240,
+        "median": 0.3611006165486888,
+        "q05": 0.17693673497883994,
+        "q95": 0.5950061836396955,
+        "min": 0.13007544568803117
+      }
+    },
+    "Nationality": {
+      "positive_control": {
+        "n": 150,
+        "correct": 104,
+        "accuracy": 0.6933333333333334,
+        "z_vs_chance": 9.353074360871938,
+        "passes": true
+      },
+      "margins": {
+        "n": 600,
+        "mean": 0.08658895711104075,
+        "sd": 1.7321681803126765,
+        "top_quintile_mean": 2.461144033074379,
+        "bottom_quintile_mean": -2.378462318579356,
+        "quintile_n": 120,
+        "sign_separation": true,
+        "median_abstention_margin": -6.389712631702423
+      },
+      "extraction_floor": {
+        "cosines": [
+          0.23941965305406385,
+          0.5738853256797046,
+          0.630585701118778,
+          0.5381121604686273,
+          0.5785732811430156,
+          0.5645211176040881,
+          0.714530391698827,
+          0.3659270140686664,
+          0.4968244505816208,
+          0.5818744119384845
+        ],
+        "n_splits": 10,
+        "n_items": 240,
+        "median": 0.5692032216418963,
+        "q05": 0.296347965510635,
+        "q95": 0.6767552809378049,
+        "min": 0.23941965305406385
+      }
+    },
+    "Physical_appearance": {
+      "positive_control": {
+        "n": 150,
+        "correct": 92,
+        "accuracy": 0.6133333333333333,
+        "z_vs_chance": 7.274613391789284,
+        "passes": true
+      },
+      "margins": {
+        "n": 600,
+        "mean": 0.09900883118311564,
+        "sd": 3.2846269165991897,
+        "top_quintile_mean": 3.5647909740606942,
+        "bottom_quintile_mean": -3.726302367448807,
+        "quintile_n": 120,
+        "sign_separation": true,
+        "median_abstention_margin": -5.7474448680877686
+      },
+      "extraction_floor": {
+        "cosines": [
+          0.6001646593448358,
+          0.8443956379277034,
+          0.6390367285069612,
+          0.6311711833126855,
+          0.8939708197010512,
+          0.7608264018113233,
+          0.7349904226550008,
+          0.7297590415976001,
+          0.7077950201162229,
+          0.7707539943106302
+        ],
+        "n_splits": 10,
+        "n_items": 240,
+        "median": 0.7323747321263004,
+        "q05": 0.6141175951303681,
+        "q95": 0.8716619879030446,
+        "min": 0.6001646593448358
+      }
+    },
+    "Disability_status": {
+      "positive_control": {
+        "n": 150,
+        "correct": 86,
+        "accuracy": 0.5733333333333334,
+        "z_vs_chance": 6.23538290724796,
+        "passes": true
+      },
+      "margins": {
+        "n": 600,
+        "mean": 0.18234889129797618,
+        "sd": 4.015717722218684,
+        "top_quintile_mean": 5.776426058014234,
+        "bottom_quintile_mean": -5.5685597668091456,
+        "quintile_n": 120,
+        "sign_separation": true,
+        "median_abstention_margin": -7.7100136280059814
+      },
+      "extraction_floor": {
+        "cosines": [
+          0.48686373540893196,
+          0.75936046309523,
+          0.8349658830679191,
+          0.8809675143969238,
+          0.9408168572776215,
+          0.8904199867925907,
+          0.8831991573177206,
+          0.749881651143955,
+          0.8867741239517798,
+          0.8766279125710832
+        ],
+        "n_splits": 10,
+        "n_items": 240,
+        "median": 0.8787977134840035,
+        "q05": 0.6052217974896923,
+        "q95": 0.9181382655593576,
+        "min": 0.48686373540893196
+      }
+    },
+    "Sexual_orientation": {
+      "positive_control": {
+        "n": 150,
+        "correct": 93,
+        "accuracy": 0.62,
+        "z_vs_chance": 7.447818472546173,
+        "passes": true
+      },
+      "margins": {
+        "n": 432,
+        "mean": -0.0546173017334055,
+        "sd": 1.6613442245723755,
+        "top_quintile_mean": 2.2353995788929075,
+        "bottom_quintile_mean": -2.433667213417763,
+        "quintile_n": 86,
+        "sign_separation": true,
+        "median_abstention_margin": -3.4481841325759888
+      },
+      "extraction_floor": {
+        "cosines": [
+          -0.012944622118409079,
+          -0.25919523517774923,
+          -0.055431894262238116,
+          -0.18338959657627263,
+          -0.1340251037965456,
+          -0.11225817332503063,
+          -0.05430824975061519,
+          -0.02600603206822735,
+          0.007570091621801871,
+          -0.3412193614716066
+        ],
+        "n_splits": 10,
+        "n_items": 172,
+        "median": -0.08384503379363437,
+        "q05": -0.30430850463937076,
+        "q95": -0.0016615295612930781,
+        "min": -0.3412193614716066
+      }
+    },
+    "Race_x_gender": {
+      "positive_control": {
+        "n": 150,
+        "correct": 99,
+        "accuracy": 0.66,
+        "z_vs_chance": 8.4870489570875,
+        "passes": true
+      },
+      "margins": {
+        "n": 600,
+        "mean": 0.12903157502412796,
+        "sd": 1.9806060829072645,
+        "top_quintile_mean": 2.9127867087721824,
+        "bottom_quintile_mean": -2.5717543065547943,
+        "quintile_n": 120,
+        "sign_separation": true,
+        "median_abstention_margin": -8.887794494628906
+      },
+      "extraction_floor": {
+        "cosines": [
+          0.37566572831179035,
+          0.32948941405455673,
+          0.2935651159111419,
+          0.35643201238455663,
+          0.3947900229144694,
+          0.36727938448115754,
+          0.6400732241373426,
+          0.1398628419485398,
+          0.6653015919612196,
+          0.28127918816381137
+        ],
+        "n_splits": 10,
+        "n_items": 240,
+        "median": 0.3618556984328571,
+        "q05": 0.203500197745412,
+        "q95": 0.6539488264404749,
+        "min": 0.1398628419485398
+      }
+    },
+    "Race_x_SES": {
+      "positive_control": {
+        "n": 150,
+        "correct": 82,
+        "accuracy": 0.5466666666666666,
+        "z_vs_chance": 5.542562584220407,
+        "passes": true
+      },
+      "margins": {
+        "n": 600,
+        "mean": -0.0776192981004715,
+        "sd": 1.046766301976494,
+        "top_quintile_mean": 1.3549589842557908,
+        "bottom_quintile_mean": -1.5214521964391072,
+        "quintile_n": 120,
+        "sign_separation": true,
+        "median_abstention_margin": -7.875479459762573
+      },
+      "extraction_floor": {
+        "cosines": [
+          0.255649559955091,
+          0.26011010538783974,
+          0.14861178142476375,
+          0.06199610309428878,
+          0.1218743684465415,
+          0.3728054811685104,
+          0.23939058600516128,
+          0.25421659586271067,
+          0.22302905378186433,
+          0.3811349154403908
+        ],
+        "n_splits": 10,
+        "n_items": 240,
+        "median": 0.24680359093393597,
+        "q05": 0.08894132250280251,
+        "q95": 0.3773866700180446,
+        "min": 0.06199610309428878
+      }
+    }
+  },
+  "method": "extremes",
+  "verdict": "NOT CLUSTERABLE: only 2 of 9 categories produce a direction that reproduces against itself (floor q05 >= 0.5) \u2014 ['Physical_appearance', 'Disability_status']. Three are needed to cluster, so no similarity structure was computed and no permutation null was run. This is neither evidence for nor against separable subtypes.",
+  "p_value": null,
+  "cluster_strength": null
+}

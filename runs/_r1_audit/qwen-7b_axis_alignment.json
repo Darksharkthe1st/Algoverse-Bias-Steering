@@ -1,0 +1,85 @@
+{
+ "model": "qwen-7b",
+ "prereg": "results/writeups/24 \u00a7B @ 1d6694b",
+ "rho_bar": 0.3,
+ "per_category": {
+  "Age": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.3295387384684618,
+   "rho_residproj_stereomargin": 0.0764539113477837
+  },
+  "Disability_status": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.17111109861107598,
+   "rho_residproj_stereomargin": -0.11026462685439126
+  },
+  "Gender_identity": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.2781909547738694,
+   "rho_residproj_stereomargin": 0.11193663236831497
+  },
+  "Nationality": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.4318772969324234,
+   "rho_residproj_stereomargin": 0.063865596639916
+  },
+  "Physical_appearance": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.1789936090854843,
+   "rho_residproj_stereomargin": -0.17593966240105363
+  },
+  "Race_ethnicity": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.36766369159228984,
+   "rho_residproj_stereomargin": -0.03337133428335709
+  },
+  "Race_x_SES": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.17073426835670896,
+   "rho_residproj_stereomargin": 0.08954923873096829
+  },
+  "Race_x_gender": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.2152088802220056,
+   "rho_residproj_stereomargin": -0.1921863046576165
+  },
+  "Religion": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.23128478211955303,
+   "rho_residproj_stereomargin": -0.04234155853896348
+  },
+  "Sexual_orientation": {
+   "n": 200,
+   "rho_sharedproj_abstention": 0.15349133728343212,
+   "rho_residproj_stereomargin": -0.024666616665416637
+  }
+ },
+ "shared_axis_vs_abstention": {
+  "median_abs_rho": 0.22324683117077931,
+  "ci_lo": 0.17877185058853526,
+  "ci_hi": 0.3009995396001355,
+  "aligned_per_prereg": false
+ },
+ "residual_vs_stereotype_margin": {
+  "median_abs_rho": 0.083001575039376,
+  "ci_lo": 0.04687158717391929,
+  "ci_hi": 0.14439049206644006,
+  "aligned_per_prereg": false
+ },
+ "null_calibration": {
+  "shared_axis_vs_abstention": {
+   "observed": 0.22324683117077931,
+   "null_median": 0.047850071251781305,
+   "null_q95": 0.07846647416185402,
+   "p_perm_onesided": 0.0004997501249375312,
+   "n_perm": 2000
+  },
+  "residual_vs_stereotype_margin": {
+   "observed": 0.083001575039376,
+   "null_median": 0.04731218070728484,
+   "null_q95": 0.0786470916931894,
+   "p_perm_onesided": 0.031484257871064465,
+   "n_perm": 2000
+  }
+ }
+}

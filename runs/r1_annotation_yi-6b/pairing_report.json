@@ -1,0 +1,222 @@
+{
+  "Age": {
+    "contrast": "context",
+    "rows": 3680,
+    "arm_counts": {
+      "ambig": 1840,
+      "disambig": 1840
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 25,
+    "pairs": 1840,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 1840,
+    "naive_question_index_join": 187136,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        77,
+        219
+      ]
+    }
+  },
+  "Disability_status": {
+    "contrast": "context",
+    "rows": 1556,
+    "arm_counts": {
+      "ambig": 778,
+      "disambig": 778
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 25,
+    "pairs": 778,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 778,
+    "naive_question_index_join": 40852,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        56,
+        159
+      ]
+    }
+  },
+  "Gender_identity": {
+    "contrast": "context",
+    "rows": 5672,
+    "arm_counts": {
+      "ambig": 2836,
+      "disambig": 2836
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 50,
+    "pairs": 2836,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 2836,
+    "naive_question_index_join": 262736,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        46,
+        162
+      ]
+    }
+  },
+  "Nationality": {
+    "contrast": "context",
+    "rows": 3080,
+    "arm_counts": {
+      "ambig": 1540,
+      "disambig": 1540
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 25,
+    "pairs": 1540,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 1540,
+    "naive_question_index_join": 131600,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        58,
+        304
+      ]
+    }
+  },
+  "Physical_appearance": {
+    "contrast": "context",
+    "rows": 1576,
+    "arm_counts": {
+      "ambig": 788,
+      "disambig": 788
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 25,
+    "pairs": 788,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 788,
+    "naive_question_index_join": 34672,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        74,
+        212
+      ]
+    }
+  },
+  "Race_ethnicity": {
+    "contrast": "context",
+    "rows": 6880,
+    "arm_counts": {
+      "ambig": 3440,
+      "disambig": 3440
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 50,
+    "pairs": 3440,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 3440,
+    "naive_question_index_join": 293600,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        74,
+        208
+      ]
+    }
+  },
+  "Race_x_SES": {
+    "contrast": "context",
+    "rows": 11160,
+    "arm_counts": {
+      "ambig": 5580,
+      "disambig": 5580
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 26,
+    "pairs": 5580,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 5580,
+    "naive_question_index_join": 1465200,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        85,
+        197
+      ]
+    }
+  },
+  "Race_x_gender": {
+    "contrast": "context",
+    "rows": 15960,
+    "arm_counts": {
+      "ambig": 7980,
+      "disambig": 7980
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 42,
+    "pairs": 7980,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 7980,
+    "naive_question_index_join": 1954800,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        52,
+        200
+      ]
+    }
+  },
+  "Religion": {
+    "contrast": "context",
+    "rows": 1200,
+    "arm_counts": {
+      "ambig": 600,
+      "disambig": 600
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 25,
+    "pairs": 600,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 600,
+    "naive_question_index_join": 17600,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        68,
+        269
+      ]
+    }
+  },
+  "Sexual_orientation": {
+    "contrast": "context",
+    "rows": 864,
+    "arm_counts": {
+      "ambig": 432,
+      "disambig": 432
+    },
+    "arms_balanced": true,
+    "distinct_question_index": 25,
+    "pairs": 432,
+    "rows_dropped_unpaired": 0,
+    "pairs_with_consecutive_example_ids": 432,
+    "naive_question_index_join": 7680,
+    "pilot_subsample": {
+      "n": 200,
+      "method": "evenly spaced across the file",
+      "context_len_range": [
+        58,
+        237
+      ]
+    }
+  }
+}

@@ -1,0 +1,43 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loading weights:   0%|          | 0/164 [00:00<?, ?it/s]Loading weights:  30%|███       | 50/164 [00:00<00:00, 466.61it/s]Loading weights:  73%|███████▎  | 120/164 [00:00<00:00, 578.05it/s]Loading weights: 100%|██████████| 164/164 [00:00<00:00, 579.98it/s]
+Loaded pretrained model google/gemma-2b-it into HookedTransformer
+Moving model to device:  cuda
+gemma-2b  n_layers=18 d_model=2048
+alphas: [1.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0]
+
+category                      1e+00      1e+02      1e+03      1e+04      1e+05      1e+06
+------------------------------------------------------------------------------------------
+Religion                     0.262      0.390      0.225      0.064      0.060      0.060 
+Race_ethnicity               0.127      0.146      0.058      0.009     -0.061     -0.133 
+Gender_identity           (no cached margins - skipped)
+Age                          0.353      0.297     -0.041     -0.110     -0.110     -0.109 
+Nationality                  0.138      0.266      0.220      0.162      0.098      0.063 
+Physical_appearance          0.593*     0.768*     0.648*     0.596*     0.580*     0.579*
+Disability_status            0.581*     0.805*     0.860*     0.889*     0.873*     0.869*
+Sexual_orientation           0.159      0.343      0.157      0.109      0.103      0.103 
+Race_x_gender                0.151      0.289      0.145      0.040     -0.056     -0.021 
+Race_x_SES                   0.115      0.061     -0.050     -0.158     -0.275     -0.311 
+
+* clears the usability threshold (0.5)
+
+best alpha per category:
+  Disability_status        alpha=    1e+04  q05=+0.889  USABLE
+  Physical_appearance      alpha=    1e+02  q05=+0.768  USABLE
+  Religion                 alpha=    1e+02  q05=+0.390  
+  Age                      alpha=    1e+00  q05=+0.353  
+  Sexual_orientation       alpha=    1e+02  q05=+0.343  
+  Race_x_gender            alpha=    1e+02  q05=+0.289  
+  Nationality              alpha=    1e+02  q05=+0.266  
+  Race_ethnicity           alpha=    1e+02  q05=+0.146  
+  Race_x_SES               alpha=    1e+00  q05=+0.115  
+
+categories reproducible under SOME alpha: 2 -> ['Physical_appearance', 'Disability_status']
+Compare against the extremes contrast, which reproduced 4/10 on
+qwen-14b (Disability_status, Age, Religion, Physical_appearance).
+
+If a tuned probe lifts categories the extremes contrast missed, then
+'no recoverable direction' was an estimator limit for those categories,
+not a fact about the model.
+
+written to runs/_probe_alpha_sweep_gemma-2b.json

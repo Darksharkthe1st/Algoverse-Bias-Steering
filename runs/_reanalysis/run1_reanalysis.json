@@ -1,0 +1,855 @@
+{
+  "A_bootstrap_floors": [
+    {
+      "model": "gemma-2b",
+      "category": "Age",
+      "q05": 0.16100012584269188,
+      "mean": 0.3336784526618428,
+      "ci_lo": 0.25524592364733806,
+      "ci_hi": 0.4171427363728261,
+      "sd": 0.13788131191341596,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "gemma-2b",
+      "category": "Disability_status",
+      "q05": 0.8184430646488138,
+      "mean": 0.9077169643801767,
+      "ci_lo": 0.8693861658005136,
+      "ci_hi": 0.9443486926979573,
+      "sd": 0.06499038005538078,
+      "passes": true,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "gemma-2b",
+      "category": "Nationality",
+      "q05": -0.03810122396611401,
+      "mean": 0.26940562163161286,
+      "ci_lo": 0.1405635118255372,
+      "ci_hi": 0.4096898915937124,
+      "sd": 0.22797106044539198,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "gemma-2b",
+      "category": "Physical_appearance",
+      "q05": 0.5113272749066434,
+      "mean": 0.7862804902358578,
+      "ci_lo": 0.6889087035206855,
+      "ci_hi": 0.8697470008147339,
+      "sd": 0.15626062154339096,
+      "passes": true,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "gemma-2b",
+      "category": "Race_ethnicity",
+      "q05": -0.012556987008579407,
+      "mean": 0.19183427361738117,
+      "ci_lo": 0.09255904135459363,
+      "ci_hi": 0.3021810614087535,
+      "sd": 0.18121239637470307,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "gemma-2b",
+      "category": "Race_x_SES",
+      "q05": -0.16538871101759617,
+      "mean": 0.11921038093129382,
+      "ci_lo": 0.008946446284423272,
+      "ci_hi": 0.21563567510333617,
+      "sd": 0.17681716057284877,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "gemma-2b",
+      "category": "Race_x_gender",
+      "q05": -0.04412681262609486,
+      "mean": 0.14695899168084875,
+      "ci_lo": 0.05731640375790831,
+      "ci_hi": 0.23727006814346593,
+      "sd": 0.15272121255447044,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "gemma-2b",
+      "category": "Religion",
+      "q05": -0.16337488504495842,
+      "mean": 0.12274559866301135,
+      "ci_lo": 0.0030037875861594573,
+      "ci_hi": 0.25197429809468286,
+      "sd": 0.21091365995074257,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "gemma-2b",
+      "category": "Sexual_orientation",
+      "q05": 0.05570694589488341,
+      "mean": 0.2731887919649591,
+      "ci_lo": 0.1613114457161097,
+      "ci_hi": 0.3911522156758039,
+      "sd": 0.19854852342183693,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-1.8b",
+      "category": "Age",
+      "q05": 0.42251118701092266,
+      "mean": 0.5118113498503777,
+      "ci_lo": 0.45789196535503673,
+      "ci_hi": 0.5730999752185255,
+      "sd": 0.09854622956554059,
+      "passes": false,
+      "flip_prob": 0.0007
+    },
+    {
+      "model": "qwen-1.8b",
+      "category": "Gender_identity",
+      "q05": -0.07247313350017828,
+      "mean": 0.10422698644543484,
+      "ci_lo": 0.022426012906022544,
+      "ci_hi": 0.19232712887239198,
+      "sd": 0.14483866589756536,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-1.8b",
+      "category": "Nationality",
+      "q05": 0.05705569267786967,
+      "mean": 0.3389680546775864,
+      "ci_lo": 0.22239681330243158,
+      "ci_hi": 0.43357721313406805,
+      "sd": 0.18262035687638703,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-1.8b",
+      "category": "Race_ethnicity",
+      "q05": -0.11491869610462346,
+      "mean": 0.015351055856447457,
+      "ci_lo": -0.04117362269890659,
+      "ci_hi": 0.07002376742715881,
+      "sd": 0.09514513383448887,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-1.8b",
+      "category": "Race_x_SES",
+      "q05": 0.01729752765993184,
+      "mean": 0.23902945560561,
+      "ci_lo": 0.1466310555188879,
+      "ci_hi": 0.3224704085214066,
+      "sd": 0.15065111854662244,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-1.8b",
+      "category": "Race_x_gender",
+      "q05": 0.13772090467212195,
+      "mean": 0.3385509354356159,
+      "ci_lo": 0.24982745241058518,
+      "ci_hi": 0.4239670351124316,
+      "sd": 0.14948264647041704,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-1.8b",
+      "category": "Religion",
+      "q05": -0.007699579853926622,
+      "mean": 0.16037196614394056,
+      "ci_lo": 0.08731429794992737,
+      "ci_hi": 0.22835438593401247,
+      "sd": 0.12147541935109424,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-1.8b",
+      "category": "Sexual_orientation",
+      "q05": -0.20157648652292628,
+      "mean": -0.029824712030480482,
+      "ci_lo": -0.11895776867919812,
+      "ci_hi": 0.07339801287158795,
+      "sd": 0.1660107427137444,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Age",
+      "q05": 0.7535759719639885,
+      "mean": 0.8510838163588793,
+      "ci_lo": 0.8108416766493771,
+      "ci_hi": 0.8818604372749571,
+      "sd": 0.061390197730569036,
+      "passes": true,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Disability_status",
+      "q05": 0.8196444568613926,
+      "mean": 0.8947769005796478,
+      "ci_lo": 0.8646271786461144,
+      "ci_hi": 0.9218334029096467,
+      "sd": 0.049444028013953374,
+      "passes": true,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Gender_identity",
+      "q05": 0.0811691537048238,
+      "mean": 0.19965994566845882,
+      "ci_lo": 0.15213171022098027,
+      "ci_hi": 0.24364307477455155,
+      "sd": 0.07756670489628455,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Nationality",
+      "q05": 0.2786220833490235,
+      "mean": 0.45383837342614075,
+      "ci_lo": 0.3694681565237375,
+      "ci_hi": 0.5347510448845195,
+      "sd": 0.14170400319302548,
+      "passes": false,
+      "flip_prob": 0.00135
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Physical_appearance",
+      "q05": 0.6478480436423656,
+      "mean": 0.7682080853801165,
+      "ci_lo": 0.7174832508081735,
+      "ci_hi": 0.8161037723562489,
+      "sd": 0.08453324051196805,
+      "passes": true,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Race_ethnicity",
+      "q05": -0.20364539188063993,
+      "mean": 0.009257080991872321,
+      "ci_lo": -0.07831855732414461,
+      "ci_hi": 0.0877861640933218,
+      "sd": 0.14235432085937028,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Race_x_SES",
+      "q05": -0.10478348159114145,
+      "mean": 0.18069419568086154,
+      "ci_lo": 0.06324334507556674,
+      "ci_hi": 0.29373433814938493,
+      "sd": 0.1980712450191457,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Race_x_gender",
+      "q05": 0.07213649375432714,
+      "mean": 0.2791012186585885,
+      "ci_lo": 0.20368372613984698,
+      "ci_hi": 0.3411291796954401,
+      "sd": 0.1176211997887775,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Religion",
+      "q05": 0.685739689961425,
+      "mean": 0.7762098904930048,
+      "ci_lo": 0.7398175147611759,
+      "ci_hi": 0.8121600364917028,
+      "sd": 0.06252229058367377,
+      "passes": true,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-14b",
+      "category": "Sexual_orientation",
+      "q05": 0.16055824201721214,
+      "mean": 0.3728114296776765,
+      "ci_lo": 0.2869766761604549,
+      "ci_hi": 0.45926176051940504,
+      "sd": 0.1445076444628818,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Age",
+      "q05": 0.1944177126685635,
+      "mean": 0.4489503716696955,
+      "ci_lo": 0.3399173134280465,
+      "ci_hi": 0.5566326813014649,
+      "sd": 0.18626268787857334,
+      "passes": false,
+      "flip_prob": 0.0011
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Disability_status",
+      "q05": 0.7000434836258355,
+      "mean": 0.8572582499126294,
+      "ci_lo": 0.7908023173384984,
+      "ci_hi": 0.9108089441858754,
+      "sd": 0.10223471109689594,
+      "passes": true,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Gender_identity",
+      "q05": -0.17716403383445287,
+      "mean": 0.09428631356103183,
+      "ci_lo": -0.012927870764666952,
+      "ci_hi": 0.193221587382539,
+      "sd": 0.17674711125872036,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Nationality",
+      "q05": -0.02004754040303469,
+      "mean": 0.39669668952637155,
+      "ci_lo": 0.241985483144015,
+      "ci_hi": 0.5175774523627339,
+      "sd": 0.2367335954454957,
+      "passes": false,
+      "flip_prob": 5e-05
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Physical_appearance",
+      "q05": 0.7854932465563215,
+      "mean": 0.8648078926654471,
+      "ci_lo": 0.8303435228372028,
+      "ci_hi": 0.8982180022226857,
+      "sd": 0.057880573920195015,
+      "passes": true,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Race_ethnicity",
+      "q05": -0.2139903880914479,
+      "mean": 0.16508150508030295,
+      "ci_lo": 0.029228217041640404,
+      "ci_hi": 0.28482449908014124,
+      "sd": 0.2210037695485929,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Race_x_SES",
+      "q05": -0.1503415531920063,
+      "mean": 0.059499614712225354,
+      "ci_lo": -0.0319025483327455,
+      "ci_hi": 0.14740388253574252,
+      "sd": 0.153485219227476,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Race_x_gender",
+      "q05": 0.2180495309288106,
+      "mean": 0.3267054029588512,
+      "ci_lo": 0.2706882544662532,
+      "ci_hi": 0.3859031691541775,
+      "sd": 0.09856532265173293,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Religion",
+      "q05": 0.3164933872798248,
+      "mean": 0.5938987349045411,
+      "ci_lo": 0.48924214455115606,
+      "ci_hi": 0.6880948980976342,
+      "sd": 0.17002669973992451,
+      "passes": false,
+      "flip_prob": 0.11005
+    },
+    {
+      "model": "qwen-7b",
+      "category": "Sexual_orientation",
+      "q05": -0.10421911872645775,
+      "mean": 0.0819311877418534,
+      "ci_lo": -0.020856436988801293,
+      "ci_hi": 0.20117757835090427,
+      "sd": 0.18925113087131856,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "yi-6b",
+      "category": "Age",
+      "q05": 0.17693673497883994,
+      "mean": 0.37101028278409853,
+      "ci_lo": 0.28715051005703257,
+      "ci_hi": 0.45873194354918484,
+      "sd": 0.14569017237164072,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "yi-6b",
+      "category": "Disability_status",
+      "q05": 0.6052217974896923,
+      "mean": 0.8189877285023756,
+      "ci_lo": 0.7318876770164506,
+      "ci_hi": 0.8829578001114098,
+      "sd": 0.13111470836195793,
+      "passes": true,
+      "flip_prob": 0.26615
+    },
+    {
+      "model": "yi-6b",
+      "category": "Nationality",
+      "q05": 0.296347965510635,
+      "mean": 0.5284253507355876,
+      "ci_lo": 0.443091226723243,
+      "ci_hi": 0.6002560903533641,
+      "sd": 0.13533309036224284,
+      "passes": false,
+      "flip_prob": 0.06595
+    },
+    {
+      "model": "yi-6b",
+      "category": "Physical_appearance",
+      "q05": 0.6141175951303681,
+      "mean": 0.7312863909284014,
+      "ci_lo": 0.6774013685368364,
+      "ci_hi": 0.7868937052394717,
+      "sd": 0.09308543849452261,
+      "passes": true,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "yi-6b",
+      "category": "Race_ethnicity",
+      "q05": -0.2295083787449837,
+      "mean": 0.03296873113116352,
+      "ci_lo": -0.07210074863486811,
+      "ci_hi": 0.13091371083826592,
+      "sd": 0.1729446972732173,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "yi-6b",
+      "category": "Race_x_SES",
+      "q05": 0.08894132250280251,
+      "mean": 0.2318818550567162,
+      "ci_lo": 0.17220112125208692,
+      "ci_hi": 0.29000853480781597,
+      "sd": 0.10112038870893746,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "yi-6b",
+      "category": "Race_x_gender",
+      "q05": 0.203500197745412,
+      "mean": 0.3843738524268586,
+      "ci_lo": 0.29619660836513556,
+      "ci_hi": 0.48185009698355746,
+      "sd": 0.15889637820962002,
+      "passes": false,
+      "flip_prob": 5e-05
+    },
+    {
+      "model": "yi-6b",
+      "category": "Religion",
+      "q05": -0.4544207171635423,
+      "mean": -0.07137352011279088,
+      "ci_lo": -0.21858333600296678,
+      "ci_hi": 0.06325215547104088,
+      "sd": 0.2416917404096733,
+      "passes": false,
+      "flip_prob": 0.0
+    },
+    {
+      "model": "yi-6b",
+      "category": "Sexual_orientation",
+      "q05": -0.30430850463937076,
+      "mean": -0.11712081769248925,
+      "ci_lo": -0.18780480849784967,
+      "ci_hi": -0.05470679662372446,
+      "sd": 0.11428988357879069,
+      "passes": false,
+      "flip_prob": 0.0
+    }
+  ],
+  "B_floor_vs_n": {
+    "qwen-1.8b": {
+      "category": "Race_ethnicity",
+      "n": [
+        172,
+        320
+      ],
+      "mean": [
+        -0.06289900697471197,
+        -0.06121079212104596
+      ],
+      "delta_mean": 0.0016882148536660133,
+      "n_ratio": 1.8604651162790697
+    },
+    "qwen-14b": {
+      "category": "Religion",
+      "n": [
+        172,
+        240
+      ],
+      "mean": [
+        0.6536564659033709,
+        0.8167964104910183
+      ],
+      "delta_mean": 0.16313994458764736,
+      "n_ratio": 1.3953488372093024
+    }
+  },
+  "C_power": {
+    "sd_median": 0.14526441913460303,
+    "sd_p90": 0.21091365995074257,
+    "n_pairs": 46,
+    "ci_halfwidth_at_10": 0.13072564079697035
+  },
+  "D_abstention_vs_floor": {
+    "per_model": {
+      "gemma-2b": {
+        "r": -0.4224459473520413,
+        "n": 9,
+        "p_perm": 0.26045
+      },
+      "qwen-14b": {
+        "r": -0.1005759934294843,
+        "n": 10,
+        "p_perm": 0.79185
+      },
+      "qwen-7b": {
+        "r": -0.17756991034623482,
+        "n": 10,
+        "p_perm": 0.6212
+      },
+      "yi-6b": {
+        "r": -0.5358178428435553,
+        "n": 9,
+        "p_perm": 0.13625
+      }
+    },
+    "pooled_r_CONFOUNDED": -0.11191125755343881,
+    "points": [
+      {
+        "abstain_frac": 0.06,
+        "floor_q05": 0.16100012584269188
+      },
+      {
+        "abstain_frac": 0.045,
+        "floor_q05": 0.8184430646488138
+      },
+      {
+        "abstain_frac": 0.28,
+        "floor_q05": -0.03810122396611401
+      },
+      {
+        "abstain_frac": 0.125,
+        "floor_q05": 0.5113272749066434
+      },
+      {
+        "abstain_frac": 0.2,
+        "floor_q05": -0.012556987008579407
+      },
+      {
+        "abstain_frac": 0.041666666666666664,
+        "floor_q05": -0.16538871101759617
+      },
+      {
+        "abstain_frac": 0.19,
+        "floor_q05": -0.04412681262609486
+      },
+      {
+        "abstain_frac": 0.26,
+        "floor_q05": -0.16337488504495842
+      },
+      {
+        "abstain_frac": 0.4050925925925926,
+        "floor_q05": 0.05570694589488341
+      },
+      {
+        "abstain_frac": 0.07333333333333333,
+        "floor_q05": 0.7535759719639885
+      },
+      {
+        "abstain_frac": 0.09166666666666666,
+        "floor_q05": 0.8196444568613926
+      },
+      {
+        "abstain_frac": 0.5785953177257525,
+        "floor_q05": 0.0811691537048238
+      },
+      {
+        "abstain_frac": 0.25166666666666665,
+        "floor_q05": 0.2786220833490235
+      },
+      {
+        "abstain_frac": 0.255,
+        "floor_q05": 0.6478480436423656
+      },
+      {
+        "abstain_frac": 0.15333333333333332,
+        "floor_q05": -0.20364539188063993
+      },
+      {
+        "abstain_frac": 0.095,
+        "floor_q05": -0.10478348159114145
+      },
+      {
+        "abstain_frac": 0.13166666666666665,
+        "floor_q05": 0.07213649375432714
+      },
+      {
+        "abstain_frac": 0.38666666666666666,
+        "floor_q05": 0.685739689961425
+      },
+      {
+        "abstain_frac": 0.37037037037037035,
+        "floor_q05": 0.16055824201721214
+      },
+      {
+        "abstain_frac": 0.045,
+        "floor_q05": 0.1944177126685635
+      },
+      {
+        "abstain_frac": 0.05333333333333334,
+        "floor_q05": 0.7000434836258355
+      },
+      {
+        "abstain_frac": 0.3712374581939799,
+        "floor_q05": -0.17716403383445287
+      },
+      {
+        "abstain_frac": 0.195,
+        "floor_q05": -0.02004754040303469
+      },
+      {
+        "abstain_frac": 0.19,
+        "floor_q05": 0.7854932465563215
+      },
+      {
+        "abstain_frac": 0.08666666666666667,
+        "floor_q05": -0.2139903880914479
+      },
+      {
+        "abstain_frac": 0.04,
+        "floor_q05": -0.1503415531920063
+      },
+      {
+        "abstain_frac": 0.043333333333333335,
+        "floor_q05": 0.2180495309288106
+      },
+      {
+        "abstain_frac": 0.31333333333333335,
+        "floor_q05": 0.3164933872798248
+      },
+      {
+        "abstain_frac": 0.2916666666666667,
+        "floor_q05": -0.10421911872645775
+      },
+      {
+        "abstain_frac": 0.006666666666666667,
+        "floor_q05": 0.17693673497883994
+      },
+      {
+        "abstain_frac": 0.005,
+        "floor_q05": 0.6052217974896923
+      },
+      {
+        "abstain_frac": 0.028333333333333332,
+        "floor_q05": 0.296347965510635
+      },
+      {
+        "abstain_frac": 0.07,
+        "floor_q05": 0.6141175951303681
+      },
+      {
+        "abstain_frac": 0.008333333333333333,
+        "floor_q05": -0.2295083787449837
+      },
+      {
+        "abstain_frac": 0.0016666666666666668,
+        "floor_q05": 0.08894132250280251
+      },
+      {
+        "abstain_frac": 0.011666666666666667,
+        "floor_q05": 0.203500197745412
+      },
+      {
+        "abstain_frac": 0.12666666666666668,
+        "floor_q05": -0.4544207171635423
+      },
+      {
+        "abstain_frac": 0.1875,
+        "floor_q05": -0.30430850463937076
+      }
+    ]
+  },
+  "E_structure_replication": {
+    "unrestricted": [
+      {
+        "model_a": "gemma-2b",
+        "model_b": "qwen-1.8b",
+        "shared_pairs": 21,
+        "pearson": 0.04195798721187198,
+        "spearman": -0.10519480519480519
+      },
+      {
+        "model_a": "gemma-2b",
+        "model_b": "qwen-14b",
+        "shared_pairs": 36,
+        "pearson": 0.14342923905208674,
+        "spearman": 0.09266409266409266
+      },
+      {
+        "model_a": "gemma-2b",
+        "model_b": "qwen-7b",
+        "shared_pairs": 36,
+        "pearson": 0.2863810674525739,
+        "spearman": 0.15212355212355214
+      },
+      {
+        "model_a": "gemma-2b",
+        "model_b": "yi-6b",
+        "shared_pairs": 36,
+        "pearson": 0.3217456375588853,
+        "spearman": 0.2756756756756757
+      },
+      {
+        "model_a": "qwen-1.8b",
+        "model_b": "qwen-14b",
+        "shared_pairs": 28,
+        "pearson": 0.4455505373741962,
+        "spearman": 0.2796934865900383
+      },
+      {
+        "model_a": "qwen-1.8b",
+        "model_b": "qwen-7b",
+        "shared_pairs": 28,
+        "pearson": 0.5027492705384226,
+        "spearman": 0.30268199233716475
+      },
+      {
+        "model_a": "qwen-1.8b",
+        "model_b": "yi-6b",
+        "shared_pairs": 21,
+        "pearson": 0.5686328386717352,
+        "spearman": 0.5207792207792208
+      },
+      {
+        "model_a": "qwen-14b",
+        "model_b": "qwen-7b",
+        "shared_pairs": 45,
+        "pearson": 0.6797077253920826,
+        "spearman": 0.691699604743083
+      },
+      {
+        "model_a": "qwen-14b",
+        "model_b": "yi-6b",
+        "shared_pairs": 36,
+        "pearson": 0.4812652658595593,
+        "spearman": 0.3915057915057915
+      },
+      {
+        "model_a": "qwen-7b",
+        "model_b": "yi-6b",
+        "shared_pairs": 36,
+        "pearson": 0.47285506345625516,
+        "spearman": 0.4592020592020592
+      }
+    ],
+    "restricted_to_reproducing": []
+  },
+  "F_statistic_sensitivity": {
+    "by_statistic": {
+      "min": {
+        "cells": 9,
+        "categories": [
+          "Disability_status",
+          "Physical_appearance"
+        ]
+      },
+      "q05": {
+        "cells": 10,
+        "categories": [
+          "Disability_status",
+          "Physical_appearance"
+        ]
+      },
+      "median": {
+        "cells": 12,
+        "categories": [
+          "Disability_status",
+          "Physical_appearance",
+          "Religion"
+        ]
+      },
+      "mean": {
+        "cells": 13,
+        "categories": [
+          "Age",
+          "Disability_status",
+          "Physical_appearance",
+          "Religion"
+        ]
+      },
+      "ci_lo": {
+        "cells": 10,
+        "categories": [
+          "Disability_status",
+          "Physical_appearance"
+        ]
+      }
+    },
+    "race_max": {
+      "min": 0.2133598823862416,
+      "q05": 0.2180495309288106,
+      "median": 0.38035615026090785,
+      "mean": 0.38437385242685856,
+      "ci_lo": 0.29619660836513556
+    },
+    "n_flips": 3,
+    "n_cells": 46,
+    "cells_clearing_every_statistic": [
+      "Age",
+      "Disability_status",
+      "Physical_appearance",
+      "Religion"
+    ]
+  }
+}
