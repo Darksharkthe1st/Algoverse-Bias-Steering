@@ -1,0 +1,5 @@
+{
+  "source_vector_path": "runs/20260903-105600_anchor-qwen3-8b_qwen3-8b/steering_vector.safetensors",
+  "n_layers": 36,
+  "d_model": 4096
+}

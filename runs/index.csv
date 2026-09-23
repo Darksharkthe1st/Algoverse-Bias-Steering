@@ -6,3 +6,8 @@ run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,
 20260903-102805_prompt-baseline-opinion_qwen3-8b,prompt-baseline opinion,qwen3-8b,plain,mean_diff,8.0,8.0,8b22489416fae768327bd5efcc0ad592344d4c46,True,20260903-102805,done,0,200,49,116
 20260903-105600_anchor-qwen3-8b_qwen3-8b,anchor qwen3-8b,qwen3-8b,snapshot,mean_diff,8.0,8.0,914aaf5a041a112d41beae4e5be6741e6720e3fb,True,20260903-105600,done,100,100,26,27
 20260903-110706_prompt-baseline-opinion_qwen3-8b,prompt-baseline opinion,qwen3-8b,plain,mean_diff,8.0,8.0,914aaf5a041a112d41beae4e5be6741e6720e3fb,True,20260903-110706,done,0,200,40,62
+20260923-030712_prompt-baseline-opinion_qwen3-8b,prompt-baseline opinion,qwen3-8b,plain,mean_diff,8.0,8.0,6c32c02a51b5b53088a187755a11c0171efcdf35,True,20260923-030712,done,0,200,39,62
+20260923-072454_prompt-baseline-issuebench_qwen3-8b,prompt-baseline issuebench,qwen3-8b,issuebench,mean_diff,8.0,8.0,25be7f2ef931f5deddb84a662cd2830b26763098,True,20260923-072454,done,0,150,13,43
+20260923-080817_extract-issuebench-opinion_qwen3-8b,extract issuebench opinion,qwen3-8b,issuebench,mean_diff,8.0,8.0,25be7f2ef931f5deddb84a662cd2830b26763098,True,20260923-080817,done,200,200,45,18
+20260923-090514_extract-issuebench-opinion-forced-contrast_qwen3-8b,extract issuebench opinion (forced-contrast),qwen3-8b,issuebench,mean_diff,8.0,8.0,1d16f8cbe427420820d7fec1dff4b5979fce2af8,True,20260923-090514,done,200,100,36,48
+20260923-092656_extract-issuebench-opinion_qwen3-8b,extract issuebench opinion,qwen3-8b,issuebench,mean_diff,8.0,8.0,1d16f8cbe427420820d7fec1dff4b5979fce2af8,True,20260923-092656,done,200,100,35,35
