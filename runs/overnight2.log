@@ -1,0 +1,536 @@
+
+
+########## waiting for queue 1 to finish  [08:43:36] ##########
+queue 1 clear at 08:43:36
+gpu free (0 MiB) after 0s
+
+
+########## transfer_qwen14b_norm_c2  [08:43:36] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_qwen14b --model qwen-14b --items 80 --coeff 2 --only-reproducible --tag _norm_c2
+[transfer_qwen14b_norm_c2] exit=0
+rand~Religion             +0.0032    +0.0002    +0.0053    +0.0028
+
+control - sign flip on own category (coeff=-2.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       -0.0004    -0.0013   SAME SIGN - generic damage?
+Disability_status         -0.0035    +0.0048   sign flips (good)
+Physical_appearance       +0.0030    -0.0014   sign flips (good)
+Religion                  +0.0012    -0.0010   sign flips (good)
+
+summary
+  mean effect, own direction        : +0.0001
+  mean effect, cross direction      : +0.0038
+  mean |effect|, random control     : +0.0035
+  specificity (own - cross)         : -0.0037
+  sign-flip control passed          : 3/4
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_qwen14b/transfer_test_norm_c2.json
+gpu free (0 MiB) after 0s
+
+
+########## transfer_qwen14b_norm_c4  [09:07:49] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_qwen14b --model qwen-14b --items 80 --coeff 4 --only-reproducible --tag _norm_c4
+[transfer_qwen14b_norm_c4] exit=0
+rand~Religion             +0.0069    -0.0031    +0.0102    +0.0035
+
+control - sign flip on own category (coeff=-4.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       -0.0033    +0.0011   sign flips (good)
+Disability_status         +0.0007    +0.0035   SAME SIGN - generic damage?
+Physical_appearance       +0.0071    -0.0028   sign flips (good)
+Religion                  +0.0037    -0.0045   sign flips (good)
+
+summary
+  mean effect, own direction        : +0.0021
+  mean effect, cross direction      : +0.0093
+  mean |effect|, random control     : +0.0066
+  specificity (own - cross)         : -0.0073
+  sign-flip control passed          : 3/4
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_qwen14b/transfer_test_norm_c4.json
+gpu free (0 MiB) after 0s
+
+
+########## transfer_qwen14b_norm_c8  [09:32:02] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_qwen14b --model qwen-14b --items 80 --coeff 8 --only-reproducible --tag _norm_c8
+[transfer_qwen14b_norm_c8] exit=0
+rand~Religion             +0.0097    -0.0100    +0.0203    +0.0056
+
+control - sign flip on own category (coeff=-8.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       -0.0082    -0.0044   SAME SIGN - generic damage?
+Disability_status         +0.0074    +0.0016   SAME SIGN - generic damage?
+Physical_appearance       +0.0124    -0.0011   sign flips (good)
+Religion                  +0.0030    -0.0093   sign flips (good)
+
+summary
+  mean effect, own direction        : +0.0036
+  mean effect, cross direction      : +0.0191
+  mean |effect|, random control     : +0.0126
+  specificity (own - cross)         : -0.0154
+  sign-flip control passed          : 2/4
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_qwen14b/transfer_test_norm_c8.json
+gpu free (0 MiB) after 0s
+
+
+########## transfer_qwen14b_norm_c16  [09:56:14] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_qwen14b --model qwen-14b --items 80 --coeff 16 --only-reproducible --tag _norm_c16
+[transfer_qwen14b_norm_c16] exit=0
+rand~Religion             +0.0116    -0.0284    +0.0385    +0.0093
+
+control - sign flip on own category (coeff=-16.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       -0.0204    -0.0307   SAME SIGN - generic damage?
+Disability_status         +0.0242    +0.0037   SAME SIGN - generic damage?
+Physical_appearance       +0.0296    -0.0023   sign flips (good)
+Religion                  -0.0067    -0.0199   SAME SIGN - generic damage?
+
+summary
+  mean effect, own direction        : +0.0067
+  mean effect, cross direction      : +0.0329
+  mean |effect|, random control     : +0.0250
+  specificity (own - cross)         : -0.0263
+  sign-flip control passed          : 1/4
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_qwen14b/transfer_test_norm_c16.json
+gpu free (0 MiB) after 0s
+
+
+########## transfer_gemma2b_norm_c2  [10:20:27] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_gemma2b --model gemma-2b --items 80 --coeff 2 --only-reproducible --tag _norm_c2
+[transfer_gemma2b_norm_c2] exit=0
+--------------------------------------------
+rand~Disability_statu     +0.0225    +0.0039
+rand~Physical_appeara     +0.0145    -0.0051
+
+control - sign flip on own category (coeff=-2.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Disability_status         -0.1302    +0.0922   sign flips (good)
+Physical_appearance       -0.0308    +0.0091   sign flips (good)
+
+summary
+  mean effect, own direction        : -0.0805
+  mean effect, cross direction      : -0.0627
+  mean |effect|, random control     : +0.0115
+  specificity (own - cross)         : -0.0178
+  sign-flip control passed          : 2/2
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_gemma2b/transfer_test_norm_c2.json
+gpu free (0 MiB) after 0s
+
+
+########## transfer_gemma2b_norm_c5  [10:22:55] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_gemma2b --model gemma-2b --items 80 --coeff 5 --only-reproducible --tag _norm_c5
+[transfer_gemma2b_norm_c5] exit=0
+--------------------------------------------
+rand~Disability_statu     +0.0553    +0.0093
+rand~Physical_appeara     +0.0390    -0.0184
+
+control - sign flip on own category (coeff=-5.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Disability_status         -0.3268    +0.1303   sign flips (good)
+Physical_appearance       -0.1159    -0.0108   SAME SIGN - generic damage?
+
+summary
+  mean effect, own direction        : -0.2214
+  mean effect, cross direction      : -0.1709
+  mean |effect|, random control     : +0.0305
+  specificity (own - cross)         : -0.0505
+  sign-flip control passed          : 1/2
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_gemma2b/transfer_test_norm_c5.json
+gpu free (0 MiB) after 0s
+
+
+########## transfer_gemma2b_norm_c10  [10:25:24] ##########
+$ python3 scripts/bias_transfer_test.py --run-dir runs/full_gemma2b --model gemma-2b --items 80 --coeff 10 --only-reproducible --tag _norm_c10
+[transfer_gemma2b_norm_c10] exit=0
+--------------------------------------------
+rand~Disability_statu     +0.1130    +0.0139
+rand~Physical_appeara     +0.0790    -0.0528
+
+control - sign flip on own category (coeff=-10.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Disability_status         -0.5416    -0.0303   SAME SIGN - generic damage?
+Physical_appearance       -0.3237    -0.1201   SAME SIGN - generic damage?
+
+summary
+  mean effect, own direction        : -0.4326
+  mean effect, cross direction      : -0.3605
+  mean |effect|, random control     : +0.0646
+  specificity (own - cross)         : -0.0721
+  sign-flip control passed          : 0/2
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> no detectable effect at this dose
+
+  UNCONTROLLED: coefficient chosen not derived, random control is
+  norm-matched not covariance-matched, no coherence check, no
+  system-prompt baseline. Do not call any of this causal.
+  Say 'a direction', never 'the direction' (arXiv:2602.06801).
+
+written to runs/full_gemma2b/transfer_test_norm_c10.json
+gpu free (0 MiB) after 0s
+
+
+########## norms_full_qwen18  [10:27:52] ##########
+$ python3 scripts/direction_norms.py --run-dir runs/full_qwen18
+[norms_full_qwen18] exit=0
+run: full_qwen18   model: qwen-1.8b
+
+category                   floor       ‖d‖_F   max layer  separation
+----------------------------------------------------------------------
+Age                       +0.423       25.87       13.78        4.83
+Race_x_gender             +0.138       15.38        8.76        4.67
+Nationality               +0.057       18.35       10.14        4.80
+Race_x_SES                +0.017       15.63        8.93        2.38
+Religion                  -0.008       13.93        7.72        3.57
+Gender_identity           -0.072       14.41        7.96        8.39
+Race_ethnicity            -0.115       13.22        7.55        5.31
+Sexual_orientation        -0.202       16.72        8.96        4.07
+
+floor vs direction norm : pearson +0.808   spearman +0.524
+norm vs separation      : pearson -0.074   spearman -0.119
+
+largest / smallest direction norm: 2.0x
+
+If that ratio is well above 1, a FIXED steering coefficient applied
+a different dose to each category, and the transfer test compared
+interventions of different strengths. Unit-normalise the direction and
+carry the dose in the coefficient before reading specificity.
+
+written to runs/full_qwen18/direction_norms.json
+gpu free (0 MiB) after 0s
+
+
+########## norms_full_qwen14b  [10:28:03] ##########
+$ python3 scripts/direction_norms.py --run-dir runs/full_qwen14b
+[norms_full_qwen14b] exit=0
+run: full_qwen14b   model: qwen-14b
+
+category                   floor       ‖d‖_F   max layer  separation
+----------------------------------------------------------------------
+Disability_status         +0.820      435.84      161.74       13.63
+Age                       +0.754      504.77      184.42        7.45
+Religion                  +0.686      313.63      116.54        5.69
+Physical_appearance       +0.648      263.66       97.65        8.73
+Nationality               +0.279      200.69       76.65        7.79
+Sexual_orientation        +0.161      209.37       81.40        6.86
+Gender_identity           +0.081      119.07       44.36       15.45
+Race_x_gender             +0.072      100.31       39.53        8.13
+Race_x_SES                -0.105      102.53       39.95        4.20
+Race_ethnicity            -0.204      100.55       38.66        9.55
+
+floor vs direction norm : pearson +0.912   spearman +0.939
+norm vs separation      : pearson +0.061   spearman -0.103
+
+largest / smallest direction norm: 5.0x
+
+If that ratio is well above 1, a FIXED steering coefficient applied
+a different dose to each category, and the transfer test compared
+interventions of different strengths. Unit-normalise the direction and
+carry the dose in the coefficient before reading specificity.
+
+written to runs/full_qwen14b/direction_norms.json
+gpu free (0 MiB) after 0s
+
+
+########## norms_full_gemma2b  [10:28:13] ##########
+$ python3 scripts/direction_norms.py --run-dir runs/full_gemma2b
+[norms_full_gemma2b] exit=0
+run: full_gemma2b   model: gemma-2b
+
+category                   floor       ‖d‖_F   max layer  separation
+----------------------------------------------------------------------
+Disability_status         +0.818       25.17       13.43       19.57
+Physical_appearance       +0.511       22.38       12.48       11.61
+Age                       +0.161       11.50        6.48        7.32
+Sexual_orientation        +0.056       12.82        7.31        6.22
+Race_ethnicity            -0.013        9.31        4.93       13.96
+Nationality               -0.038       11.00        5.91        7.44
+Race_x_gender             -0.044        8.14        4.56       13.19
+Religion                  -0.163       11.82        6.70        5.45
+Race_x_SES                -0.165        8.15        4.48        5.59
+
+floor vs direction norm : pearson +0.945   spearman +0.750
+norm vs separation      : pearson +0.577   spearman +0.100
+
+largest / smallest direction norm: 3.1x
+
+If that ratio is well above 1, a FIXED steering coefficient applied
+a different dose to each category, and the transfer test compared
+interventions of different strengths. Unit-normalise the direction and
+carry the dose in the coefficient before reading specificity.
+
+written to runs/full_gemma2b/direction_norms.json
+gpu free (0 MiB) after 0s
+
+
+########## norms_full_yi6b  [10:28:23] ##########
+$ python3 scripts/direction_norms.py --run-dir runs/full_yi6b
+[norms_full_yi6b] exit=0
+run: full_yi6b   model: yi-6b
+
+category                   floor       ‖d‖_F   max layer  separation
+----------------------------------------------------------------------
+Physical_appearance       +0.614      125.49       56.26        7.29
+Disability_status         +0.605      148.59       64.66       11.34
+Nationality               +0.296       68.22       30.56        4.84
+Race_x_gender             +0.204       62.92       28.79        5.48
+Age                       +0.177       82.65       36.59        5.67
+Race_x_SES                +0.089       55.10       25.28        2.88
+Race_ethnicity            -0.230       68.82       31.95        5.85
+Sexual_orientation        -0.304       67.15       30.02        4.67
+Religion                  -0.454       55.90       25.12        3.90
+
+floor vs direction norm : pearson +0.765   spearman +0.650
+norm vs separation      : pearson +0.931   spearman +0.933
+
+largest / smallest direction norm: 2.7x
+
+If that ratio is well above 1, a FIXED steering coefficient applied
+a different dose to each category, and the transfer test compared
+interventions of different strengths. Unit-normalise the direction and
+carry the dose in the coefficient before reading specificity.
+
+written to runs/full_yi6b/direction_norms.json
+gpu free (0 MiB) after 0s
+
+
+########## norms_probe_qwen14b  [10:28:34] ##########
+$ python3 scripts/direction_norms.py --run-dir runs/probe_qwen14b
+[norms_probe_qwen14b] exit=0
+run: probe_qwen14b   model: qwen-14b
+
+category                   floor       ‖d‖_F   max layer  separation
+----------------------------------------------------------------------
+Disability_status         +0.457      130.16       47.89       13.63
+Physical_appearance       +0.328       97.21       31.01        8.73
+Age                       +0.264       84.15       20.86        7.45
+Sexual_orientation        +0.203       63.76       15.51        6.86
+Religion                  +0.176       62.65       16.03        5.69
+Nationality               +0.113       96.29       22.59        7.79
+Race_x_gender             +0.090      108.22       26.69        8.13
+Gender_identity           +0.087      194.13       50.06       15.45
+Race_x_SES                +0.036       56.87       14.15        4.20
+Race_ethnicity            +0.000      127.79       31.02        9.55
+
+floor vs direction norm : pearson -0.039   spearman -0.006
+norm vs separation      : pearson +0.938   spearman +0.988
+
+largest / smallest direction norm: 3.4x
+
+If that ratio is well above 1, a FIXED steering coefficient applied
+a different dose to each category, and the transfer test compared
+interventions of different strengths. Unit-normalise the direction and
+carry the dose in the coefficient before reading specificity.
+
+written to runs/probe_qwen14b/direction_norms.json
+gpu free (0 MiB) after 0s
+
+
+########## qwen7b_extremes  [10:28:44] ##########
+$ python3 scripts/bias_taxonomy_run.py --model qwen-7b --method extremes --ambig-limit 600 --control-limit 150 --permutations 200 --cluster-usable-only --out-dir runs/full_qwen7b
+[qwen7b_extremes] exit=0
+  Nationality            n=240   -> direction (32, 4096)
+  Physical_appearance    n=240   -> direction (32, 4096)
+  Disability_status      n=240   -> direction (32, 4096)
+  Sexual_orientation     n=172   -> direction (32, 4096)
+  Race_x_gender          n=240   -> direction (32, 4096)
+  Race_x_SES             n=240   -> direction (32, 4096)
+
+=== STAGE 4 - extraction floor (re-extract the SAME category from halves)
+  category                     n floor q05    median
+  Race_ethnicity             240    -0.214     0.220
+  Gender_identity            238    -0.177     0.107
+  Race_x_SES                 240    -0.150     0.098
+  Sexual_orientation         172    -0.104     0.020
+  Nationality                240    -0.020     0.441
+  Age                        240     0.194     0.443
+  Race_x_gender              240     0.218     0.298
+  Religion                   240     0.316     0.619
+  Disability_status          240     0.700     0.862
+  Physical_appearance        240     0.785     0.859
+
+  n spread across categories: 1.4x
+
+=== STAGE 5 - cosine matrix, clustering, permutation null
+  clustering only the 2 reproducible categories
+  excluded (floor below 0.5): ['Religion', 'Race_ethnicity', 'Gender_identity', 'Age', 'Nationality', 'Sexual_orientation', 'Race_x_gender', 'Race_x_SES']
+
+  fewer than 3 reproducible directions — nothing to cluster.
+
+=== VERDICT
+  NOT CLUSTERABLE: only 2 of 10 categories produce a direction that reproduces against itself (floor q05 >= 0.5) — ['Physical_appearance', 'Disability_status']. Three are needed to cluster, so no similarity structure was computed and no permutation null was run. This is neither evidence for nor against separable subtypes.
+gpu free (0 MiB) after 0s
+
+
+########## llama3_extremes  [11:14:22] ##########
+$ python3 scripts/bias_taxonomy_run.py --model llama3-8b --method extremes --ambig-limit 600 --control-limit 150 --permutations 200 --cluster-usable-only --out-dir runs/full_llama3
+[llama3_extremes] exit=1
+  File "/home/ubuntu/Algoverse-Bias-Steering/scripts/bias_taxonomy_run.py", line 365, in <module>
+    raise SystemExit(main())
+  File "/home/ubuntu/Algoverse-Bias-Steering/scripts/bias_taxonomy_run.py", line 113, in main
+    loaded = models.load_model(spec)
+  File "/home/ubuntu/Algoverse-Bias-Steering/src/bias_steer/models.py", line 49, in load_model
+    model = HookedTransformer.from_pretrained_no_processing(
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/transformer_lens/HookedTransformer.py", line 1507, in from_pretrained_no_processing
+    return cls.from_pretrained(
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/transformer_lens/HookedTransformer.py", line 1461, in from_pretrained
+    state_dict = loading.get_pretrained_state_dict(
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/transformer_lens/loading_from_pretrained.py", line 2116, in get_pretrained_state_dict
+    hf_model = AutoModelForCausalLM.from_pretrained(
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/transformers/models/auto/auto_factory.py", line 336, in from_pretrained
+    config, kwargs = AutoConfig.from_pretrained(
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/transformers/models/auto/configuration_auto.py", line 388, in from_pretrained
+    config_dict, unused_kwargs = PreTrainedConfig.get_config_dict(pretrained_model_name_or_path, **kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/transformers/configuration_utils.py", line 745, in get_config_dict
+    config_dict, kwargs = cls._get_config_dict(pretrained_model_name_or_path, **kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/transformers/configuration_utils.py", line 800, in _get_config_dict
+    resolved_config_file = cached_file(
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/transformers/utils/hub.py", line 294, in cached_file
+    file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/transformers/utils/hub.py", line 511, in cached_files
+    raise OSError(
+OSError: You are trying to access a gated repo.
+Make sure to have access to it at https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct.
+403 Client Error. (Request ID: Root=1-6a883314-0acb561c02e3c3f821238a73;9eaa1d07-413c-45a4-8773-a633d0d427de)
+
+Cannot access gated repo for url https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct/resolve/main/config.json.
+Access to model meta-llama/Meta-Llama-3-8B-Instruct is restricted and you are not in the authorized list. Visit https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct to ask for access.
+
+
+########## QUEUE 2 COMPLETE  [11:14:39]  [11:14:39] ##########
+total 464
+drwxrwxr-x 28 ubuntu ubuntu   4096 Aug 21 11:14 .
+drwxrwxr-x 20 ubuntu ubuntu   4096 Aug 20 22:41 ..
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-010713_parity-log103_qwen-1.8b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-012833_sweep-qwen18-c2_qwen-1.8b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-013300_sweep-qwen18-c6_qwen-1.8b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-013730_sweep-qwen18-c10_qwen-1.8b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-014201_sweep-qwen18-c14_qwen-1.8b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-014629_sweep-qwen18-c18_qwen-1.8b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-015046_sweep-qwen18-c24_qwen-1.8b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-015504_anchor-qwen-1.8b_qwen-1.8b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-015926_anchor-yi-6b_yi-6b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-020532_anchor-qwen-7b_qwen-7b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-021303_anchor-qwen-14b_qwen-14b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-021510_crows-qwen-1.8b_qwen-1.8b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260809-022109_crows-qwen-7b_qwen-7b
+drwxrwxr-x  3 ubuntu ubuntu   4096 Aug 20 21:59 20260816-010402_refusal-repro_qwen-1.8b
+drwxrwxr-x  4 ubuntu ubuntu   4096 Aug 20 21:59 20260816-011914_refusal-repro_qwen-1.8b
+-rw-rw-r--  1 ubuntu ubuntu   6874 Aug 20 22:07 _base_rates_qwen18.json
+-rw-rw-r--  1 ubuntu ubuntu   7333 Aug 20 22:22 _base_rates_qwen18_v2.json
+-rw-rw-r--  1 ubuntu ubuntu   7402 Aug 20 22:14 _base_rates_qwen7b.json
+-rw-rw-r--  1 ubuntu ubuntu   7390 Aug 20 22:27 _base_rates_qwen7b_v2.json
+-rw-rw-r--  1 ubuntu ubuntu   3959 Aug 20 22:48 _bbq_choice_diagnostics.json
+-rw-rw-r--  1 ubuntu ubuntu    882 Aug 20 23:27 _bbq_scoring_diagnosis.json
+-rw-rw-r--  1 ubuntu ubuntu   1955 Aug 21 06:22 _extraction_control_gemma2b.json
+-rw-rw-r--  1 ubuntu ubuntu   1946 Aug 21 07:14 _extraction_control_yi6b.json
+-rw-rw-r--  1 ubuntu ubuntu   1959 Aug 21 00:13 _extraction_positive_control.json
+-rw-rw-r--  1 ubuntu ubuntu   2323 Aug 21 06:20 _h2_dose_qwen-14b_Age.json
+-rw-rw-r--  1 ubuntu ubuntu   2329 Aug 21 06:21 _h2_dose_qwen-14b_Disability_status.json
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 21 11:14 _logs
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 21 11:13 _margins_cache
+-rw-rw-r--  1 ubuntu ubuntu 105971 Aug 20 23:22 _margins_gemma2b.json
+-rw-rw-r--  1 ubuntu ubuntu 108294 Aug 20 23:04 _margins_qwen18.json
+-rw-rw-r--  1 ubuntu ubuntu   1163 Aug 20 22:04 _smoke.json
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 20 23:41 _smoke_taxonomy
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 20 21:59 _validation
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 21 10:28 full_gemma2b
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 21 11:14 full_llama3
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 21 10:28 full_qwen14b
+-rw-rw-r--  1 ubuntu ubuntu  11329 Aug 21 01:39 full_qwen14b.log
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 21 10:27 full_qwen18
+-rw-rw-r--  1 ubuntu ubuntu   7436 Aug 21 00:08 full_qwen18.log
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 21 11:14 full_qwen7b
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 21 10:28 full_yi6b
+-rw-rw-r--  1 ubuntu ubuntu    632 Aug 20 21:59 index.csv
+-rw-rw-r--  1 ubuntu ubuntu  14965 Aug 21 08:35 overnight.log
+-rw-rw-r--  1 ubuntu ubuntu  23715 Aug 21 11:14 overnight2.log
+drwxrwxr-x  2 ubuntu ubuntu   4096 Aug 21 10:28 probe_qwen14b
+-rw-rw-r--  1 ubuntu ubuntu   5409 Aug 21 04:05 probe_qwen14b.log

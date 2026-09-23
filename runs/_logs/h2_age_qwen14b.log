@@ -1,0 +1,25 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+Loading weights:   0%|          | 0/483 [00:00<?, ?it/s]Loading weights:   8%|▊         | 40/483 [00:00<00:01, 392.86it/s]Loading weights:  17%|█▋        | 80/483 [00:00<00:01, 335.84it/s]Loading weights:  24%|██▍       | 115/483 [00:00<00:01, 323.03it/s]Loading weights:  31%|███       | 148/483 [00:00<00:01, 312.56it/s]Loading weights:  38%|███▊      | 182/483 [00:00<00:00, 319.23it/s]Loading weights:  45%|████▍     | 215/483 [00:00<00:00, 299.77it/s]Loading weights:  51%|█████     | 246/483 [00:00<00:00, 295.79it/s]Loading weights:  58%|█████▊    | 281/483 [00:00<00:00, 295.29it/s]Loading weights:  65%|██████▌   | 316/483 [00:01<00:00, 302.47it/s]Loading weights:  72%|███████▏  | 350/483 [00:01<00:00, 309.45it/s]Loading weights:  79%|███████▉  | 382/483 [00:01<00:00, 301.84it/s]Loading weights:  86%|████████▌ | 414/483 [00:01<00:00, 304.79it/s]Loading weights:  92%|█████████▏| 446/483 [00:01<00:00, 301.22it/s]Loading weights: 100%|██████████| 483/483 [00:01<00:00, 312.96it/s]
+Loaded pretrained model Qwen/Qwen1.5-14B-Chat into HookedTransformer
+Moving model to device:  cuda
+qwen-14b  n_layers=40 d_model=5120
+category: Age
+
+margins: loaded from cache (600 items)
+
+subset        n/pole   mean neg   mean pos  separation  floor q05   median   reproduces?
+----------------------------------------------------------------------------------------
+extremes          90     -2.873     +5.802       8.675      0.795    0.856   YES
+moderate          90     -0.489     +2.570       3.058      0.480    0.710   no
+null-tilt         90     +0.636     +1.310       0.674      0.065    0.205   no
+
+prediction was floor(extremes) > floor(moderate) > floor(null-tilt)
+observed: 0.795 > 0.480 > 0.065   -> SUPPORTED
+null-tilt subset reproduces: False (H2 predicts False, at identical n)
+
+written to runs/_h2_dose_qwen-14b_Age.json
+
+n is identical across the three subsets, so a monotone result cannot
+be explained by sample size — which is the mechanical worry about the
+between-category correlation.

@@ -1,0 +1,24 @@
+run: full_qwen18   model: qwen-1.8b
+
+category                   floor       ‖d‖_F   max layer  separation
+----------------------------------------------------------------------
+Age                       +0.423       25.87       13.78        4.83
+Race_x_gender             +0.138       15.38        8.76        4.67
+Nationality               +0.057       18.35       10.14        4.80
+Race_x_SES                +0.017       15.63        8.93        2.38
+Religion                  -0.008       13.93        7.72        3.57
+Gender_identity           -0.072       14.41        7.96        8.39
+Race_ethnicity            -0.115       13.22        7.55        5.31
+Sexual_orientation        -0.202       16.72        8.96        4.07
+
+floor vs direction norm : pearson +0.808   spearman +0.524
+norm vs separation      : pearson -0.074   spearman -0.119
+
+largest / smallest direction norm: 2.0x
+
+If that ratio is well above 1, a FIXED steering coefficient applied
+a different dose to each category, and the transfer test compared
+interventions of different strengths. Unit-normalise the direction and
+carry the dose in the coefficient before reading specificity.
+
+written to runs/full_qwen18/direction_norms.json

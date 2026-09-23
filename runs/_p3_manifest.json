@@ -1,0 +1,397 @@
+{
+  "categories": {
+    "Gender_identity": {
+      "groups": [
+        {
+          "aliases": [],
+          "group": "f",
+          "n": 335,
+          "poles_at_quintile": 67,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [],
+          "group": "m",
+          "n": 160,
+          "poles_at_quintile": 32,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [],
+          "group": "trans",
+          "n": 103,
+          "poles_at_quintile": 20,
+          "reason": "n=103 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "transgender women",
+          "n": 101,
+          "poles_at_quintile": 20,
+          "reason": "n=101 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "transgender men",
+          "n": 61,
+          "poles_at_quintile": 12,
+          "reason": "n=61 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        }
+      ],
+      "n_group_sets": 5,
+      "pooled_n": 598
+    },
+    "Nationality": {
+      "groups": [
+        {
+          "aliases": [],
+          "group": "nigerian",
+          "n": 204,
+          "poles_at_quintile": 40,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [
+            "ethiopian",
+            "guinean",
+            "kenyan",
+            "malian",
+            "mozambican",
+            "namibian"
+          ],
+          "group": "eritrean",
+          "n": 187,
+          "poles_at_quintile": 37,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [
+            "iranian",
+            "iraqi",
+            "libyan",
+            "moroccan",
+            "palestinian",
+            "saudi",
+            "syrian",
+            "yemeni"
+          ],
+          "group": "afghan",
+          "n": 157,
+          "poles_at_quintile": 31,
+          "reason": "n=157 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [
+            "chinese",
+            "indonesian",
+            "japanese",
+            "korean",
+            "thai",
+            "vietnamese"
+          ],
+          "group": "burmese",
+          "n": 120,
+          "poles_at_quintile": 24,
+          "reason": "n=120 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [
+            "pakistani"
+          ],
+          "group": "indian",
+          "n": 97,
+          "poles_at_quintile": 19,
+          "reason": "n=97 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "sri lankan",
+          "n": 54,
+          "poles_at_quintile": 10,
+          "reason": "n=54 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "british",
+          "n": 25,
+          "poles_at_quintile": 5,
+          "reason": "n=25 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "american",
+          "n": 19,
+          "poles_at_quintile": 3,
+          "reason": "n=19 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "irish",
+          "n": 14,
+          "poles_at_quintile": 2,
+          "reason": "n=14 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "italian",
+          "n": 7,
+          "poles_at_quintile": 1,
+          "reason": "n=7 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        }
+      ],
+      "n_group_sets": 10,
+      "pooled_n": 600
+    },
+    "Race_ethnicity": {
+      "groups": [
+        {
+          "aliases": [
+            "black"
+          ],
+          "group": "african american",
+          "n": 344,
+          "poles_at_quintile": 68,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [
+            "latino"
+          ],
+          "group": "hispanic",
+          "n": 181,
+          "poles_at_quintile": 36,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [],
+          "group": "asian",
+          "n": 79,
+          "poles_at_quintile": 15,
+          "reason": "n=79 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [
+            "middle eastern"
+          ],
+          "group": "arab",
+          "n": 72,
+          "poles_at_quintile": 14,
+          "reason": "n=72 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "native american",
+          "n": 59,
+          "poles_at_quintile": 11,
+          "reason": "n=59 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "roma",
+          "n": 3,
+          "poles_at_quintile": 0,
+          "reason": "n=3 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "jewish",
+          "n": 1,
+          "poles_at_quintile": 0,
+          "reason": "n=1 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        }
+      ],
+      "n_group_sets": 7,
+      "pooled_n": 600
+    },
+    "Race_x_SES": {
+      "groups": [
+        {
+          "aliases": [
+            "black"
+          ],
+          "group": "african american",
+          "n": 365,
+          "poles_at_quintile": 73,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [
+            "latino"
+          ],
+          "group": "hispanic",
+          "n": 221,
+          "poles_at_quintile": 44,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [],
+          "group": "white",
+          "n": 155,
+          "poles_at_quintile": 31,
+          "reason": "n=155 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "asian",
+          "n": 80,
+          "poles_at_quintile": 16,
+          "reason": "n=80 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        }
+      ],
+      "n_group_sets": 4,
+      "pooled_n": 600
+    },
+    "Race_x_gender": {
+      "groups": [
+        {
+          "aliases": [
+            "black"
+          ],
+          "group": "african american",
+          "n": 253,
+          "poles_at_quintile": 50,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [
+            "latino"
+          ],
+          "group": "hispanic",
+          "n": 113,
+          "poles_at_quintile": 22,
+          "reason": "n=113 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [
+            "middle eastern"
+          ],
+          "group": "arab",
+          "n": 105,
+          "poles_at_quintile": 21,
+          "reason": "n=105 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "asian",
+          "n": 93,
+          "poles_at_quintile": 18,
+          "reason": "n=93 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "white",
+          "n": 26,
+          "poles_at_quintile": 5,
+          "reason": "n=26 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "native american",
+          "n": 9,
+          "poles_at_quintile": 1,
+          "reason": "n=9 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "roma",
+          "n": 1,
+          "poles_at_quintile": 0,
+          "reason": "n=1 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        }
+      ],
+      "n_group_sets": 7,
+      "pooled_n": 600
+    },
+    "Sexual_orientation": {
+      "groups": [
+        {
+          "aliases": [],
+          "group": "gay",
+          "n": 240,
+          "poles_at_quintile": 48,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [],
+          "group": "lesbian",
+          "n": 160,
+          "poles_at_quintile": 32,
+          "reason": "",
+          "tested": true
+        },
+        {
+          "aliases": [],
+          "group": "bisexual",
+          "n": 96,
+          "poles_at_quintile": 19,
+          "reason": "n=96 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        },
+        {
+          "aliases": [],
+          "group": "pansexual",
+          "n": 32,
+          "poles_at_quintile": 6,
+          "reason": "n=32 < 160 (32 per pole at quintile 0.2)",
+          "tested": false
+        }
+      ],
+      "n_group_sets": 4,
+      "pooled_n": 432
+    }
+  },
+  "frozen": "subset list, inclusion rule and reporting rule fixed before any floor was computed and before any model was loaded",
+  "inclusion_rule": {
+    "justification": "Arditi et al. / Joad et al. standard unit of 32 prompts per class; below it a null cannot be separated from insufficient data",
+    "min_items_per_pole": 32,
+    "min_subset_n": 160,
+    "quintile": 0.2
+  },
+  "n_tested_subsets": 11,
+  "reporting_rule": [
+    "Report EVERY subset named here, including those that fail. No subset may be added or dropped after a floor is seen.",
+    "Report each floor with its n. Subset floors are NOT comparable to the pooled floor at face value; compare against the pooled category's floor_vs_n curve at matched n (bias_taxonomy_run stage 6).",
+    "A subset counts as a POSITIVE only if it (a) clears the usability bar and (b) exceeds the pooled category's floor at matched n. Clearing the bar alone is not enough, because smaller n changes the floor's distribution.",
+    "11 subsets are tested, so under the null the chance of at least one clearing by luck is not the per-subset rate. Apply Holm-Bonferroni across the tested subsets within a model before calling any single subset a positive."
+  ],
+  "sampling": {
+    "condition": "ambig",
+    "limit": 600,
+    "seed": 0
+  },
+  "work_package": "WP-43 P3"
+}

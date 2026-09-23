@@ -1,0 +1,87 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+directions: ['Age', 'Disability_status', 'Nationality', 'Physical_appearance', 'Race_ethnicity', 'Race_x_SES', 'Race_x_gender', 'Religion', 'Sexual_orientation']
+Loading weights:   0%|          | 0/164 [00:00<?, ?it/s]Loading weights:  38%|███▊      | 63/164 [00:00<00:00, 607.10it/s]Loading weights:  79%|███████▊  | 129/164 [00:00<00:00, 625.47it/s]Loading weights: 100%|██████████| 164/164 [00:00<00:00, 646.39it/s]
+Loaded pretrained model google/gemma-2b-it into HookedTransformer
+Moving model to device:  cuda
+
+loading items per category ...
+  Age                    80 items
+  Disability_status      80 items
+  Nationality            80 items
+  Physical_appearance    80 items
+  Race_ethnicity         80 items
+  Race_x_SES             80 items
+  Race_x_gender          80 items
+  Religion               80 items
+  Sexual_orientation     80 items
+
+baseline (unsteered) mean margins:
+  Age                     -0.1333
+  Disability_status       +0.2526
+  Nationality             +0.0378
+  Physical_appearance     +1.6681
+  Race_ethnicity          -0.6972
+  Race_x_SES              -0.2998
+  Race_x_gender           -0.8431
+  Religion                -0.2423
+  Sexual_orientation      -0.3708
+
+transfer matrix: Δ mean margin when steering with each direction (coeff=+5.0)
+rows = direction used, columns = category steered
+
+direction                     Age  Disabilit  Nationali  Physical_  Race_ethn  Race_x_SE  Race_x_ge   Religion  Sexual_or
+-------------------------------------------------------------------------------------------------------------------------
+Age                       -0.0286    +0.2112    -0.0046    -0.0525    +0.0394    -0.0403    +0.0647    +0.0887    -0.0815
+Disability_status         +0.0424    -0.4131    +0.0187    -0.4814    +0.1549    +0.2157    -0.1836    +0.1443    -0.1346
+Nationality               -0.0051    +0.0040    +0.0716    -0.0828    +0.0739    +0.0464    -0.0033    -0.0128    -0.0143
+Physical_appearance       +0.1375    -0.4420    +0.0041    -0.2932    +0.1523    +0.0719    -0.1595    -0.0002    -0.1668
+Race_ethnicity            +0.0089    +0.0353    -0.0190    -0.0136    -0.0200    -0.0577    +0.1076    +0.0044    -0.0776
+Race_x_SES                +0.0497    -0.1973    -0.0146    +0.0079    +0.0610    +0.0529    -0.0936    -0.0096    -0.0673
+Race_x_gender             -0.0027    -0.1342    -0.0030    -0.0612    +0.0092    +0.0346    -0.0389    +0.0598    -0.0319
+Religion                  -0.0206    -0.1380    +0.0214    -0.1866    +0.1409    +0.0107    +0.0644    +0.1529    +0.0075
+Sexual_orientation        -0.0255    -0.2324    -0.0107    -0.2016    -0.0081    -0.0209    +0.0813    +0.0888    +0.0260
+
+control - norm-matched random direction (should be ~0 everywhere):
+random(for)                   Age  Disabilit  Nationali  Physical_  Race_ethn  Race_x_SE  Race_x_ge   Religion  Sexual_or
+-------------------------------------------------------------------------------------------------------------------------
+rand~Age                  +0.0181    +0.0499    +0.0093    -0.0163    +0.0028    -0.0061    +0.0355    -0.0058    +0.0241
+rand~Disability_statu     -0.0358    +0.0893    +0.0201    -0.0087    +0.0645    +0.0226    -0.0215    -0.0099    -0.0667
+rand~Nationality          +0.0190    +0.0089    +0.0126    -0.0037    -0.0004    -0.0021    +0.0250    +0.0135    +0.0124
+rand~Physical_appeara     +0.0229    +0.0500    -0.0172    +0.0112    -0.0083    -0.0287    +0.0206    +0.0457    +0.0124
+rand~Race_ethnicity       +0.0070    +0.0052    -0.0204    +0.0077    -0.0147    -0.0212    +0.0084    -0.0004    -0.0077
+rand~Race_x_SES           -0.0049    -0.0011    +0.0090    +0.0060    -0.0053    -0.0030    +0.0104    -0.0109    +0.0233
+rand~Race_x_gender        -0.0127    +0.0217    +0.0183    -0.0228    -0.0289    +0.0014    +0.0293    +0.0131    +0.0127
+rand~Religion             -0.0176    +0.0010    +0.0279    -0.0048    -0.0115    +0.0185    -0.0407    -0.0040    -0.0118
+rand~Sexual_orientati     -0.0114    -0.0039    -0.0029    -0.0364    +0.0579    +0.0101    +0.0149    +0.0245    +0.0066
+
+control - sign flip on own category (coeff=-5.0).
+A real direction should move the margin the OTHER way; generic damage
+from perturbing the residual stream would move it the same way.
+
+category                   +coeff     -coeff   verdict
+----------------------------------------------------------
+Age                       -0.0286    +0.0618   sign flips (good)
+Disability_status         -0.4131    -0.2338   SAME SIGN - generic damage?
+Nationality               +0.0716    -0.0476   sign flips (good)
+Physical_appearance       -0.2932    -0.4204   SAME SIGN - generic damage?
+Race_ethnicity            -0.0200    +0.0323   sign flips (good)
+Race_x_SES                +0.0529    -0.0323   sign flips (good)
+Race_x_gender             -0.0389    +0.0523   sign flips (good)
+Religion                  +0.1529    +0.0266   SAME SIGN - generic damage?
+Sexual_orientation        +0.0260    -0.1367   sign flips (good)
+
+summary
+  mean effect, own direction        : -0.0545
+  mean effect, cross direction      : -0.0171
+  mean |effect|, random control     : +0.0180
+  specificity (own - cross)         : -0.0374
+
+  own >> cross  -> directions are specific; the taxonomy does work
+  own ~= cross  -> one shared knob; geometry differs but function does not
+  own ~= random -> not causal at all
+
+  Say 'a direction', never 'the direction' (arXiv:2602.06801):
+  steering success does not identify the representation.
+
+written to runs/full_gemma2b/transfer_test.json

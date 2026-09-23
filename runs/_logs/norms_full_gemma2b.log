@@ -1,0 +1,25 @@
+run: full_gemma2b   model: gemma-2b
+
+category                   floor       ‖d‖_F   max layer  separation
+----------------------------------------------------------------------
+Disability_status         +0.818       25.17       13.43       19.57
+Physical_appearance       +0.511       22.38       12.48       11.61
+Age                       +0.161       11.50        6.48        7.32
+Sexual_orientation        +0.056       12.82        7.31        6.22
+Race_ethnicity            -0.013        9.31        4.93       13.96
+Nationality               -0.038       11.00        5.91        7.44
+Race_x_gender             -0.044        8.14        4.56       13.19
+Religion                  -0.163       11.82        6.70        5.45
+Race_x_SES                -0.165        8.15        4.48        5.59
+
+floor vs direction norm : pearson +0.945   spearman +0.750
+norm vs separation      : pearson +0.577   spearman +0.100
+
+largest / smallest direction norm: 3.1x
+
+If that ratio is well above 1, a FIXED steering coefficient applied
+a different dose to each category, and the transfer test compared
+interventions of different strengths. Unit-normalise the direction and
+carry the dose in the coefficient before reading specificity.
+
+written to runs/full_gemma2b/direction_norms.json

@@ -1,0 +1,86 @@
+{
+  "min_floor": 0.5,
+  "usable": [
+    "Disability_status",
+    "Age",
+    "Religion",
+    "Physical_appearance"
+  ],
+  "names": [
+    "Age",
+    "Disability_status",
+    "Physical_appearance",
+    "Religion"
+  ],
+  "matrix": [
+    [
+      1.0,
+      -0.2773467659035197,
+      -0.07211627633255611,
+      0.11896240211821729
+    ],
+    [
+      -0.2773467659035197,
+      1.0,
+      0.24173858131587497,
+      0.09333636548253456
+    ],
+    [
+      -0.07211627633255611,
+      0.24173858131587497,
+      1.0,
+      0.3057216102819736
+    ],
+    [
+      0.11896240211821729,
+      0.09333636548253456,
+      0.3057216102819736,
+      1.0
+    ]
+  ],
+  "pairs": [
+    {
+      "a": "Age",
+      "b": "Disability_status",
+      "cosine": -0.2773467659035197,
+      "floor": 0.7535759719639885,
+      "verdict": "distinct"
+    },
+    {
+      "a": "Age",
+      "b": "Physical_appearance",
+      "cosine": -0.07211627633255611,
+      "floor": 0.6478480436423656,
+      "verdict": "distinct"
+    },
+    {
+      "a": "Age",
+      "b": "Religion",
+      "cosine": 0.11896240211821729,
+      "floor": 0.685739689961425,
+      "verdict": "distinct"
+    },
+    {
+      "a": "Disability_status",
+      "b": "Physical_appearance",
+      "cosine": 0.24173858131587497,
+      "floor": 0.6478480436423656,
+      "verdict": "distinct"
+    },
+    {
+      "a": "Disability_status",
+      "b": "Religion",
+      "cosine": 0.09333636548253456,
+      "floor": 0.685739689961425,
+      "verdict": "distinct"
+    },
+    {
+      "a": "Physical_appearance",
+      "b": "Religion",
+      "cosine": 0.3057216102819736,
+      "floor": 0.6478480436423656,
+      "verdict": "distinct"
+    }
+  ],
+  "cluster_strength": 0.24437102010515765
+}

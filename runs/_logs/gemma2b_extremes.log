@@ -1,0 +1,72 @@
+/usr/lib/python3/dist-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.4
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+run dir: runs/full_gemma2b
+model  : gemma-2b  (google/gemma-2b-it)
+Loading weights:   0%|          | 0/164 [00:00<?, ?it/s]Loading weights:  39%|███▉      | 64/164 [00:00<00:00, 620.42it/s]Loading weights:  77%|███████▋  | 127/164 [00:00<00:00, 617.78it/s]Loading weights: 100%|██████████| 164/164 [00:00<00:00, 651.04it/s]
+Loaded pretrained model google/gemma-2b-it into HookedTransformer
+Moving model to device:  cuda
+         n_layers=18 d_model=2048
+
+=== STAGE 1 - positive control (disambiguated, no option list)
+category                   n      acc       z   gate
+----------------------------------------------------
+Religion                 150    62.7%    +7.6   PASS
+Race_ethnicity           150    60.7%    +7.1   PASS
+Gender_identity          150    48.7%    +4.0   FAIL - dropped
+Age                      150    60.7%    +7.1   PASS
+Nationality              150    63.3%    +7.8   PASS
+Physical_appearance      150    54.0%    +5.4   PASS
+Disability_status        150    54.7%    +5.5   PASS
+Sexual_orientation       150    51.3%    +4.7   PASS
+Race_x_gender            150    66.7%    +8.7   PASS
+Race_x_SES               150    64.7%    +8.1   PASS
+
+usable categories: 9/10
+
+=== STAGE 2 - stereotype margins on ambiguous items
+margin cache: runs/_margins_cache
+category                   n     mean      sd    top_q    bot_q   sign split
+--------------------------------------------------------------------------
+Religion                 600   -0.052   1.979   +2.656   -2.790   opposite signs
+Race_ethnicity           600   -0.272   4.957   +6.754   -7.205   opposite signs
+Age                      600   +0.122   2.704   +3.755   -3.570   opposite signs
+Nationality              600   +0.204   2.605   +3.940   -3.497   opposite signs
+Physical_appearance      600   +0.321   5.658   +6.111   -5.501   opposite signs
+Disability_status        600   +0.457   7.017  +10.222   -9.347   opposite signs
+Sexual_orientation       432   -0.039   2.174   +3.005   -3.211   opposite signs
+Race_x_gender            600   +0.386   4.713   +7.102   -6.084   opposite signs
+Race_x_SES               600   -0.109   2.016   +2.680   -2.911   opposite signs
+
+=== STAGE 3 - extract a direction per category  (method: extremes)
+  Religion               n=240   -> direction (18, 2048)
+  Race_ethnicity         n=240   -> direction (18, 2048)
+  Age                    n=240   -> direction (18, 2048)
+  Nationality            n=240   -> direction (18, 2048)
+  Physical_appearance    n=240   -> direction (18, 2048)
+  Disability_status      n=240   -> direction (18, 2048)
+  Sexual_orientation     n=172   -> direction (18, 2048)
+  Race_x_gender          n=240   -> direction (18, 2048)
+  Race_x_SES             n=240   -> direction (18, 2048)
+
+=== STAGE 4 - extraction floor (re-extract the SAME category from halves)
+  category                     n floor q05    median
+  Race_x_SES                 240    -0.165     0.183
+  Religion                   240    -0.163     0.101
+  Race_x_gender              240    -0.044     0.120
+  Nationality                240    -0.038     0.228
+  Race_ethnicity             240    -0.013     0.146
+  Sexual_orientation         172     0.056     0.235
+  Age                        240     0.161     0.333
+  Physical_appearance        240     0.511     0.854
+  Disability_status          240     0.818     0.919
+
+  n spread across categories: 1.4x
+
+=== STAGE 5 - cosine matrix, clustering, permutation null
+  clustering only the 2 reproducible categories
+  excluded (floor below 0.5): ['Religion', 'Race_ethnicity', 'Age', 'Nationality', 'Sexual_orientation', 'Race_x_gender', 'Race_x_SES']
+
+  fewer than 3 reproducible directions — nothing to cluster.
+
+=== VERDICT
+  NO STRUCTURE: 2/9 categories produce reproducible directions, and their clustering is within the permutation null (p=1.000). This IS a finding — the measurement had the precision to detect separable subtypes and did not.

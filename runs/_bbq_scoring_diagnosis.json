@@ -1,0 +1,25 @@
+{
+  "model": "qwen-1.8b",
+  "categories": {
+    "Race_ethnicity": {
+      "n_ambiguous": 150,
+      "position_effect_mean_abs_logprob_shift": 0.3805027436356371,
+      "stereotype_margin_mean_abs": 0.5411857816328605,
+      "position_to_signal_ratio": 0.7030907990368629,
+      "order_r_with_list": 0.07456035688920938,
+      "n_disambiguated": 150,
+      "positive_control_accuracy": 0.6866666666666666,
+      "positive_control_z_vs_chance": 9.17986928011505
+    },
+    "Gender_identity": {
+      "n_ambiguous": 150,
+      "position_effect_mean_abs_logprob_shift": 0.9230220336063455,
+      "stereotype_margin_mean_abs": 1.5450328544216851,
+      "position_to_signal_ratio": 0.5974125604933094,
+      "order_r_with_list": 0.3298046473339146,
+      "n_disambiguated": 150,
+      "positive_control_accuracy": 0.72,
+      "positive_control_z_vs_chance": 10.045894683899489
+    }
+  }
+}
