@@ -1,0 +1,10 @@
+run,dose,arm,n,has_think_pct,unclosed_think_pct,empty_answer_pct,coherence_pass,coherence_pass_rate
+20260903-020329_adaptive-add-linear-c20-qwen3-8b_qwen3-8b,c20,initial,200,100.0,98.5,0.0,3,0.015
+20260903-020329_adaptive-add-linear-c20-qwen3-8b_qwen3-8b,c20,steered_pos,200,100.0,76.0,1.0,48,0.24
+20260903-020329_adaptive-add-linear-c20-qwen3-8b_qwen3-8b,c20,steered_neg,200,100.0,100.0,0.0,0,0.0
+20260903-021811_adaptive-add-linear-c30-qwen3-8b_qwen3-8b,c30,initial,200,100.0,98.5,0.0,3,0.015
+20260903-021811_adaptive-add-linear-c30-qwen3-8b_qwen3-8b,c30,steered_pos,200,100.0,3.0,0.0,193,0.965
+20260903-021811_adaptive-add-linear-c30-qwen3-8b_qwen3-8b,c30,steered_neg,200,100.0,68.0,0.0,64,0.32
+20260903-024528_adaptive-add-linear-c40-qwen3-8b_qwen3-8b,c40,initial,200,100.0,98.5,0.0,3,0.015
+20260903-024528_adaptive-add-linear-c40-qwen3-8b_qwen3-8b,c40,steered_pos,200,100.0,12.5,0.5,135,0.675
+20260903-024528_adaptive-add-linear-c40-qwen3-8b_qwen3-8b,c40,steered_neg,200,0.0,0.0,0.0,177,0.885
