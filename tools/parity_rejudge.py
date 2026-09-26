@@ -117,7 +117,7 @@ def main(argv=None) -> int:
     print(f"re-judging {len(rows)} archived responses, k={args.k}, model={args.model}")
     print(f"  archive tally: {dict(Counter(archived))}\n")
 
-    from src.bias_steer.judge import neutrality_judge
+    from src.bias_steer.judges import neutrality_judge
 
     trials = []
     for t in range(args.k):
