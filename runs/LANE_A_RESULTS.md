@@ -10,7 +10,7 @@ experiments departed from the handoff's method for reasons that are themselves r
 | Exp | Reviewer objection it closes | Verdict |
 |---|---|---|
 | 1 | "a system prompt would do the same" | **It does more.** Under pinned v2.1 the system prompt BEATS the direction on the opinion pole (−0.317 all items, −0.181 on coherent items, both CIs clear of 0), with **zero** items where steering succeeds and prompting fails. The handoff's kill-criterion is met for the fixed-add arm. |
-| 2 | "it's the dose, not the direction" | *(pending)* |
+| 2 | "it's the dose, not the direction" | **Closed.** At the same per-layer norm and dose, an opinion-orthogonal covariance-matched control moves the stance rate by +0.010 (0.5 SE) while the direction moves it by −0.605 (16.8 SE) — a **17.6 SE** gap. It also leaves coherence at baseline, so the c=8 text damage is direction-specific, not dose-specific. |
 | 3 | "your opinion rate is just broken text" | **The objection has force at the headline dose.** The unsteered baseline is healthy (0.950 coherent) but steering at c=8 drops the opinion pole to **0.650**, so every rate is reported twice — all items and gate-passing items. Separately, the c20/c30/c40 ladder is **invalid** and cannot set a reportable dose at all. |
 
 ## Shared setup
@@ -210,6 +210,29 @@ stronger control ("a random direction of the same norm and covariance") is **not
 available** at this site, and the paper should say so rather than imply it was run. It
 sits close to the non-identifiability caveat the contract already requires
 (arXiv:2602.06801 — "**a** direction"). See `LANE_A_OPEN_QUESTIONS.md` Q2.
+
+---
+
+---
+
+## Two checks that came free, and one of them is a warning
+
+The Exp-2 `initial` arm re-runs Exp-1's unsteered arm on the same items deliberately, as
+an end-to-end reproducibility check.
+
+- **Generation is exactly deterministic**: 0 of 200 completions differ in text between
+  the two runs.
+- **The judge is not.** On those byte-identical completions the binary `neutrality` judge
+  returned a different verdict on **10 of 200 items (5%)** at `temperature=0`, `seed=0`,
+  same model. The flips nearly cancel, so the arm's marginal moved only 2 items — meaning
+  a table of marginals understates per-item churn by ~5× here, the same trap CLAUDE.md §3
+  flags about the arrow-named historical columns.
+
+The handoff estimates judge drift at ±1–2/100; measured on this data it is **5/100
+per-item**. Any margin under ~5 points is inside judge noise, which is why every number
+in this document carries an item-bootstrap CI. (Measured on the binary judge, because
+that is the one the pipeline happened to run twice; v2.1's own test-retest would need a
+deliberate double-judge and has not been done.)
 
 ---
 

@@ -12,3 +12,4 @@ run_id,label,model,dataset,method,opin_coeff,neut_coeff,git_sha,dirty,timestamp,
 20260923-090514_extract-issuebench-opinion-forced-contrast_qwen3-8b,extract issuebench opinion (forced-contrast),qwen3-8b,issuebench,mean_diff,8.0,8.0,1d16f8cbe427420820d7fec1dff4b5979fce2af8,True,20260923-090514,done,200,100,36,48
 20260923-092656_extract-issuebench-opinion_qwen3-8b,extract issuebench opinion,qwen3-8b,issuebench,mean_diff,8.0,8.0,1d16f8cbe427420820d7fec1dff4b5979fce2af8,True,20260923-092656,done,200,100,35,35
 20260926-090514_laneA_exp1_prompt_vs_steer_issuebench_qwen3-8b,laneA_exp1_prompt_vs_steer_issuebench,qwen3-8b,issuebench,mean_diff,8.0,8.0,81a7c8d13346153324fa35d05954b4475a6eff0a,True,20260926-090514,done,0,200,81,97
+20260926-100839_laneA_exp2_covrandom_issuebench_qwen3-8b,laneA_exp2_covrandom_issuebench,qwen3-8b,issuebench,mean_diff,8.0,8.0,907d2c563d43a4065a531b190628234c5b99ef1b,True,20260926-100839,done,0,200,15,11
