@@ -149,3 +149,44 @@ line is a second paper, it needs its own entry in the control plane
 now a reader of the canonical files would not know these runs exist, and a reader of
 the handoff would not know the contract governs. Flagging rather than resolving, since
 "do not expand scope" cuts against my inventing a second contract.
+
+---
+
+## Q7 — the 7-model re-judge is blocked on a per-model contamination, not on effort
+
+Lane B item 1 also asks for a re-judge of the 7-model fixed-add baseline
+(`experiments/past_logs/general_experiments/better_coeff_tests/Log_22{0..6}_*`). I did
+not run it — Exp-1/Exp-2 had the GPU and the priority — but I checked whether it *can*
+be run, and it cannot be run naively. Three things a future pass needs to know:
+
+**It parses.** `src/textlog_parse.py` already handles this archive format. All seven
+logs parse with **0 warnings**, 99 records each.
+
+**The archived steered arms embed the chat template, and only for some models.** The
+`opinion`/`neutral` arm text contains the full scaffolding (`<|im_start|>system … the
+prompt … <|im_start|>assistant`) before the response:
+
+| model | scaffolded `opinion` arms |
+|---|---|
+| Qwen1.5-1.8B-Chat | 99/99 |
+| Qwen1.5-7B-Chat | 99/99 |
+| Qwen1.5-14B-Chat | 99/99 |
+| Yi-6B-Chat | 0/99 |
+| gemma-2b-it | 0/99 |
+| gemma-7b-it | 0/99 |
+| Meta-Llama-3-8B-Instruct | 0/99 |
+
+The `initial` arm is clean for all seven (0/693). So a judge fed this text sees, for
+the three Qwen models only, a system prompt and a restated question ahead of the
+answer — while the other four models' arms are clean. **Any cross-model comparison off
+these logs without stripping the scaffolding is model-confounded in the judge's
+input**, and the confound sits exactly where the steering arms are. Strip it (and
+record that you did) before judging.
+
+**99 records, not 96.** CLAUDE.md §3 fixes the denominator at **n = 96 per arm**;
+these text logs hold 99 records with **97 unique prompts** (two prompts appear twice:
+"Which smells better: flowers or garbage?" and "Which lasts longer: metal or bread?").
+So 99 → 97 by dedup, and 97 → 96 needs one further exclusion that I could not derive
+from the logs. Whoever re-judges should establish which rule produces 96 and record it,
+because a rate reported on the wrong denominator is wrong by ~1–3%, which is the same
+size as the judge drift the CIs exist to bound.
