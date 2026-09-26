@@ -35,6 +35,27 @@ _OUTPUT_PREFIX = "OUTPUT:  "
 # hint for humans, not part of the verdict, so it is stripped and surfaced separately.
 _DEGENERATE_FLAG = "[!! repeat-loop]"
 
+# --- the LEGACY single-file format (`logs/eval.txt`) -------------------------
+# Runs before the by_condition split -- including the c20/c30/c40 dose ladder --
+# wrote every arm of one example into one interleaved block:
+#
+#     === <id> ===
+#     PROMPT: <prompt>
+#       [INITIAL] (<verdict>) <response ...>
+#       [STEERED+ (opinion)] (<verdict>) <response ...>
+#       [STEERED- (neutral)] (<verdict>) <response ...>
+#
+# Kept readable here because those runs hold the only completions for the dose
+# ladder, and a dose ladder that cannot be re-scored cannot set a reportable dose.
+# Note the one-space `PROMPT: ` (the current writer uses two).
+_LEGACY_PROMPT_PREFIX = "PROMPT: "
+_LEGACY_ARM_RE = re.compile(r"^  \[(?P<arm>.+?)\] \((?P<verdict>.*?)\) (?P<rest>.*)$")
+_LEGACY_ARMS = {
+    "INITIAL": "initial",
+    "STEERED+ (opinion)": "steered_pos",
+    "STEERED- (neutral)": "steered_neg",
+}
+
 
 class RunLogFormatError(RuntimeError):
     """A by_condition log did not match the format `logs.py` writes."""
@@ -120,6 +141,52 @@ def parse_condition_log(path, condition: str | None = None) -> list[EvalRecord]:
     return out
 
 
+def parse_legacy_eval_log(path) -> list[EvalRecord]:
+    """Parse a pre-by_condition `logs/eval.txt` into the same records.
+
+    Same delimiter discipline as the current format: a header counts only when the
+    next line is a PROMPT line, and an arm marker only when a whole line matches
+    `_LEGACY_ARM_RE`. A response runs until the next arm marker or the next header,
+    so multi-line generations (every `<think>` trace) survive intact.
+    """
+    path = Path(path)
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    starts = []
+    for i, line in enumerate(lines):
+        m = _HEADER_RE.match(line)
+        if m and i + 1 < len(lines) and lines[i + 1].startswith(_LEGACY_PROMPT_PREFIX):
+            starts.append((i, m.group("id")))
+
+    out: list[EvalRecord] = []
+    for n, (i, ex_id) in enumerate(starts):
+        end = starts[n + 1][0] if n + 1 < len(starts) else len(lines)
+        body = lines[i + 1:end]
+        prompt = body[0][len(_LEGACY_PROMPT_PREFIX):]
+
+        # Where each arm starts; the prompt is everything before the first one.
+        marks = [(j, m) for j, ln in enumerate(body) if (m := _LEGACY_ARM_RE.match(ln))]
+        if not marks:
+            raise RunLogFormatError(f"{path}: record {ex_id!r} has no arm markers")
+        prompt = "\n".join([prompt] + body[1:marks[0][0]]).rstrip()
+
+        for k, (j, m) in enumerate(marks):
+            stop = marks[k + 1][0] if k + 1 < len(marks) else len(body)
+            arm = m.group("arm")
+            if arm not in _LEGACY_ARMS:
+                raise RunLogFormatError(f"{path}: unknown arm {arm!r} in {ex_id!r}")
+            resp_lines = [m.group("rest")] + body[j + 1:stop]
+            while resp_lines and not resp_lines[-1].strip():
+                resp_lines.pop()
+            out.append(EvalRecord(
+                example_id=ex_id, condition=_LEGACY_ARMS[arm], prompt=prompt,
+                response="\n".join(resp_lines), logged_verdict=m.group("verdict"),
+                degenerate_flagged=False, source=path,
+            ))
+    return out
+
+
 def read_run(run_dir, conditions=None) -> list[EvalRecord]:
     """Every logged completion for a run, across its arms.
 
@@ -128,9 +195,19 @@ def read_run(run_dir, conditions=None) -> list[EvalRecord]:
     """
     by_dir = Path(run_dir) / "logs" / "by_condition"
     if not by_dir.is_dir():
+        # Older runs wrote one interleaved logs/eval.txt instead.
+        legacy = Path(run_dir) / "logs" / "eval.txt"
+        if legacy.is_file():
+            records = parse_legacy_eval_log(legacy)
+            if conditions is not None:
+                wanted = set(conditions)
+                records = [r for r in records if r.condition in wanted]
+            if not records:
+                raise RunLogFormatError(f"{legacy}: no parseable records")
+            return records
         raise RunLogFormatError(
-            f"{run_dir}: no logs/by_condition/ — raw completions were not persisted, "
-            f"so nothing here can be re-judged or coherence-scored."
+            f"{run_dir}: no logs/by_condition/ and no logs/eval.txt — raw completions "
+            f"were not persisted, so nothing here can be re-judged or coherence-scored."
         )
     files = sorted(by_dir.glob("*.txt"))
     if conditions is not None:

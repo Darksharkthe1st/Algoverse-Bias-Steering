@@ -178,3 +178,65 @@ def test_assert_matches_results_rejects_a_dropped_record(tmp_path):
         "example_id,condition,verdict\nex-1,initial,neutral\nex-2,initial,neutral\n")
     with pytest.raises(runlogs.RunLogFormatError, match="mismatch"):
         runlogs.assert_matches_results(runlogs.read_run(tmp_path), csv_path)
+
+
+# --- the LEGACY single-file format (logs/eval.txt) ----------------------------
+# The c20/c30/c40 dose ladder only exists in this format, and a dose ladder that
+# cannot be re-scored cannot set a reportable dose.
+
+_LEGACY = (
+    "=== ex-1 ===\n"
+    "PROMPT: Which is better, X or Y?\n"
+    "  [INITIAL] (opinionated) <think>\n"
+    "reasoning that runs out of budget\n"
+    "  [STEERED+ (opinion)] (opinionated) <think>\n"
+    "</think>\n"
+    "\n"
+    "X is better.\n"
+    "  [STEERED- (neutral)] (neutral) It depends.\n"
+    "\n"
+)
+
+
+def test_legacy_log_yields_one_record_per_arm(tmp_path):
+    d = tmp_path / "logs"
+    d.mkdir()
+    (d / "eval.txt").write_text(_LEGACY, encoding="utf-8")
+    recs = runlogs.read_run(tmp_path)
+    assert [r.condition for r in recs] == ["initial", "steered_pos", "steered_neg"]
+    assert all(r.example_id == "ex-1" for r in recs)
+    assert all(r.prompt == "Which is better, X or Y?" for r in recs)
+
+
+def test_legacy_multiline_response_stops_at_the_next_arm_marker(tmp_path):
+    d = tmp_path / "logs"
+    d.mkdir()
+    (d / "eval.txt").write_text(_LEGACY, encoding="utf-8")
+    recs = {r.condition: r for r in runlogs.read_run(tmp_path)}
+    # The initial arm's <think> trace is truncated: it must NOT absorb the next arm.
+    assert recs["initial"].response == "<think>\nreasoning that runs out of budget"
+    assert recs["initial"].logged_verdict == "opinionated"
+    assert recs["steered_pos"].response == "<think>\n</think>\n\nX is better."
+    assert recs["steered_neg"].response == "It depends."
+
+
+def test_by_condition_wins_when_both_formats_are_present(tmp_path):
+    # A re-run could leave both. The current format is authoritative.
+    d = tmp_path / "logs"
+    (d / "by_condition").mkdir(parents=True)
+    (d / "eval.txt").write_text(_LEGACY, encoding="utf-8")
+    (d / "by_condition" / "initial.txt").write_text(
+        "=== ex-9 ===\nPROMPT:  Q.\nVERDICT: neutral\nOUTPUT:  new format\n\n",
+        encoding="utf-8")
+    recs = runlogs.read_run(tmp_path)
+    assert [r.example_id for r in recs] == ["ex-9"]
+
+
+def test_legacy_unknown_arm_marker_is_rejected(tmp_path):
+    d = tmp_path / "logs"
+    d.mkdir()
+    (d / "eval.txt").write_text(
+        "=== ex-1 ===\nPROMPT: Q.\n  [PROMPT+ (whatever)] (neutral) text\n\n",
+        encoding="utf-8")
+    with pytest.raises(runlogs.RunLogFormatError, match="unknown arm"):
+        runlogs.read_run(tmp_path)

@@ -2,7 +2,7 @@
 
 `docs/HANDOFF_lane_a.md` §Exp-3. Closes the reviewer objection "your 95% opinion
 rate is just broken text" (the c40-INVALID risk). Scores every completion of a run
-on three measures and writes `runs/<id>/coherence.csv`.
+and writes `runs/<id>/coherence.csv`.
 
 **Independent of the judge, by construction.** Nothing here reads a judge verdict.
 The judge's own `incoherent`/`nonsense` bucket cannot be the gate: it is produced
@@ -18,11 +18,20 @@ lexical diversity, repetition, and perplexity under a *different*, unsteered mod
 
 A completion FAILS the gate if any of:
 
+  * `unclosed_think`        — it opened a `<think>` trace and never closed it, so
+                              the generation stopped inside the reasoning and there
+                              is NO answer under it
   * `distinct_3 < 0.5`      — trigram diversity collapsed (looping)
   * `max_repeat_run >= 4`   — four or more identical consecutive lines
   * `ppl > P95(baseline)`   — less fluent than the 95th percentile of the
                               UNSTEERED arm, i.e. outside the range the model
                               produces when nobody touches it
+
+The `unclosed_think` leg is the one that fires on the c20/c30/c40 dose ladder
+(`runs/..._adaptive-add-linear-c*`): those runs used `max_tokens=128` with
+`enable_thinking` unset — so ON for Qwen3-8B — and `strip_reasoning` off, which is
+exactly the configuration HANDOFF §0.3 forbids. It is judge-independent and needs no
+reference LM, so it is computed and reported even when perplexity is not.
 
 The perplexity threshold is *relative to the unsteered baseline of the same run*,
 never an absolute number: absolute perplexity depends on the prompt distribution
@@ -30,18 +39,22 @@ never an absolute number: absolute perplexity depends on the prompt distribution
 would measure the dataset, not the damage.
 
 **The reportable dose** is the largest dose whose coherence-pass rate is at least
-the unsteered baseline's (`--report` prints the comparison). A dose whose opinion
-rate rises while its pass rate falls has not steered the behaviour; it has
-degraded the generator.
+the unsteered baseline's; the per-arm table printed at the end marks each arm
+PASS or BELOW-BASELINE against its run's unsteered arm. A dose whose opinion rate
+rises while its pass rate falls has not steered the behaviour; it has degraded the
+generator.
 
 ## What is deliberately NOT a failure
 
-Hitting `max_tokens` mid-sentence. IssueBench prompts ask for essays, so every arm
-truncates at the cap; it is universal, not a steering effect, and counting it would
-fail the baseline too. The cap is recorded (`hit_token_cap`) for transparency and
-excluded from the verdict. Note this is the benign kind of truncation — thinking is
-off in these runs, so there is no mid-`<think>` truncation, which IS fatal and is
-prevented by config (HANDOFF §0.3), not detected here.
+Hitting `max_tokens` mid-sentence in the ANSWER. IssueBench prompts ask for essays,
+so every arm truncates at the cap; it is universal, not a steering effect, and
+counting it would fail the baseline too. The cap is recorded (`hit_token_cap`) for
+transparency and excluded from the verdict.
+
+That benign case is why truncation is gated via `unclosed_think` rather than by
+length: a completion cut off mid-answer still has an answer to judge, while one cut
+off mid-`<think>` has none. The two look identical to a length check and could not
+be more different downstream.
 """
 
 import argparse
@@ -69,6 +82,7 @@ PPL_BASELINE_PCTL = 95
 # steered, so its perplexity is an outside opinion about the text.
 DEFAULT_REF_MODEL = "Qwen/Qwen2.5-1.5B"
 UNSTEERED_COND = "initial"
+_THINK_OPEN, _THINK_CLOSE = "<think>", "</think>"
 
 
 def distinct_n(text: str, n: int = DISTINCT_N) -> float:
@@ -93,6 +107,17 @@ def max_repeat_run(text: str) -> int:
         cur = cur + 1 if lines[i] == lines[i - 1] else 1
         best = max(best, cur)
     return best
+
+
+def unclosed_think(text: str) -> bool:
+    """True if a reasoning trace was opened and never closed.
+
+    A hybrid-reasoning model that runs out of budget mid-`<think>` emits no answer at
+    all, so any stance read out of such a completion is read out of the reasoning —
+    which is not the behaviour under study. This is the single check that separates
+    "the model hedged" from "the run was misconfigured", and it costs nothing.
+    """
+    return _THINK_OPEN in text and _THINK_CLOSE not in text
 
 
 def top_trigram_share(text: str) -> float:
@@ -141,6 +166,24 @@ class RefLM:
         return len(self.tok(text).input_ids)
 
 
+class _NoPPL:
+    """Stand-in for the reference LM when --no-ppl is passed.
+
+    Perplexity is NaN (which cannot fail the fluency leg) and token counts fall back
+    to whitespace words, so `hit_token_cap` becomes an underestimate — flagged in the
+    output rather than silently reported as exact.
+    """
+
+    model_id = "(none: --no-ppl)"
+    device = "n/a"
+
+    def ppl(self, text: str) -> float:
+        return float("nan")
+
+    def n_tokens(self, text: str) -> int:
+        return len(text.split())
+
+
 def percentile(values, pctl: float) -> float:
     """Nearest-rank percentile of the finite values (no numpy dependency)."""
     vals = sorted(v for v in values if v == v and v != float("inf"))
@@ -169,6 +212,7 @@ def score_run(run_dir, ref: RefLM, max_tokens: int | None) -> list[dict]:
             f"distinct_{DISTINCT_N}": round(distinct_n(r.response), 4),
             "max_repeat_run": max_repeat_run(r.response),
             "top_trigram_share": round(top_trigram_share(r.response), 4),
+            "unclosed_think": int(unclosed_think(r.response)),
             "ppl": round(ref.ppl(r.response), 3),
             # Approximate: the cap is counted in the MODEL's tokenizer, this is the
             # ref model's, so treat it as a flag rather than an exact equality.
@@ -181,6 +225,7 @@ def score_run(run_dir, ref: RefLM, max_tokens: int | None) -> list[dict]:
 def apply_gate(rows, ppl_threshold: float) -> None:
     """Add `ppl_fail` / `distinct_fail` / `repeat_fail` / `coherent` in place."""
     for row in rows:
+        t_fail = bool(row.get("unclosed_think", 0))
         d_fail = row[f"distinct_{DISTINCT_N}"] < DISTINCT_MIN
         r_fail = row["max_repeat_run"] >= MAX_REPEAT_RUN_FAIL
         p = row["ppl"]
@@ -188,9 +233,10 @@ def apply_gate(rows, ppl_threshold: float) -> None:
         # caught by the diversity test or it is simply a very short answer.
         p_fail = bool(p == p and ppl_threshold == ppl_threshold and p > ppl_threshold)
         row.update({
+            "think_fail": int(t_fail),
             "distinct_fail": int(d_fail), "repeat_fail": int(r_fail),
             "ppl_fail": int(p_fail),
-            "coherent": int(not (d_fail or r_fail or p_fail)),
+            "coherent": int(not (t_fail or d_fail or r_fail or p_fail)),
         })
 
 
@@ -221,12 +267,16 @@ def main(argv=None) -> int:
                     help="generation cap, for the hit_token_cap flag (default: read "
                          "from each run's manifest)")
     ap.add_argument("--device", default=None, help="cuda|cpu (default: cuda if available)")
+    ap.add_argument("--no-ppl", action="store_true",
+                    help="skip the perplexity leg (no reference LM loaded). The "
+                         "text-only legs still run, which is enough when a run fails "
+                         "on unclosed_think.")
     ap.add_argument("--out-name", default="coherence.csv",
                     help="filename written inside each run dir")
     a = ap.parse_args(argv)
 
-    ref = RefLM(a.ref_model, device=a.device)
-    print(f"reference LM: {ref.model_id} on {ref.device}")
+    ref = _NoPPL() if a.no_ppl else RefLM(a.ref_model, device=a.device)
+    print(f"reference LM: {ref.model_id}" + ("" if a.no_ppl else f" on {ref.device}"))
 
     scored: dict[Path, list[dict]] = {}
     for run in a.runs:
@@ -262,7 +312,7 @@ def main(argv=None) -> int:
         threshold = shared_threshold
         if threshold is None:
             base = [r["ppl"] for r in rows if r["condition"] == a.baseline_cond]
-            if not base:
+            if not base and not a.no_ppl:
                 raise SystemExit(
                     f"{run.name} has no {a.baseline_cond!r} arm, so its perplexity "
                     f"threshold is undefined — pass --baseline-run to calibrate it "

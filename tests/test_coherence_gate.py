@@ -109,3 +109,31 @@ def test_pass_rates_are_per_run_and_condition():
     rates = cg.pass_rates(rows)
     assert rates[("r1", "initial")]["pass_rate"] == pytest.approx(1.0)
     assert rates[("r1", "steered_pos")]["pass_rate"] == pytest.approx(0.5)
+
+
+# --- the unclosed-<think> leg -------------------------------------------------
+
+def test_unclosed_think_fires_only_when_a_trace_is_left_open():
+    assert cg.unclosed_think("<think>\nreasoning that never ends") is True
+    assert cg.unclosed_think("<think>\nreasoning\n</think>\n\nThe answer is X.") is False
+    assert cg.unclosed_think("The answer is X.") is False, "no trace at all is fine"
+    # A trace that closes but leaves an empty answer is NOT this leg's failure: the
+    # text is well-formed, and an empty answer is the judge's `unjudgeable`.
+    assert cg.unclosed_think("<think>\nr\n</think>") is False
+
+
+def test_unclosed_think_fails_the_gate_on_its_own():
+    row = {f"distinct_{cg.DISTINCT_N}": 0.95, "max_repeat_run": 1, "ppl": 5.0,
+           "unclosed_think": 1}
+    cg.apply_gate([row], ppl_threshold=50.0)
+    assert row["think_fail"] == 1 and row["coherent"] == 0
+    assert row["distinct_fail"] == 0 and row["ppl_fail"] == 0, \
+        "the other legs must not be implicated"
+
+
+def test_gate_tolerates_rows_without_the_think_column():
+    # Older scorings have no unclosed_think column; absence means "not observed",
+    # not "failed".
+    row = {f"distinct_{cg.DISTINCT_N}": 0.95, "max_repeat_run": 1, "ppl": 5.0}
+    cg.apply_gate([row], ppl_threshold=50.0)
+    assert row["coherent"] == 1 and row["think_fail"] == 0
