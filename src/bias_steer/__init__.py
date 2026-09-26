@@ -29,6 +29,7 @@ from . import datasets
 from . import models
 from . import steering
 from . import judges
+from . import runlogs
 # `judge` was this module's name before the judges package (judge.py ->
 # judges/base.py, judge v2.1). Kept as an alias so existing
 # `from src.bias_steer import judge` call sites keep working; there is still
@@ -65,7 +66,7 @@ __all__ = [
     "ExperimentConfig", "ModelSpec", "DatasetSpec", "SampleSpec", "JudgeSpec",
     "Coeffs", "from_dict", "DEFAULT_SYS", "DEFAULT_JUDGE_RUBRIC",
     # science
-    "datasets", "models", "steering", "judges", "judge",
+    "datasets", "models", "steering", "judges", "judge", "runlogs",
     "sample", "SteeringMethod", "LoadedModel", "load_model", "parse_verdict",
     "refusal", "RefusalDirection", "load_refusal_direction",
     "refusal_extract",
