@@ -11,7 +11,7 @@ experiments departed from the handoff's method for reasons that are themselves r
 |---|---|---|
 | 1 | "a system prompt would do the same" | **It does more.** Under pinned v2.1 the system prompt BEATS the direction on the opinion pole (−0.317 all items, −0.181 on coherent items, both CIs clear of 0), with **zero** items where steering succeeds and prompting fails. The handoff's kill-criterion is met for the fixed-add arm. |
 | 2 | "it's the dose, not the direction" | *(pending)* |
-| 3 | "your opinion rate is just broken text" | **The objection has force at the headline dose.** The unsteered baseline is healthy (128/128 coherent) but steering at c=8 costs ~22% of coherence on the opinion pole, so the rate must be read on the coherent subset. Separately, the c20/c30/c40 ladder is **invalid** and cannot set a reportable dose. |
+| 3 | "your opinion rate is just broken text" | **The objection has force at the headline dose.** The unsteered baseline is healthy (0.950 coherent) but steering at c=8 drops the opinion pole to **0.650**, so every rate is reported twice — all items and gate-passing items. Separately, the c20/c30/c40 ladder is **invalid** and cannot set a reportable dose at all. |
 
 ## Shared setup
 
@@ -115,10 +115,12 @@ and 25/200 in the steered arms against 1/200 unsteered.
 damage, not misconfiguration. The failures are lexical-diversity collapse, not
 truncation.
 
-**Consequence for the headline.** No dose currently clears the "pass rate ≥ unsteered
-baseline" bar — including c=8 — so Exp-1's comparison is reported twice: over all items
-and over items that passed the gate. A judge can read a confident stance out of a
-repetition loop, so those two numbers diverge exactly where the objection bites.
+**Consequence for the headline.** No dose clears the "pass rate ≥ unsteered baseline"
+bar — c=8 included — so Exp-1's comparison is reported twice: over all items and over
+items that passed the gate. A judge can read a confident stance out of a repetition loop,
+so the two diverge exactly where the objection bites. Here they diverge by a lot on the
+level (0.618 → 0.787 for the steered arm) while agreeing on the sign, which is the most
+useful thing a gate can do: it shows the conclusion is not an artifact of broken text.
 
 ---
 
