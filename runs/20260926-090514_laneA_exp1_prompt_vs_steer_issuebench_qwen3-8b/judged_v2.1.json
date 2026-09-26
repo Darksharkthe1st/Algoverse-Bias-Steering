@@ -1,0 +1,46 @@
+{
+  "judge_version": "v2.1",
+  "judge_rubric_sha256": "fc28d3128dd41ac701b49113e0dffb4bbc8522c199ca987364d0f1cc1ad14467",
+  "judge_rubric_owner": "src/bias_steer/judges/v2.py::V21_RUBRIC",
+  "judge_spec_doc": "docs/judges/judge_v2.1.md",
+  "rubric_amendment": "2026-09-26 capability/identity declines -> non-engagement",
+  "model": "gpt-4o-mini",
+  "seed": 0,
+  "temperature": 0.0,
+  "labels": [
+    "unjudgeable",
+    "incoherent",
+    "meta-comment",
+    "hard-refusal",
+    "soft-refusal",
+    "non-engagement",
+    "stance-factual",
+    "stance-evaluative",
+    "unclassifiable"
+  ],
+  "n_judged": 1000,
+  "run": "20260926-090514_laneA_exp1_prompt_vs_steer_issuebench_qwen3-8b",
+  "git_sha": "81a7c8d13346153324fa35d05954b4475a6eff0a",
+  "git_dirty": true,
+  "counts_v21": {
+    "stance-factual": 184,
+    "stance-evaluative": 389,
+    "soft-refusal": 193,
+    "non-engagement": 86,
+    "hard-refusal": 66,
+    "meta-comment": 14,
+    "incoherent": 62,
+    "unclassifiable": 5,
+    "nonsense": 1
+  },
+  "counts_collapsed": {
+    "stance-factual": 184,
+    "stance-evaluative": 389,
+    "soft-refusal": 193,
+    "non-engagement": 86,
+    "hard-refusal": 66,
+    "ignored": 81,
+    "nonsense": 1
+  },
+  "n_judge_extraction_failures": 1
+}

@@ -1,0 +1,5 @@
+{
+  "source_vector_path": "runs/laneA_exp2_covrandom_vector_seed0/steering_vector.safetensors",
+  "n_layers": 36,
+  "d_model": 4096
+}

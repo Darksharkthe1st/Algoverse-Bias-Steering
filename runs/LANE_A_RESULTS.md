@@ -9,7 +9,7 @@ experiments departed from the handoff's method for reasons that are themselves r
 
 | Exp | Reviewer objection it closes | Verdict |
 |---|---|---|
-| 1 | "a system prompt would do the same" | *(pending — run completing)* |
+| 1 | "a system prompt would do the same" | **It does more.** Under pinned v2.1 the system prompt BEATS the direction on the opinion pole (−0.317 all items, −0.181 on coherent items, both CIs clear of 0), with **zero** items where steering succeeds and prompting fails. The handoff's kill-criterion is met for the fixed-add arm. |
 | 2 | "it's the dose, not the direction" | *(pending)* |
 | 3 | "your opinion rate is just broken text" | **The objection has force at the headline dose.** The unsteered baseline is healthy (128/128 coherent) but steering at c=8 costs ~22% of coherence on the opinion pole, so the rate must be read on the coherent subset. Separately, the c20/c30/c40 ladder is **invalid** and cannot set a reportable dose. |
 
@@ -97,13 +97,19 @@ clears "≥ baseline". The rule needs an absolute floor (Q4).
 Measured on Exp-1's own completions — where the baseline *is* healthy, which is what
 makes the comparison meaningful.
 
-| arm | coherence-pass | `distinct_3` fails | mean `distinct_3` |
-|---|---|---|---|
-| initial | *(pending)* | | |
-| prompt_pos | | | |
-| prompt_neg | | | |
-| steered_pos | | | |
-| steered_neg | | | |
+Reference LM `Qwen/Qwen2.5-1.5B`; ppl threshold = P95 of the unsteered arm = 15.24.
+Artifact: `runs/20260926-090514_laneA_exp1_.../coherence.csv`.
+
+| arm | coherence-pass | vs baseline |
+|---|---|---|
+| initial | 190/200 = 0.950 | — (calibration arm) |
+| prompt_pos | 194/200 = 0.970 | PASS |
+| prompt_neg | 196/200 = 0.980 | PASS |
+| steered_pos | 130/200 = **0.650** | BELOW BASELINE |
+| steered_neg | 172/200 = 0.860 | BELOW BASELINE |
+
+The judge's *own* `incoherent` bucket agrees, from entirely separate machinery: 35/200
+and 25/200 in the steered arms against 1/200 unsteered.
 
 `think_fail` is 0 in every arm, confirming the config guardrails held: this is steering
 damage, not misconfiguration. The failures are lexical-diversity collapse, not
@@ -118,7 +124,63 @@ repetition loop, so those two numbers diverge exactly where the objection bites.
 
 ## Exp-1 — prompt vs steer on held-out IssueBench (PIVOTAL)
 
-*(pending)*
+Run `runs/20260926-090514_laneA_exp1_prompt_vs_steer_issuebench_qwen3-8b` (200 items ×
+5 arms, 1h02m on one A100). Full write-up, including the per-arm 9-way distribution:
+that run's `summary_v2.1.md`. `summary.md` in the same folder is the pipeline's own
+output under the binary judge and is left untouched.
+
+    python -m src.bias_steer run configs/laneA_exp1_prompt_vs_steer_issuebench.py
+    python scripts/rejudge_v21.py runs/20260926-090514_laneA_exp1_*
+    python scripts/coherence_gate.py runs/20260926-090514_laneA_exp1_*
+    python scripts/bootstrap_ci.py runs/20260926-090514_laneA_exp1_*/judged_v2.1.csv \
+        --positive stance --coherence runs/20260926-090514_laneA_exp1_*/coherence.csv \
+        --paired steered_pos,prompt_pos
+
+### The result
+
+| comparison | steer | prompt | margin | 90% CI | verdict |
+|---|---|---|---|---|---|
+| **opinion pole, all items** (n=199) | 0.618 | 0.935 | **−0.317** | [−0.377, −0.261] | prompt beats steer |
+| **opinion pole, coherent in both** (n=127) | 0.787 | 0.969 | **−0.181** | [−0.236, −0.126] | prompt beats steer |
+| neutral pole, all items (n=200) | 0.445 | 0.480 | −0.035 | [−0.105, +0.035] | inconclusive |
+| neutral pole, coherent in both (n=169) | 0.509 | 0.521 | −0.012 | [−0.089, +0.065] | inconclusive |
+
+Per-item 2×2 on the opinion pole, coherent in both arms (n=127): both 100 · **steer-only
+0** · prompt-only 23 · neither 4.
+
+**There is no item where the direction takes a side and the system prompt fails.** The
+direction's successes are a strict subset of prompting's, and that holds whether or not
+incoherent completions are excluded — so it is not an artifact of broken text.
+
+The neutral pole is the one place the direction earns something: the margin is ~0 but
+**64 of 169 pairs are discordant** (31 steer-only, 33 prompt-only). There the methods are
+**complementary**, each hedging on a different third of items. That is a different
+finding from "equivalent", and only the 2×2 shows it.
+
+### Why this reverses the pipeline's own summary
+
+`summary.md`, under the binary `neutrality` judge, reports steer 0.890 vs prompt 0.745,
+Δ **+0.145** [+0.090, +0.200] — "steer beats prompt". Of the 178 `steered_pos`
+completions that judge called opinionated, v2.1 finds **36% are not a stance**: 18.0%
+`incoherent`, 9.0% `hard-refusal`, 6.2% `non-engagement`, 1.7% `meta-comment`.
+
+That is the retired judge-v1 pathology (CLAUDE.md §4 — the v1 rubric scored factual
+decisiveness as opinionation) reproducing on new data. It is also the concrete reason the
+two versions may never share a table: on this run the choice of judge does not move the
+number, it moves the **sign**.
+
+### The decision it triggers
+
+The handoff's rule: *"Prompt matches/beats steer on modern prompts → reframe to
+'adaptive-linear beats **both** fixed steer and prompt' (kill-criterion)."* **Met, for
+the fixed-add arm.** The "steering adds value over prompting" clause does not stand at
+c=8 on IssueBench.
+
+Two things could still change it and are not ruled out: a coherent dose above 8 (the
+ladder meant to supply one is invalid, §3a), and the adaptive-linear schedule — the arm
+the reframe would rest on, which has not been run under these guardrails. Neither is a
+reason to soften this result (CLAUDE.md §6: honest negatives stay honest); both are the
+next experiments.
 
 ---
 
