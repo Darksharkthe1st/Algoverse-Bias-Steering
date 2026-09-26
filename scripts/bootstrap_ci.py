@@ -12,13 +12,22 @@ granularities:
 
     # the paired steer-vs-prompt margin: beat_rate + the 2x2 that explains it
     python scripts/bootstrap_ci.py runs/<id>/judged_v2.1.csv --positive stance \
-        --paired steered_pos:prompt_pos
+        --paired steered_pos,prompt_pos
+
+    # two runs on the SAME items: opinion direction vs the Exp-2 random control
+    python scripts/bootstrap_ci.py runs/<exp1>/judged_v2.1.csv runs/<exp2>/judged_v2.1.csv \
+        --positive stance --paired <exp1>:steered_pos,<exp2>:steered_pos
 
 `--positive` names the target behaviour and accepts a POOL of labels, because the
 v2.1 rubric splits "took a side" into `stance-factual` and `stance-evaluative`. The
 pool `stance` is the natural shorthand for their union (`docs/judges/judge_v2.1.md`,
 the V2/V3 contrast rows) — pooling has to be explicit, since silently reporting only
 `stance-evaluative` would undercount taking a side on a factual item.
+
+Several judged CSVs may be given at once. When they come from different runs, arms are
+tagged `<run>:<condition>` so two runs' `steered_pos` cannot be silently pooled — which
+is what makes the Exp-1-vs-Exp-2 comparison (same 200 items, same dose, opinion
+direction vs random control) a per-item paired test rather than two separate rates.
 
 The paired mode is the honest form of "did the vector beat prompting": it resamples
 ITEMS (not arms) so the CI carries the per-item pairing, and it prints the four
@@ -68,6 +77,24 @@ def load(csv_path, label_col: str) -> list[dict]:
     if label_col not in rows[0]:
         raise SystemExit(
             f"{csv_path}: no column {label_col!r} (has: {', '.join(rows[0])})")
+    return rows
+
+
+def load_many(csv_paths, label_col: str) -> list[dict]:
+    """Rows from several judged CSVs, with arms tagged by run when runs differ.
+
+    Two runs both have a `steered_pos`; pooling them would average a treatment with
+    its control. So as soon as more than one run is present, every condition becomes
+    `<run>:<condition>` — including the ones that do not collide, because a naming
+    scheme that changes per row is worse than one that is always explicit.
+    """
+    rows: list[dict] = []
+    for path in csv_paths:
+        rows.extend(load(path, label_col))
+    runs = {r.get("run") for r in rows}
+    if len(csv_paths) > 1 and len(runs) > 1:
+        for r in rows:
+            r["condition"] = f"{r.get('run')}:{r['condition']}"
     return rows
 
 
@@ -155,24 +182,27 @@ def verdict_line(res: dict, ci: float) -> str:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("csv", type=Path)
+    ap.add_argument("csv", nargs="+", type=Path,
+                    help="one or more judged CSVs; with several runs, arms are tagged "
+                         "<run>:<condition>")
     ap.add_argument("--label-col", default="verdict_collapsed",
                     help="which judged column to read (default the collapsed-6 view)")
     ap.add_argument("--positive", default="stance",
                     help=f"target behaviour: a pool name {sorted(LABEL_POOLS)} or a "
                          f"comma-separated list of literal labels")
-    ap.add_argument("--paired", default=None, metavar="A:B",
+    ap.add_argument("--paired", default=None, metavar="A,B",
                     help="also report the per-item paired margin between two arms, "
-                         "e.g. steered_pos:prompt_pos")
+                         "e.g. steered_pos,prompt_pos (comma-separated, because an arm "
+                         "name may itself contain the run tag's colon)")
     ap.add_argument("--B", dest="n_boot", type=int, default=10000)
     ap.add_argument("--ci", type=float, default=0.90)
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args(argv)
 
     positive = resolve_positive(a.positive)
-    rows = load(a.csv, a.label_col)
-    print(f"{a.csv}  column={a.label_col}  positive={{{', '.join(positive)}}}  "
-          f"B={a.n_boot}  {int(a.ci * 100)}% CI\n")
+    rows = load_many(a.csv, a.label_col)
+    print(f"{', '.join(str(c) for c in a.csv)}\n  column={a.label_col}  "
+          f"positive={{{', '.join(positive)}}}  B={a.n_boot}  {int(a.ci * 100)}% CI\n")
 
     print("rate per arm:")
     for r in rate_per_arm(rows, positive, label_col=a.label_col, n_boot=a.n_boot,
@@ -183,7 +213,16 @@ def main(argv=None) -> int:
               f"[{r['ci_lo']:.3f}, {r['ci_hi']:.3f}]{extra}")
 
     if a.paired:
-        a_cond, _, b_cond = a.paired.partition(":")
+        if "," not in a.paired:
+            raise SystemExit("--paired takes two comma-separated arms, e.g. "
+                             "steered_pos,prompt_pos")
+        a_cond, _, b_cond = a.paired.partition(",")
+        present = {r["condition"] for r in rows}
+        missing = [c for c in (a_cond, b_cond) if c not in present]
+        if missing:
+            raise SystemExit(
+                f"--paired names arm(s) not in the data: {', '.join(missing)}\n"
+                f"  present: {', '.join(sorted(present))}")
         res = paired(rows, positive, a_cond=a_cond, b_cond=b_cond,
                      label_col=a.label_col, n_boot=a.n_boot, ci=a.ci, seed=a.seed)
         print(f"\npaired per-item, {res['a']} vs {res['b']} (n={res['n']}):")

@@ -123,3 +123,39 @@ def test_missing_label_column_fails_loudly(tmp_path):
         w.writerow({"example_id": "e1", "condition": "initial", "other": "x"})
     with pytest.raises(SystemExit, match="verdict_collapsed"):
         bc.load(p, "verdict_collapsed")
+
+
+def test_load_many_tags_arms_by_run_so_two_runs_are_not_pooled(tmp_path):
+    # Both runs have a `steered_pos`. Pooling them would average a treatment with its
+    # control and report the mean as if it were one arm.
+    paths = []
+    for run, label in (("exp1", "stance-factual"), ("exp2", "soft-refusal")):
+        p = tmp_path / f"{run}.csv"
+        with p.open("w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=["run", "example_id", "condition",
+                                              "verdict_collapsed"])
+            w.writeheader()
+            w.writerow({"run": run, "example_id": "e1", "condition": "steered_pos",
+                        "verdict_collapsed": label})
+        paths.append(p)
+
+    rows = bc.load_many(paths, "verdict_collapsed")
+    assert sorted(r["condition"] for r in rows) == ["exp1:steered_pos", "exp2:steered_pos"]
+
+    arms = {r["condition"]: r for r in bc.rate_per_arm(
+        rows, bc.LABEL_POOLS["stance"], label_col="verdict_collapsed",
+        n_boot=100, ci=0.9, seed=0)}
+    assert arms["exp1:steered_pos"]["rate"] == 1.0
+    assert arms["exp2:steered_pos"]["rate"] == 0.0
+
+
+def test_load_many_leaves_a_single_run_untagged(tmp_path):
+    p = tmp_path / "one.csv"
+    with p.open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["run", "example_id", "condition",
+                                          "verdict_collapsed"])
+        w.writeheader()
+        w.writerow({"run": "exp1", "example_id": "e1", "condition": "initial",
+                    "verdict_collapsed": "soft-refusal"})
+    rows = bc.load_many([p], "verdict_collapsed")
+    assert rows[0]["condition"] == "initial"
