@@ -101,7 +101,12 @@ def build(extract_run: Path, seed: int, covariance: str = "within-pole",
             f"be estimated without it."
         )
 
-    v_opin = load_file(str(vec_path))["vector"].float()          # (n_layers, d_model)
+    v_raw = load_file(str(vec_path))["vector"]                   # (n_layers, d_model)
+    # Keep the ON-DISK dtype: the control is saved back in it, so the two arms differ
+    # in direction and nothing else. Reading it off `v_opin` after .float() would
+    # silently save an fp32 control against an fp16 treatment.
+    v_dtype = v_raw.dtype
+    v_opin = v_raw.float()
     resids = load_file(str(resid_path))                          # label -> (N, L, d)
     labels = sorted(resids)
     stacks = [resids[k].float() for k in labels]
@@ -160,6 +165,7 @@ def build(extract_run: Path, seed: int, covariance: str = "within-pole",
         "n_residual_samples": int(n_total),
         "n_layers": int(n_layers), "d_model": int(d_model),
         "seed": seed,
+        "vector_dtype": str(v_dtype).replace("torch.", ""),
         "method": "r = X^T w, w ~ N(0, I_N), per layer, rescaled to the opinion "
                   "vector's per-layer norm",
         "covariance_rank_bound": int(rank_bound),
@@ -204,6 +210,8 @@ def main(argv=None) -> int:
     out = a.out if a.out.is_absolute() else _REPO / a.out
     control, v_opin, diag = build(extract, a.seed, covariance=a.covariance,
                                   orthogonalise=a.orthogonalise)
+    import torch as _torch
+    out_dtype = getattr(_torch, diag["vector_dtype"])
 
     # The guard that the 2025 bug bypassed: assert the control is (n_layers, d_model)
     # before anything can apply it. A control that silently became a scalar would
@@ -213,7 +221,7 @@ def main(argv=None) -> int:
     out.mkdir(parents=True, exist_ok=True)
     # Saved in the same dtype as the vector it controls, so the two arms differ in
     # direction only and not in numerical precision.
-    save_file({"vector": control.to(v_opin.dtype).contiguous()},
+    save_file({"vector": control.to(out_dtype).contiguous()},
               str(out / "steering_vector.safetensors"))
     (out / "covrandom_provenance.json").write_text(json.dumps(diag, indent=2) + "\n")
 
