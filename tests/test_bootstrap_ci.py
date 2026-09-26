@@ -159,3 +159,68 @@ def test_load_many_leaves_a_single_run_untagged(tmp_path):
                     "verdict_collapsed": "soft-refusal"})
     rows = bc.load_many([p], "verdict_collapsed")
     assert rows[0]["condition"] == "initial"
+
+
+# --- the coherence filter -----------------------------------------------------
+# Additive steering degrades text before it stops working, so a judge can read a
+# confident stance out of a repetition loop. These pin the two rules that keep that
+# from inflating a rate.
+
+def _coh(flags):
+    """{(example_id, condition): coherent} -> the (run, example_id, condition) keys
+    `load_coherence` produces, with run=None as `_rows` leaves it."""
+    return {(None, ex, cond): v for (ex, cond), v in flags.items()}
+
+
+def test_coherence_filter_drops_failing_completions_and_reports_the_count():
+    rows = _rows({"e1": {"initial": "stance-factual"},
+                  "e2": {"initial": "stance-factual"},
+                  "e3": {"initial": "soft-refusal"}})
+    coherence = _coh({("e1", "initial"): 1, ("e2", "initial"): 0,
+                      ("e3", "initial"): 1})
+    kept, report = bc.apply_coherence_filter(rows, coherence, tagged=False)
+    assert [r["example_id"] for r in kept] == ["e1", "e3"]
+    assert report["dropped_incoherent"] == 1 and report["unmatched"] == 0
+
+
+def test_a_completion_with_no_coherence_row_is_excluded_and_counted():
+    # Silently keeping it would report a rate over data the gate never saw; silently
+    # dropping it would hide that the two inputs disagree. So: excluded AND counted.
+    rows = _rows({"e1": {"initial": "stance-factual"}, "e2": {"initial": "stance-factual"}})
+    kept, report = bc.apply_coherence_filter(rows, _coh({("e1", "initial"): 1}),
+                                             tagged=False)
+    assert [r["example_id"] for r in kept] == ["e1"]
+    assert report["unmatched"] == 1
+
+
+def test_paired_filter_drops_the_item_unless_both_arms_are_coherent():
+    # Per-row filtering could keep steered_pos and drop prompt_pos for the same item,
+    # which would silently unpair it. The pair is the unit.
+    rows = _rows({
+        "e1": {"steered_pos": "stance-factual", "prompt_pos": "soft-refusal"},
+        "e2": {"steered_pos": "stance-factual", "prompt_pos": "soft-refusal"},
+    })
+    coherence = _coh({
+        ("e1", "steered_pos"): 1, ("e1", "prompt_pos"): 1,
+        ("e2", "steered_pos"): 1, ("e2", "prompt_pos"): 0,   # partner broken
+    })
+    kept = bc.restrict_to_pairs_coherent_in_both(
+        rows, coherence, a_cond="steered_pos", b_cond="prompt_pos", tagged=False)
+    assert {r["example_id"] for r in kept} == {"e1"}
+
+
+def test_coherence_lookup_recovers_the_untagged_condition_for_multi_run_rows():
+    # load_many rewrites conditions to <run>:<condition>, but coherence.csv stores the
+    # bare condition — without recovering it every lookup would miss.
+    rows = [{"run": "expA", "example_id": "e1", "condition": "expA:steered_pos",
+             "verdict_collapsed": "stance-factual"}]
+    coherence = {("expA", "e1", "steered_pos"): 1}
+    kept, report = bc.apply_coherence_filter(rows, coherence, tagged=True)
+    assert len(kept) == 1 and report["unmatched"] == 0
+
+
+def test_load_coherence_rejects_a_csv_that_is_not_a_coherence_csv(tmp_path):
+    p = tmp_path / "wrong.csv"
+    p.write_text("run,example_id,condition\nr,e1,initial\n")
+    with pytest.raises(SystemExit, match="coherent"):
+        bc.load_coherence([p])

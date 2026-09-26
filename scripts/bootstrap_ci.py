@@ -35,6 +35,15 @@ McNemar cells. A near-zero margin with many discordant pairs means the two metho
 are COMPLEMENTARY — each winning a different subset — which is a different finding
 from "they behave the same", and the aggregate margin alone cannot tell them apart.
 
+`--coherence` restricts the analysis to completions that passed the Exp-3 gate. This
+is not optional polish on a steered arm: additive steering degrades text before it
+stops working, so a judge can read a confident stance out of a repetition loop and
+the arm scores well for the wrong reason. Reporting the rate BOTH ways — all items,
+and coherent items only — is the honest form, because the two differ exactly when the
+objection ("your opinion rate is broken text") has force. In paired mode an item is
+used only when BOTH arms are coherent: pairing a clean completion against a degenerate
+one measures the degeneration, not the method.
+
 Deliberately duplicates no logic from `metrics.beat_rate`: that computes over live
 `Result` objects inside a run, this computes over a judged CSV after the fact (a
 re-judge under a different judge version, an archived run). Both are checked against
@@ -98,6 +107,45 @@ def load_many(csv_paths, label_col: str) -> list[dict]:
     return rows
 
 
+def load_coherence(paths) -> dict:
+    """(run, example_id, condition) -> coherent flag, from Exp-3's coherence.csv."""
+    out: dict = {}
+    for path in paths:
+        with open(path, newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                if "coherent" not in r:
+                    raise SystemExit(
+                        f"{path}: no `coherent` column — is this a coherence.csv "
+                        f"written by scripts/coherence_gate.py?")
+                out[(r.get("run"), r["example_id"], r["condition"])] = int(r["coherent"])
+    return out
+
+
+def apply_coherence_filter(rows, coherence: dict, *, tagged: bool) -> tuple[list, dict]:
+    """Keep only coherent completions; report what was dropped and what was unmatched.
+
+    `tagged` says whether `load_many` rewrote conditions to `<run>:<condition>`, in
+    which case the untagged name has to be recovered to look the row up. A row with no
+    coherence entry is NOT silently kept or dropped — it is counted and reported, since
+    an unscored completion means the gate and the judge saw different data.
+    """
+    kept, dropped, unmatched = [], 0, 0
+    for r in rows:
+        cond = r["condition"]
+        run = r.get("run")
+        if tagged and cond.startswith(f"{run}:"):
+            cond = cond[len(run) + 1:]
+        flag = coherence.get((run, r["example_id"], cond))
+        if flag is None:
+            unmatched += 1
+            continue
+        if flag:
+            kept.append(r)
+        else:
+            dropped += 1
+    return kept, {"dropped_incoherent": dropped, "unmatched": unmatched}
+
+
 def bootstrap_ci(hits, *, n_boot: int, ci: float, seed: int) -> tuple[float, float]:
     """Percentile item-bootstrap CI for the mean of `hits`."""
     n = len(hits)
@@ -129,6 +177,31 @@ def rate_per_arm(rows, positive, *, label_col, n_boot, ci, seed) -> list[dict]:
             "ci_lo": lo, "ci_hi": hi, "judge_extraction_failures": failures[cond],
         })
     return out
+
+
+def restrict_to_pairs_coherent_in_both(rows, coherence, *, a_cond, b_cond,
+                                       tagged: bool) -> list:
+    """Drop an ITEM entirely unless both compared arms are coherent for it."""
+    def key(r, cond):
+        run = r.get("run")
+        c = cond[len(run) + 1:] if tagged and cond.startswith(f"{run}:") else cond
+        return (run, r["example_id"], c)
+
+    runs_by_cond = {}
+    for r in rows:
+        runs_by_cond.setdefault(r["condition"], r.get("run"))
+
+    ok = set()
+    by_ex = defaultdict(dict)
+    for r in rows:
+        by_ex[r["example_id"]][r["condition"]] = r
+    for ex, arms in by_ex.items():
+        ra, rb = arms.get(a_cond), arms.get(b_cond)
+        if ra is None or rb is None:
+            continue
+        if coherence.get(key(ra, a_cond)) == 1 and coherence.get(key(rb, b_cond)) == 1:
+            ok.add(ex)
+    return [r for r in rows if r["example_id"] in ok]
 
 
 def paired(rows, positive, *, a_cond, b_cond, label_col, n_boot, ci, seed) -> dict:
@@ -194,6 +267,10 @@ def main(argv=None) -> int:
                     help="also report the per-item paired margin between two arms, "
                          "e.g. steered_pos,prompt_pos (comma-separated, because an arm "
                          "name may itself contain the run tag's colon)")
+    ap.add_argument("--coherence", nargs="*", type=Path, default=None,
+                    help="coherence.csv file(s) from scripts/coherence_gate.py; "
+                         "restricts the analysis to completions that passed the gate "
+                         "(in paired mode, to items coherent in BOTH arms)")
     ap.add_argument("--B", dest="n_boot", type=int, default=10000)
     ap.add_argument("--ci", type=float, default=0.90)
     ap.add_argument("--seed", type=int, default=0)
@@ -201,6 +278,19 @@ def main(argv=None) -> int:
 
     positive = resolve_positive(a.positive)
     rows = load_many(a.csv, a.label_col)
+    tagged = len(a.csv) > 1 and len({r.get("run") for r in rows}) > 1
+    all_rows = rows
+    coherence = load_coherence(a.coherence) if a.coherence else None
+    if coherence:
+        rows, report = apply_coherence_filter(rows, coherence, tagged=tagged)
+        print(f"coherence filter: kept {len(rows)} of {len(all_rows)} completions "
+              f"({report['dropped_incoherent']} failed the gate"
+              + (f", {report['unmatched']} had no coherence row" if report["unmatched"]
+                 else "") + ")")
+        if report["unmatched"]:
+            print("  WARNING: unmatched completions were EXCLUDED — the gate and the "
+                  "judge did not see the same set, so check the coherence CSVs cover "
+                  "every run being analysed.")
     print(f"{', '.join(str(c) for c in a.csv)}\n  column={a.label_col}  "
           f"positive={{{', '.join(positive)}}}  B={a.n_boot}  {int(a.ci * 100)}% CI\n")
 
@@ -217,13 +307,24 @@ def main(argv=None) -> int:
             raise SystemExit("--paired takes two comma-separated arms, e.g. "
                              "steered_pos,prompt_pos")
         a_cond, _, b_cond = a.paired.partition(",")
-        present = {r["condition"] for r in rows}
+        present = {r["condition"] for r in all_rows}
         missing = [c for c in (a_cond, b_cond) if c not in present]
         if missing:
             raise SystemExit(
                 f"--paired names arm(s) not in the data: {', '.join(missing)}\n"
                 f"  present: {', '.join(sorted(present))}")
-        res = paired(rows, positive, a_cond=a_cond, b_cond=b_cond,
+        # Paired mode needs BOTH arms coherent per item, which is a stricter rule than
+        # the per-row filter above (that one could keep arm A and drop arm B, silently
+        # unpairing the item).
+        paired_rows = all_rows
+        if coherence:
+            paired_rows = restrict_to_pairs_coherent_in_both(
+                all_rows, coherence, a_cond=a_cond, b_cond=b_cond, tagged=tagged)
+            n_items_all = len({r["example_id"] for r in all_rows})
+            n_items_ok = len({r["example_id"] for r in paired_rows})
+            print(f"\npaired coherence filter: {n_items_ok} of {n_items_all} items are "
+                  f"coherent in BOTH arms")
+        res = paired(paired_rows, positive, a_cond=a_cond, b_cond=b_cond,
                      label_col=a.label_col, n_boot=a.n_boot, ci=a.ci, seed=a.seed)
         print(f"\npaired per-item, {res['a']} vs {res['b']} (n={res['n']}):")
         print(f"  {res['a']} {res['a_rate']:.3f} vs {res['b']} {res['b_rate']:.3f}  "
