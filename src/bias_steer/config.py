@@ -101,9 +101,23 @@ class SampleSpec:
     """
 
     filter: dict = field(default_factory=dict)   # keep Examples whose metadata[k] in v
+    # DROP Examples whose metadata[k] is in v — the mirror of `filter`, for the
+    # case where the unwanted rows are the nameable ones. IssueBench: 10 of its
+    # 1000 templates are ShareGPT scraping artifacts ("1 / 1...Share Prompt"),
+    # 100% of their rows, so naming 10 template_ids removes every artifact while
+    # `filter` would need the other 990.
+    exclude: dict = field(default_factory=dict)
     per_group: tuple | None = None               # ("category", 50) -> N per distinct key
     limit: int | None = None                     # global cap after filtering
     seed: int = 0
+    # Example ids to DROP before stratifying/capping — the held-out guard. When a
+    # saved vector is applied to the dataset it was fitted on, the items in its
+    # TRAIN split must not reappear in the eval set, or "the direction generalises"
+    # is measured partly on the fit set. Listing them here makes that structural
+    # (and serialized into the manifest) rather than a lucky near-miss: two
+    # independent 200-item draws from IssueBench `sample` (636k rows) overlap on
+    # ~0.06 items in expectation, which is small but not zero.
+    exclude_ids: tuple = ()
 
 
 @dataclass
@@ -238,12 +252,16 @@ def from_dict(d: dict) -> ExperimentConfig:
     """Reconstruct an ExperimentConfig from its serialized form.
 
     Inverse of `ExperimentConfig.to_dict()`; round-trips through JSON. The one
-    subtlety is `SampleSpec.per_group`, a tuple that JSON turns into a list.
+    subtlety is the tuples JSON turns into lists — `SampleSpec.per_group` and
+    `SampleSpec.exclude_ids`.
     """
     sample_d = dict(d.get("sample") or {})
     pg = sample_d.get("per_group")
     if isinstance(pg, list):
         sample_d["per_group"] = tuple(pg)
+    ex = sample_d.get("exclude_ids")
+    if isinstance(ex, list):
+        sample_d["exclude_ids"] = tuple(ex)
 
     return ExperimentConfig(
         label=d["label"],

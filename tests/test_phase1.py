@@ -498,3 +498,57 @@ def _main():
 
 if __name__ == "__main__":
     raise SystemExit(_main())
+
+
+# --- SampleSpec.exclude_ids: the held-out guard -------------------------------
+
+def _ex(i, cat="a"):
+    from src.bias_steer.schema import Example
+    return Example(id=f"e-{i}", prompt=f"p{i}", metadata={"category": cat})
+
+
+def test_sample_exclude_ids_drops_the_fit_items():
+    pool = [_ex(i) for i in range(10)]
+    got = sample(pool, SampleSpec(exclude_ids=("e-0", "e-3", "e-9")))
+    assert {e.id for e in got} == {f"e-{i}" for i in (1, 2, 4, 5, 6, 7, 8)}
+
+
+def test_sample_exclude_ids_runs_before_the_cap_so_n_is_preserved():
+    # Excluding AFTER the cap would silently shrink the eval set: the whole point
+    # of the guard is that a run still evaluates `limit` held-out items.
+    pool = [_ex(i) for i in range(10)]
+    got = sample(pool, SampleSpec(limit=5, exclude_ids=("e-0", "e-1", "e-2")))
+    assert len(got) == 5
+    assert not ({"e-0", "e-1", "e-2"} & {e.id for e in got})
+
+
+def test_sample_exclude_ids_default_is_a_no_op():
+    pool = [_ex(i) for i in range(4)]
+    assert len(sample(pool, SampleSpec())) == 4
+
+
+def test_exclude_ids_round_trips_through_the_manifest_form():
+    # to_dict -> JSON -> from_dict must give a tuple back, not a list, so the
+    # manifest of a held-out run reconstructs to the same spec (cf. per_group).
+    import json
+    from src.bias_steer.config import from_dict
+    cfg = ExperimentConfig(
+        label="x", models=["m"], dataset=DatasetSpec(name="bbq", path="p"),
+        judge=JudgeSpec(name="neutrality"), coeffs=Coeffs(1.0, 1.0),
+        sample=SampleSpec(exclude_ids=("e-0", "e-1")),
+    )
+    back = from_dict(json.loads(json.dumps(cfg.to_dict())))
+    assert back.sample.exclude_ids == ("e-0", "e-1")
+
+
+def test_sample_exclude_drops_by_metadata_and_mirrors_filter():
+    pool = [_ex(0, "keep"), _ex(1, "junk"), _ex(2, "keep"), _ex(3, "junk")]
+    got = sample(pool, SampleSpec(exclude={"category": ["junk"]}))
+    assert [e.id for e in got] == ["e-0", "e-2"] or {e.id for e in got} == {"e-0", "e-2"}
+
+
+def test_sample_exclude_and_filter_compose():
+    pool = [_ex(i, c) for i, c in enumerate(["a", "b", "c", "b"])]
+    got = sample(pool, SampleSpec(filter={"category": ["a", "b"]},
+                                  exclude={"category": ["b"]}))
+    assert {e.id for e in got} == {"e-0"}

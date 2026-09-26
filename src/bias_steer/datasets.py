@@ -468,7 +468,8 @@ def load_axbench(spec: DatasetSpec) -> list[Example]:
 def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     """Filter + stratify + cap, deterministically by `spec.seed` (arch §3.3).
 
-    Order: (1) keep Examples whose `metadata[k]` is in `spec.filter[k]` for every
+    Order: (0) drop `spec.exclude_ids` and any Example matching `spec.exclude`;
+    (1) keep Examples whose `metadata[k]` is in `spec.filter[k]` for every
     key; (2) if `per_group=(key, n)`, keep up to `n` random Examples per distinct
     `metadata[key]` (balanced/representative); (3) if `limit` is set, randomly cap
     the total; (4) shuffle so the result is de-blocked (interleaved), not grouped by
@@ -483,10 +484,22 @@ def sample(examples: list[Example], spec: SampleSpec) -> list[Example]:
     rng = random.Random(spec.seed)
     out = examples
 
+    # Held-out guard FIRST: dropping the fit items before stratify/cap means the
+    # cap still yields `limit` eval items (excluding afterwards would silently
+    # shrink n), and per_group stays balanced over what is actually evaluable.
+    if spec.exclude_ids:
+        drop = set(spec.exclude_ids)
+        out = [e for e in out if e.id not in drop]
+
     if spec.filter:
         def keep(ex: Example) -> bool:
             return all(ex.metadata.get(k) in vals for k, vals in spec.filter.items())
         out = [e for e in out if keep(e)]
+
+    if spec.exclude:
+        def drop(ex: Example) -> bool:
+            return any(ex.metadata.get(k) in vals for k, vals in spec.exclude.items())
+        out = [e for e in out if not drop(e)]
 
     if spec.per_group:
         key, n = spec.per_group
