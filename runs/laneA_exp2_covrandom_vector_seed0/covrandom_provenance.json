@@ -1,0 +1,236 @@
+{
+  "extract_run": "20260923-090514_extract-issuebench-opinion-forced-contrast_qwen3-8b",
+  "covariance": "within-pole",
+  "orthogonalised_to_opinion": true,
+  "residual_labels_pooled": [
+    "neutral",
+    "opinionated"
+  ],
+  "n_residual_samples": 400,
+  "n_layers": 36,
+  "d_model": 4096,
+  "seed": 0,
+  "method": "r = X^T w, w ~ N(0, I_N), per layer, rescaled to the opinion vector's per-layer norm",
+  "covariance_rank_bound": 398,
+  "max_abs_cos_with_opinion": 0.0,
+  "mean_abs_cos_with_opinion": 0.0,
+  "norm_match_max_abs_error": 0.0001,
+  "per_layer": [
+    {
+      "layer": 0,
+      "opinion_norm": 0.0622,
+      "control_norm": 0.0622,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 1,
+      "opinion_norm": 0.5737,
+      "control_norm": 0.5737,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 2,
+      "opinion_norm": 0.8916,
+      "control_norm": 0.8916,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 3,
+      "opinion_norm": 1.2674,
+      "control_norm": 1.2674,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 4,
+      "opinion_norm": 1.6822,
+      "control_norm": 1.6822,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 5,
+      "opinion_norm": 2.1268,
+      "control_norm": 2.1268,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 6,
+      "opinion_norm": 2.8159,
+      "control_norm": 2.8159,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 7,
+      "opinion_norm": 14.0625,
+      "control_norm": 14.0625,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 8,
+      "opinion_norm": 14.3181,
+      "control_norm": 14.3181,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 9,
+      "opinion_norm": 14.7036,
+      "control_norm": 14.7036,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 10,
+      "opinion_norm": 14.946,
+      "control_norm": 14.946,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 11,
+      "opinion_norm": 15.4726,
+      "control_norm": 15.4726,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 12,
+      "opinion_norm": 15.69,
+      "control_norm": 15.69,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 13,
+      "opinion_norm": 16.1295,
+      "control_norm": 16.1295,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 14,
+      "opinion_norm": 16.3902,
+      "control_norm": 16.3902,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 15,
+      "opinion_norm": 16.3044,
+      "control_norm": 16.3044,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 16,
+      "opinion_norm": 16.4817,
+      "control_norm": 16.4817,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 17,
+      "opinion_norm": 16.4061,
+      "control_norm": 16.4061,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 18,
+      "opinion_norm": 17.103,
+      "control_norm": 17.103,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 19,
+      "opinion_norm": 18.1855,
+      "control_norm": 18.1855,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 20,
+      "opinion_norm": 20.4639,
+      "control_norm": 20.4639,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 21,
+      "opinion_norm": 21.3405,
+      "control_norm": 21.3405,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 22,
+      "opinion_norm": 22.525,
+      "control_norm": 22.525,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 23,
+      "opinion_norm": 27.5102,
+      "control_norm": 27.5102,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 24,
+      "opinion_norm": 33.3113,
+      "control_norm": 33.3113,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 25,
+      "opinion_norm": 37.8921,
+      "control_norm": 37.8921,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 26,
+      "opinion_norm": 42.1646,
+      "control_norm": 42.1646,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 27,
+      "opinion_norm": 47.1531,
+      "control_norm": 47.1531,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 28,
+      "opinion_norm": 53.7962,
+      "control_norm": 53.7962,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 29,
+      "opinion_norm": 60.8892,
+      "control_norm": 60.8892,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 30,
+      "opinion_norm": 66.44,
+      "control_norm": 66.44,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 31,
+      "opinion_norm": 78.3597,
+      "control_norm": 78.3597,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 32,
+      "opinion_norm": 83.516,
+      "control_norm": 83.516,
+      "cos_with_opinion": 0.0
+    },
+    {
+      "layer": 33,
+      "opinion_norm": 89.4169,
+      "control_norm": 89.4169,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 34,
+      "opinion_norm": 92.9286,
+      "control_norm": 92.9286,
+      "cos_with_opinion": -0.0
+    },
+    {
+      "layer": 35,
+      "opinion_norm": 103.2678,
+      "control_norm": 103.2679,
+      "cos_with_opinion": -0.0
+    }
+  ]
+}
